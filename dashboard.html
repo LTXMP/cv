@@ -383,27 +383,38 @@
         // --- Auth Functions --- //
 
         async function login() {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-pass').value;
+            try {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-pass').value;
 
-            const res = await fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await res.json();
+                console.log("Attempting login...");
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
 
-            if (res.ok) {
-                showNotification('Login Successful!', 'success');
-                localStorage.setItem('username', data.username);
-                localStorage.setItem('isAdmin', data.is_admin);
+                if (res.ok) {
+                    // showNotification('Login Successful!', 'success');
+                    console.log("Login OK, switching dashboard...");
 
-                // FORCE UI UPDATE
-                setTimeout(() => {
-                    showDashboard(data.username, data.is_admin);
-                }, 500);
-            } else {
-                showNotification(data.error || 'Login Failed', 'error');
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('isAdmin', data.is_admin);
+
+                    // Direct call without timeout first to see if it throws
+                    try {
+                        showDashboard(data.username, data.is_admin);
+                    } catch (e) {
+                        alert("Error showing dashboard: " + e);
+                        console.error(e);
+                    }
+                } else {
+                    showNotification(data.error || 'Login Failed', 'error');
+                }
+            } catch (e) {
+                alert("Login Critical Error: " + e);
+                console.error(e);
             }
         }
 
