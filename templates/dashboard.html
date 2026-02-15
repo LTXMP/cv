@@ -631,61 +631,7 @@
             }
         }
 
-        }
 
-        // --- Device Config Functions ---
-
-        async function loadDeviceConfig() {
-            try {
-                const res = await fetch(`${API_URL}/config`);
-                const config = await res.json();
-
-                if (config.activation_mode) document.getElementById('cfg-activation-mode').value = config.activation_mode;
-                if (config.btn_ads) document.getElementById('cfg-btn-ads').value = config.btn_ads;
-                if (config.btn_shoot) document.getElementById('cfg-btn-shoot').value = config.btn_shoot;
-                if (config.output_protocol) document.getElementById('cfg-output-protocol').value = config.output_protocol;
-
-                document.getElementById('cfg-mnk-support').checked = !!config.mnk_support;
-                document.getElementById('cfg-1000hz').checked = !!config.force_1000hz;
-                document.getElementById('cfg-edgefix').checked = !!config.edgefix;
-
-                // Mock Device List
-                const devSel = document.getElementById('cfg-device-selector');
-                devSel.innerHTML = '<option value="titan_two">Titan Two [0x2508:0x0032]</option>';
-
-            } catch (e) {
-                console.error("Failed to load config", e);
-            }
-        }
-
-        async function saveDeviceConfig() {
-            const config = {
-                activation_mode: document.getElementById('cfg-activation-mode').value,
-                btn_ads: document.getElementById('cfg-btn-ads').value,
-                btn_shoot: document.getElementById('cfg-btn-shoot').value,
-                output_protocol: document.getElementById('cfg-output-protocol').value,
-                mnk_support: document.getElementById('cfg-mnk-support').checked,
-                force_1000hz: document.getElementById('cfg-1000hz').checked,
-                edgefix: document.getElementById('cfg-edgefix').checked
-            };
-
-            try {
-                const res = await fetch(`${API_URL}/config`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config)
-                });
-
-                if (res.ok) showNotification("Configuration Saved!", "success");
-                else showNotification("Failed to save config.", "error");
-            } catch (e) {
-                console.error("Save failed", e);
-            }
-        }
-
-        function refreshDevices() {
-            showNotification("Scanning for devices...", "info");
-        }
 
         async function adminToggleModel(id, current) {
             const action = current ? 'private' : 'public';
