@@ -44,23 +44,34 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # Users Table
+    # Users Table - Updated Schema with Email
     c.execute('''CREATE TABLE IF NOT EXISTS users 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                   username TEXT UNIQUE NOT NULL, 
+                  email TEXT UNIQUE,
                   password_hash TEXT NOT NULL, 
                   is_admin BOOLEAN DEFAULT 0,
                   created_at REAL)''')
 
-    # Migration: Check for email column
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
-    except sqlite3.OperationalError:
-        pass # Column already exists
+    # Migration: Explicitly check if email column exists
+    c.execute("PRAGMA table_info(users)")
+    columns = [info[1] for info in c.fetchall()]
+    if 'email' not in columns:
+        print("Migrating DB: Adding email column to users...")
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
+            conn.commit()
+        except Exception as e:
+            print(f"Migration Failed: {e}")
+            
+    # Password Resets Table
+    c.execute('''CREATE TABLE IF NOT EXISTS password_resets 
+                 (token TEXT PRIMARY KEY, 
+                  user_id INTEGER, 
+                  expiry REAL,
+                  FOREIGN KEY(user_id) REFERENCES users(id))''')
                   
-    # Licenses Table (Updated with user_id)
-    # Note: If migrating from old schema, this might need manual ALTER. 
-    # For now assuming compatible or fresh DB for new features.
+    # Licenses Table
     c.execute('''CREATE TABLE IF NOT EXISTS licenses 
                  (key TEXT PRIMARY KEY, 
                   user_id INTEGER,
@@ -91,16 +102,13 @@ def init_db():
     # Create default admin if not exists
     try:
         admin_hash = generate_password_hash("admin")
-        # Assuming 'admin@example.com' for the default admin email
-        c.execute("INSERT OR IGNORE INTO users (username, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)",
-                  ("admin", "admin@example.com", admin_hash, 1, time.time()))
-    except sqlite3.IntegrityError:
-        pass # Admin user or email already exists
-    except sqlite3.OperationalError:
-        # Fallback for older DBs without email column during initial setup
-        c.execute("INSERT OR IGNORE INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
-                  ("admin", admin_hash, 1, time.time()))
-        pass
+        # Check if admin exists by username to avoid duplicates
+        c.execute("SELECT id FROM users WHERE username=?", ("admin",))
+        if not c.fetchone():
+            c.execute("INSERT INTO users (username, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)",
+                      ("admin", "admin@example.com", admin_hash, 1, time.time()))
+    except Exception as e:
+        print(f"Error creating default admin: {e}")
 
     # Add demo key (unclaimed)
     c.execute("INSERT OR IGNORE INTO licenses (key, hwid, duration, expiry) VALUES (?, ?, ?, ?)",
@@ -173,26 +181,22 @@ def register():
         return jsonify({'message': 'Registered successfully'})
     except sqlite3.IntegrityError:
         return jsonify({'error': 'Username or Email taken'}), 409
+    except Exception as e:
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
     finally:
         conn.close()
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
-    entered_login = data.get('email') # Can be email or username for flexibility, but frontend sends email usually
+    entered_login = data.get('email') 
     password = data.get('password')
     
     conn = get_db()
     c = conn.cursor()
-    # Support login by Email OR Username. 
-    # MIGRATION NOTE: if email column is missing in DB on Render, this will crash. 
-    # The init_db update fixes this.
-    try:
-        c.execute("SELECT * FROM users WHERE email=? OR username=?", (entered_login, entered_login))
-    except sqlite3.OperationalError:
-        # Fallback if migration failed (shouldn't happen with new init_db)
-        c.execute("SELECT * FROM users WHERE username=?", (entered_login,))
-        
+    
+    # Simple direct query - init_db GUARANTEES columns exist now
+    c.execute("SELECT * FROM users WHERE email=? OR username=?", (entered_login, entered_login))
     user = c.fetchone()
     conn.close()
     
@@ -208,6 +212,76 @@ def login():
 def logout():
     session.clear()
     return jsonify({'message': 'Logged out'})
+
+@app.route('/api/auth/request_reset', methods=['POST'])
+def request_reset_password():
+    email = request.json.get('email')
+    if not email:
+        return jsonify({'error': 'Email required'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
+    
+    if user:
+        token = secrets.token_urlsafe(32)
+        expiry = time.time() + 3600 # 1 hour
+        c.execute("INSERT OR REPLACE INTO password_resets (token, user_id, expiry) VALUES (?, ?, ?)",
+                 (token, user['id'], expiry))
+        conn.commit()
+        
+        # In a real app, this link points to a frontend route. 
+        # Since we use a Single Page dashboard, we'll use a fragment or query param.
+        # e.g. https://xentweaks.uk/#reset-password?token=XYZ
+        reset_link = f"https://xentweaks.uk/?reset_token={token}#reset-password"
+        
+        subject = "Exclusive Aim - Reset Password"
+        body = f"Please click the link below to reset your password:\n\n{reset_link}\n\nThis link expires in 1 hour."
+        
+        if send_email(email, subject, body):
+            conn.close()
+            return jsonify({'message': 'Reset link sent to email'})
+        else:
+            conn.close()
+            return jsonify({'error': 'Failed to send email (Check SMTP config)'}), 500
+            
+    conn.close()
+    # Always return success to prevent email enumeration
+    return jsonify({'message': 'Reset link sent to email'})
+
+@app.route('/api/auth/reset_password', methods=['POST'])
+def perform_reset_password():
+    token = request.json.get('token')
+    new_password = request.json.get('password')
+    
+    if not token or not new_password:
+        return jsonify({'error': 'Missing token or password'}), 400
+        
+    if not is_valid_password(new_password):
+        return jsonify({'error': 'Password too weak'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    reset_row = c.execute("SELECT * FROM password_resets WHERE token=?", (token,)).fetchone()
+    if not reset_row:
+        conn.close()
+        return jsonify({'error': 'Invalid token'}), 400
+        
+    if reset_row['expiry'] < time.time():
+        c.execute("DELETE FROM password_resets WHERE token=?", (token,))
+        conn.commit()
+        conn.close()
+        return jsonify({'error': 'Token expired'}), 400
+        
+    # Update Password
+    hashed = generate_password_hash(new_password)
+    c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, reset_row['user_id']))
+    c.execute("DELETE FROM password_resets WHERE token=?", (token,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': 'Password changed successfully'})
 
 @app.route('/api/user/update', methods=['POST'])
 @login_required
@@ -317,6 +391,9 @@ def send_email(to_email, subject, body):
 @app.route('/api/admin/users/<int:user_id>/reset_password', methods=['POST'])
 @admin_required
 def admin_reset_password(user_id):
+    # This is for Admins reseting OTHER users. 
+    # For self-reset, use /api/auth/reset_request
+    
     # Generate random password
     chars = string.ascii_letters + string.digits
     new_pass = ''.join(secrets.choice(chars) for _ in range(10))
@@ -330,7 +407,7 @@ def admin_reset_password(user_id):
     # Send Email
     user_email_row = c.execute("SELECT email FROM users WHERE id=?", (user_id,)).fetchone()
     email_sent = False
-    if user_email_row:
+    if user_email_row and user_email_row['email']:
         to_email = user_email_row['email']
         subject = "Exclusive Aim - Password Reset"
         body = f"Your password has been reset by an administrator.\n\nNew Password: {new_pass}\n\nPlease login and change it immediately."
