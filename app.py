@@ -45,31 +45,43 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # Users Table - Updated Schema with Email
+    # Users Table - Updated Schema with Email, Ban, IP
     c.execute('''CREATE TABLE IF NOT EXISTS users 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                   username TEXT UNIQUE NOT NULL, 
                   email TEXT UNIQUE,
                   password_hash TEXT NOT NULL, 
                   is_admin BOOLEAN DEFAULT 0,
+                  is_banned BOOLEAN DEFAULT 0,
+                  last_ip TEXT,
                   created_at REAL)''')
 
-    # Migration: Explicitly check if email column exists
+    # Migration: Check for email, banned, last_ip
     c.execute("PRAGMA table_info(users)")
     columns = [info[1] for info in c.fetchall()]
+    
     if 'email' not in columns:
-        print("Migrating DB: Adding email column to users...")
         try:
-            # SQLite cannot add UNIQUE column in one go if table has data.
-            # 1. Add column nullable
             c.execute("ALTER TABLE users ADD COLUMN email TEXT")
-            conn.commit()
-            # 2. Create Unique Index
             c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
-            conn.commit()
-        except Exception as e:
-            print(f"Migration Failed: {e}")
+        except: pass
             
+    if 'is_banned' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0")
+        except: pass
+
+    if 'last_ip' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN last_ip TEXT")
+        except: pass
+
+    # Banned IPs Table
+    c.execute('''CREATE TABLE IF NOT EXISTS banned_ips 
+                 (ip TEXT PRIMARY KEY, 
+                  reason TEXT,
+                  banned_at REAL)''')
+
     # Password Resets Table
     c.execute('''CREATE TABLE IF NOT EXISTS password_resets 
                  (token TEXT PRIMARY KEY, 
@@ -114,14 +126,14 @@ def init_db():
             print(f"Model Migration Failed: {e}")
 
     # Migration: Check for last_hwid_reset in users
-    c.execute("PRAGMA table_info(users)")
-    user_columns = [info[1] for info in c.fetchall()]
-    if 'last_hwid_reset' not in user_columns:
-        print("Migrating DB: Adding last_hwid_reset to users...")
-        try:
-            c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
-        except Exception as e:
-            print(f"User Migration Failed: {e}")
+    if 'last_hwid_reset' not in columns: # Reuse columns list from user check if updated
+        # Re-fetch strictly to be safe
+        c.execute("PRAGMA table_info(users)")
+        cols_now = [info[1] for info in c.fetchall()]
+        if 'last_hwid_reset' not in cols_now:
+             try:
+                c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
+             except: pass
 
     # Shares Table
     c.execute('''CREATE TABLE IF NOT EXISTS shares 
@@ -144,10 +156,8 @@ def init_db():
                       ("admin", "admin@example.com", admin_hash, 1, time.time()))
             print(f"Admin account created. Password: {admin_pass}")
 
-        # Ensure 'Exclusive' user is admin if exists
-        c.execute("UPDATE users SET is_admin=1 WHERE username='Exclusive'")
-        if c.rowcount > 0:
-            print("Promoted user 'Exclusive' to ADMIN.")
+        # Ensure 'Exclusive' user is admin and not banned
+        c.execute("UPDATE users SET is_admin=1, is_banned=0 WHERE username='Exclusive'")
         
     except Exception as e:
         print(f"Error configuring admin: {e}")
@@ -209,60 +219,70 @@ def register():
     password = data.get('password')
     
     if not username or not email or not password:
-        return jsonify({'error': 'Missing credentials'}), 400
-
-    if not is_valid_email(email):
-        print(f"Register Failed: Invalid email '{email}'")
-        return jsonify({'error': 'Invalid email format'}), 400
+        return jsonify({'error': 'Missing fields'}), 400
         
-    if not is_valid_password(password):
-        print(f"Register Failed: Weak password for '{username}'")
-        return jsonify({'error': 'Password too weak. Min 8 chars, 1 number/special required.'}), 400
+    if not is_valid_email(email):
+        return jsonify({'error': 'Invalid email format'}), 400
 
+    if not is_valid_password(password):
+        return jsonify({'error': 'Password too weak. Min 8 chars, 1 number/special char.'}), 400
+    
+    hashed_pw = generate_password_hash(password)
+    
     conn = get_db()
     c = conn.cursor()
     try:
-        hashed = generate_password_hash(password)
-        c.execute("INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                  (username, email, hashed, time.time()))
+        c.execute("INSERT INTO users (username, email, password_hash, created_at, is_banned, last_ip, last_hwid_reset) VALUES (?, ?, ?, ?, 0, ?, 0)",
+                  (username, email, hashed_pw, time.time(), request.remote_addr))
         conn.commit()
-        print(f"Register Success: Created user '{username}'")
-        return jsonify({'message': 'Registered successfully'})
     except sqlite3.IntegrityError as e:
-        print(f"Register Failed: Integrity Error: {e}")
-        return jsonify({'error': 'Username or Email taken'}), 409
-    except Exception as e:
-        print(f"Register Failed: DB Error: {e}")
-        return jsonify({'error': f'Database error: {str(e)}'}), 500
-    finally:
         conn.close()
+        if "email" in str(e):
+            return jsonify({'error': 'Email already registered'}), 409
+        return jsonify({'error': 'Username already taken'}), 409
+    
+    conn.close()
+    return jsonify({'message': 'User registered successfully'})
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
-    entered_login = data.get('email') 
+    email = data.get('email')
     password = data.get('password')
     
     conn = get_db()
     c = conn.cursor()
     
-    # Simple direct query - init_db GUARANTEES columns exist now
-    c.execute("SELECT * FROM users WHERE email=? OR username=?", (entered_login, entered_login))
-    user = c.fetchone()
-    conn.close()
+    # Check IP Ban
+    client_ip = request.remote_addr
+    if c.execute("SELECT 1 FROM banned_ips WHERE ip=?", (client_ip,)).fetchone():
+        conn.close()
+        return jsonify({'error': 'Your IP is banned.'}), 403
 
-    if not user:
-        print(f"Login Failed: User '{entered_login}' not found.")
-        return jsonify({'error': 'Invalid credentials'}), 401
+    user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     
     if user and check_password_hash(user['password_hash'], password):
-        print(f"Login Success: User '{entered_login}' logged in.")
+        # Check User Ban
+        if user['is_banned']:
+            conn.close()
+            return jsonify({'error': 'Account suspended.'}), 403
+
+        # Update Last IP
+        c.execute("UPDATE users SET last_ip=? WHERE id=?", (client_ip, user['id']))
+        conn.commit()
+
         session['user_id'] = user['id']
-        session['username'] = user['username']
+        session['username'] = user['username'] 
         session['is_admin'] = user['is_admin']
-        return jsonify({'message': 'Logged in', 'username': user['username'], 'is_admin': bool(user['is_admin'])})
+        
+        conn.close()
+        return jsonify({
+            'message': 'Login successful',
+            'username': user['username'],
+            'is_admin': bool(user['is_admin'])
+        })
     
-    print(f"Login Failed: Password mismatch for user '{entered_login}'.")
+    conn.close()
     return jsonify({'error': 'Invalid credentials'}), 401
 
 @app.route('/api/logout', methods=['POST'])
@@ -271,11 +291,8 @@ def logout():
     return jsonify({'message': 'Logged out'})
 
 @app.route('/api/auth/request_reset', methods=['POST'])
-def request_reset_password():
+def request_reset():
     email = request.json.get('email')
-    if not email:
-        return jsonify({'error': 'Email required'}), 400
-        
     conn = get_db()
     c = conn.cursor()
     user = c.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
@@ -284,174 +301,212 @@ def request_reset_password():
         token = secrets.token_urlsafe(32)
         expiry = time.time() + 3600 # 1 hour
         c.execute("INSERT OR REPLACE INTO password_resets (token, user_id, expiry) VALUES (?, ?, ?)",
-                 (token, user['id'], expiry))
+                  (token, user['id'], expiry))
         conn.commit()
+        # In production, send email here.
+        # For now, return token for testing
+        print(f"RESET TOKEN for {email}: {token}") 
+        return jsonify({'message': 'Reset link sent (check console/logs for demo token)', 'debug_token': token})
         
-        # In a real app, this link points to a frontend route. 
-        # Since we use a Single Page dashboard, we'll use a fragment or query param.
-        # e.g. https://xentweaks.uk/#reset-password?token=XYZ
-        reset_link = f"https://xentweaks.uk/?reset_token={token}#reset-password"
-        
-        subject = "Exclusive Aim - Reset Password"
-        body = f"Please click the link below to reset your password:\n\n{reset_link}\n\nThis link expires in 1 hour."
-        
-        if send_email(email, subject, body):
-            conn.close()
-            return jsonify({'message': 'Reset link sent to email'})
-        else:
-            conn.close()
-            return jsonify({'error': 'Failed to send email (Check SMTP config)'}), 500
-            
     conn.close()
-    # Always return success to prevent email enumeration
-    return jsonify({'message': 'Reset link sent to email'})
+    return jsonify({'message': 'If account exists, email sent'})
 
 @app.route('/api/auth/reset_password', methods=['POST'])
-def perform_reset_password():
-    token = request.json.get('token')
-    new_password = request.json.get('password')
+def reset_password():
+    data = request.json
+    token = data.get('token')
+    new_pass = data.get('password')
     
-    if not token or not new_password:
-        return jsonify({'error': 'Missing token or password'}), 400
-        
-    if not is_valid_password(new_password):
+    if not is_valid_password(new_pass):
         return jsonify({'error': 'Password too weak'}), 400
-        
+
     conn = get_db()
     c = conn.cursor()
     
-    reset_row = c.execute("SELECT * FROM password_resets WHERE token=?", (token,)).fetchone()
-    if not reset_row:
+    reset = c.execute("SELECT * FROM password_resets WHERE token=?", (token,)).fetchone()
+    if not reset or reset['expiry'] < time.time():
         conn.close()
-        return jsonify({'error': 'Invalid token'}), 400
+        return jsonify({'error': 'Invalid or expired token'}), 400
         
-    if reset_row['expiry'] < time.time():
-        c.execute("DELETE FROM password_resets WHERE token=?", (token,))
-        conn.commit()
-        conn.close()
-        return jsonify({'error': 'Token expired'}), 400
-        
-    # Update Password
-    hashed = generate_password_hash(new_password)
-    c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, reset_row['user_id']))
+    hashed = generate_password_hash(new_pass)
+    c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, reset['user_id']))
     c.execute("DELETE FROM password_resets WHERE token=?", (token,))
     conn.commit()
     conn.close()
     
-    return jsonify({'message': 'Password changed successfully'})
+    return jsonify({'message': 'Password updated successfully'})
+
+
+# --- Routes: User Actions ---
+
+@app.route('/api/user/license', methods=['GET'])
+@login_required
+def get_user_license():
+    user_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    license = c.execute("SELECT * FROM licenses WHERE user_id=?", (user_id,)).fetchone()
+    conn.close()
+    
+    if license:
+        return jsonify({
+            'status': 'Active',
+            'type': license['duration'],
+            'expiry': time.strftime('%Y-%m-%d', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never'
+        })
+    else:
+        return jsonify({'status': 'Inactive'})
+
+@app.route('/api/user/claim_key', methods=['POST'])
+@login_required
+def claim_key():
+    data = request.json
+    key = data.get('key', '').strip()
+    user_id = session['user_id']
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check key exists and is unclaimed
+    c.execute("SELECT * FROM licenses WHERE key=?", (key,))
+    license_row = c.fetchone()
+    
+    if not license_row:
+        conn.close()
+        return jsonify({'error': 'Invalid key'}), 404
+        
+    if license_row['user_id']:
+        conn.close()
+        return jsonify({'error': 'Key already claimed'}), 409
+        
+    c.execute("UPDATE licenses SET user_id=? WHERE key=?", (user_id, key))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': 'Key claimed successfully'})
 
 @app.route('/api/user/update', methods=['POST'])
 @login_required
 def update_profile():
     data = request.json
-    new_email = data.get('email')
-    new_password = data.get('password')
+    email = data.get('email')
+    password = data.get('password')
+    user_id = session['user_id']
     
     conn = get_db()
     c = conn.cursor()
     
-    try:
-        if new_email:
-            if not is_valid_email(new_email):
-                conn.close()
-                return jsonify({'error': 'Invalid email format'}), 400
-            c.execute("UPDATE users SET email=? WHERE id=?", (new_email, session['user_id']))
-        if new_password:
-            if not is_valid_password(new_password):
-                conn.close()
-                return jsonify({'error': 'Password too weak. Min 8 chars, 1 number/special required.'}), 400
-            hashed = generate_password_hash(new_password)
-            c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, session['user_id']))
-            
-        conn.commit()
-        return jsonify({'message': 'Profile updated'})
-    except sqlite3.IntegrityError:
-        return jsonify({'error': 'Email already taken'}), 409
-    finally:
-        conn.close()
+    if email:
+        if not is_valid_email(email):
+             conn.close()
+             return jsonify({'error': 'Invalid email'}), 400
+        try:
+            c.execute("UPDATE users SET email=? WHERE id=?", (email, user_id))
+        except sqlite3.IntegrityError:
+            conn.close()
+            return jsonify({'error': 'Email already taken'}), 409
+
+    if password:
+        if not is_valid_password(password):
+            conn.close()
+            return jsonify({'error': 'Password too weak'}), 400
+        hashed = generate_password_hash(password)
+        c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
+        
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Profile updated'})
 
 @app.route('/api/user/reset_hwid', methods=['POST'])
 @login_required
 def reset_hwid():
+    user_id = session['user_id']
     conn = get_db()
     c = conn.cursor()
-    # Update all licenses owned by this user
-    c.execute("UPDATE licenses SET hwid='' WHERE user_id=?", (session['user_id'],))
+    
+    user = c.execute("SELECT last_hwid_reset FROM users WHERE id=?", (user_id,)).fetchone()
+    last_reset = user['last_hwid_reset'] or 0
+    
+    if time.time() - last_reset < 3600: # 1 hour
+        conn.close()
+        return jsonify({'error': 'Rate limit: Once per hour'}), 429
+        
+    c.execute("UPDATE licenses SET hwid='' WHERE user_id=?", (user_id,))
+    c.execute("UPDATE users SET last_hwid_reset=? WHERE id=?", (time.time(), user_id))
     conn.commit()
     conn.close()
-    return jsonify({'message': 'HWID Reset Successful'})
-
-@app.route('/api/user/license', methods=['GET'])
-@login_required
-def get_user_license():
-    print(f"Checking license for user_id: {session.get('user_id')}")
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT id, username, email, is_admin, created_at FROM users")
-    users = [dict(row) for row in c.fetchall()]
-    conn.close()
+    return jsonify({'message': 'HWID Reset'})
 
 # --- Routes: Admin Management ---
 
-@app.route('/api/admin/users', methods=['GET'])
+@app.route('/api/admin/licenses', methods=['GET'])
 @admin_required
-def list_users():
+def admin_list_licenses():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, username, email, is_admin, created_at FROM users")
-    users = [dict(row) for row in c.fetchall()]
+    # Return only unclaimed keys
+    c.execute("SELECT key, duration, expiry FROM licenses WHERE user_id IS NULL ORDER BY expiry ASC")
+    licenses = [dict(row) for row in c.fetchall()]
     conn.close()
-    return jsonify(users)
+    return jsonify(licenses)
 
-@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@app.route('/api/admin/users/<int:user_id>/ban', methods=['POST'])
 @admin_required
-def delete_user(user_id):
-    # Prevent self-delete
+def admin_ban_user(user_id):
     if user_id == session['user_id']:
-        return jsonify({'error': 'Cannot delete yourself'}), 400
-
+        return jsonify({'error': 'Cannot ban yourself'}), 400
     conn = get_db()
-    c = conn.cursor()
-    c.execute("DELETE FROM users WHERE id=?", (user_id,))
-    # Also clean up their models/licenses if you want, usually handled by CASCADE or manual cleanup
-    c.execute("DELETE FROM licenses WHERE user_id=?", (user_id,))
-    c.execute("DELETE FROM models WHERE user_id=?", (user_id,))
+    conn.execute("UPDATE users SET is_banned=1 WHERE id=?", (user_id,))
     conn.commit()
     conn.close()
-    return jsonify({'message': 'User deleted'})
+    return jsonify({'message': 'User banned'})
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+@app.route('/api/admin/users/<int:user_id>/unban', methods=['POST'])
+@admin_required
+def admin_unban_user(user_id):
+    conn = get_db()
+    conn.execute("UPDATE users SET is_banned=0 WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'User unbanned'})
 
-# ... imports ...
+@app.route('/api/admin/users/<int:user_id>/reset_pass', methods=['POST'])
+@admin_required
+def admin_reset_pass(user_id):
+    # Set temp pass "ChangeMe123!"
+    temp_pass = "ChangeMe123!"
+    hashed = generate_password_hash(temp_pass)
+    conn = get_db()
+    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Password reset to: {temp_pass}'})
 
-def send_email(to_email, subject, body):
-    smtp_email = os.environ.get('SMTP_EMAIL')
-    smtp_password = os.environ.get('SMTP_PASSWORD')
-    smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
-    smtp_port = int(os.environ.get('SMTP_PORT', 587))
+@app.route('/api/admin/ip_ban', methods=['POST'])
+@admin_required
+def admin_ban_ip():
+    ip = request.json.get('ip')
+    if not ip or ip == 'None': return jsonify({'error': 'Invalid IP'}), 400
     
-    if not smtp_email or not smtp_password:
-        print("SMTP Credentials not set. Skipping email.")
-        return False
-        
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = smtp_email
-        msg['To'] = to_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(smtp_email, smtp_password)
-        server.sendmail(smtp_email, to_email, msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        return False
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO banned_ips (ip, reason, banned_at) VALUES (?, ?, ?)", 
+                 (ip, "Admin Banned", time.time()))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'IP {ip} banned'})
+
+@app.route('/api/admin/models/<int:model_id>/publish', methods=['POST'])
+@admin_required
+def admin_publish_model(model_id):
+    action = request.json.get('action', 'toggle') # 'public' or 'private'
+    is_public = 1 if action == 'public' else 0
+    
+    conn = get_db()
+    conn.execute("UPDATE models SET is_public=? WHERE id=?", (is_public, model_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Model set to {"Public" if is_public else "Private"}'})
 
 # ...
 
@@ -787,8 +842,12 @@ def share_model(model_id):
     conn = get_db()
     c = conn.cursor()
     
-    # Verify ownership
-    model = c.execute("SELECT * FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
+    # Verify ownership or Admin
+    if session.get('is_admin'):
+        model = c.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    else:
+        model = c.execute("SELECT * FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
+        
     if not model:
         conn.close()
         return jsonify({'error': 'Model not found or permission denied'}), 403
