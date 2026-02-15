@@ -328,14 +328,22 @@ def login():
         session['user_id'] = user['id']
         session['username'] = user['username'] 
         session['is_admin'] = user['is_admin']
-        session['is_helper'] = user.get('is_helper', 0) # Use .get for safety until migration is 100%
+        
+        # Safe access for is_helper
+        is_helper = 0
+        try:
+            is_helper = user['is_helper']
+        except:
+            is_helper = 0
+            
+        session['is_helper'] = is_helper
         
         conn.close()
         return jsonify({
             'message': 'Login successful',
             'username': user['username'],
             'is_admin': bool(user['is_admin']),
-            'is_helper': bool(user.get('is_helper', 0))
+            'is_helper': bool(is_helper)
         })
     
     conn.close()
