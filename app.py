@@ -14,7 +14,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24) # For sessions
+# Use persistent key if available, else random (invalidates sessions on restart)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 
 # Absolute path to models directory (Better for Render Disks)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -171,6 +172,10 @@ def admin_required(f):
 @app.route('/')
 def home():
     return render_template('dashboard.html')
+
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'ok', 'timestamp': time.time()})
 
 def is_valid_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
@@ -793,7 +798,12 @@ def get_model():
 
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        print(f"CRITICAL ERROR: Failed to initialize database: {e}")
+        # We continue to let the app start so logs can be seen, 
+        # but DB calls will likely fail.
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
