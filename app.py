@@ -144,6 +144,12 @@ def init_db():
                   FOREIGN KEY(model_id) REFERENCES models(id),
                   FOREIGN KEY(target_user_id) REFERENCES users(id))''')
 
+    # User Config Table (JSON storage for device settings)
+    c.execute('''CREATE TABLE IF NOT EXISTS user_configs 
+                 (user_id INTEGER PRIMARY KEY, 
+                  config_json TEXT,
+                  FOREIGN KEY(user_id) REFERENCES users(id))''')
+
     # Create default admin if not exists
     try:
         # Check if admin exists by username to avoid duplicates
@@ -546,34 +552,7 @@ def admin_reset_password(user_id):
         'new_password': new_pass if not email_sent else "***** (Sent via Email)"
     })
 
-# --- Routes: Licenses & Keys ---
 
-@app.route('/api/user/claim_key', methods=['POST'])
-@login_required
-def claim_key():
-    key = request.json.get('key')
-    user_id = session['user_id']
-    
-    conn = get_db()
-    c = conn.cursor()
-    
-    # Check key exists and is unclaimed
-    c.execute("SELECT * FROM licenses WHERE key=?", (key,))
-    license_row = c.fetchone()
-    
-    if not license_row:
-        conn.close()
-        return jsonify({'error': 'Invalid key'}), 404
-        
-    if license_row['user_id']:
-        conn.close()
-        return jsonify({'error': 'Key already claimed'}), 409
-        
-    c.execute("UPDATE licenses SET user_id=? WHERE key=?", (user_id, key))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({'message': 'Key claimed successfully'})
 
 @app.route('/api/admin/generate_license', methods=['POST'])
 @admin_required
