@@ -4,6 +4,11 @@ import time
 import datetime
 import uuid
 import secrets
+import re
+import string
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify, send_file, abort, session, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -98,43 +103,66 @@ def admin_required(f):
     wrapper.__name__ = f.__name__
     return wrapper
 
-# --- Routes: Auth ---
+# --- Routes: Auth & Profile ---
 
 @app.route('/')
 def home():
     return render_template('dashboard.html')
 
+def is_valid_email(email):
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
+
+def is_valid_password(password):
+    if len(password) < 8:
+        return False
+    # At least one number OR one special character
+    if not re.search(r"[\d@$!%*#?&]", password):
+        return False
+    # Block obviously simple passwords
+    common_simple = ["12345678", "password", "qwertyuiop"]
+    if password.lower() in common_simple:
+        return False
+    return True
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
     username = data.get('username')
+    email = data.get('email')
     password = data.get('password')
     
-    if not username or not password:
+    if not username or not email or not password:
         return jsonify({'error': 'Missing credentials'}), 400
+
+    if not is_valid_email(email):
+        return jsonify({'error': 'Invalid email format'}), 400
         
+    if not is_valid_password(password):
+        return jsonify({'error': 'Password too weak. Min 8 chars, 1 number/special required.'}), 400
+
     conn = get_db()
     c = conn.cursor()
     try:
         hashed = generate_password_hash(password)
-        c.execute("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
-                  (username, hashed, time.time()))
+        c.execute("INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                  (username, email, hashed, time.time()))
         conn.commit()
         return jsonify({'message': 'Registered successfully'})
     except sqlite3.IntegrityError:
-        return jsonify({'error': 'Username taken'}), 409
+        return jsonify({'error': 'Username or Email taken'}), 409
     finally:
         conn.close()
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
-    username = data.get('username')
+    entered_login = data.get('email') # Can be email or username for flexibility, but frontend sends email usually
     password = data.get('password')
     
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=?", (username,))
+    # Support login by Email OR Username
+    c.execute("SELECT * FROM users WHERE email=? OR username=?", (entered_login, entered_login))
     user = c.fetchone()
     conn.close()
     
@@ -142,7 +170,7 @@ def login():
         session['user_id'] = user['id']
         session['username'] = user['username']
         session['is_admin'] = user['is_admin']
-        return jsonify({'message': 'Logged in', 'is_admin': bool(user['is_admin'])})
+        return jsonify({'message': 'Logged in', 'username': user['username'], 'is_admin': bool(user['is_admin'])})
     
     return jsonify({'error': 'Invalid credentials'}), 401
 
@@ -150,6 +178,144 @@ def login():
 def logout():
     session.clear()
     return jsonify({'message': 'Logged out'})
+
+@app.route('/api/user/update', methods=['POST'])
+@login_required
+def update_profile():
+    data = request.json
+    new_email = data.get('email')
+    new_password = data.get('password')
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    try:
+        if new_email:
+            if not is_valid_email(new_email):
+                conn.close()
+                return jsonify({'error': 'Invalid email format'}), 400
+            c.execute("UPDATE users SET email=? WHERE id=?", (new_email, session['user_id']))
+        if new_password:
+            if not is_valid_password(new_password):
+                conn.close()
+                return jsonify({'error': 'Password too weak. Min 8 chars, 1 number/special required.'}), 400
+            hashed = generate_password_hash(new_password)
+            c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, session['user_id']))
+            
+        conn.commit()
+        return jsonify({'message': 'Profile updated'})
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'Email already taken'}), 409
+    finally:
+        conn.close()
+
+@app.route('/api/user/reset_hwid', methods=['POST'])
+@login_required
+def reset_hwid():
+    conn = get_db()
+    c = conn.cursor()
+    # Update all licenses owned by this user
+    c.execute("UPDATE licenses SET hwid='' WHERE user_id=?", (session['user_id'],))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'HWID Reset Successful'})
+
+# --- Routes: Admin Management ---
+
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def list_users():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, username, email, is_admin, created_at FROM users")
+    users = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify(users)
+
+@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def delete_user(user_id):
+    # Prevent self-delete
+    if user_id == session['user_id']:
+        return jsonify({'error': 'Cannot delete yourself'}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM users WHERE id=?", (user_id,))
+    # Also clean up their models/licenses if you want, usually handled by CASCADE or manual cleanup
+    c.execute("DELETE FROM licenses WHERE user_id=?", (user_id,))
+    c.execute("DELETE FROM models WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'User deleted'})
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# ... imports ...
+
+def send_email(to_email, subject, body):
+    smtp_email = os.environ.get('SMTP_EMAIL')
+    smtp_password = os.environ.get('SMTP_PASSWORD')
+    smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+    smtp_port = int(os.environ.get('SMTP_PORT', 587))
+    
+    if not smtp_email or not smtp_password:
+        print("SMTP Credentials not set. Skipping email.")
+        return False
+        
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = smtp_email
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        server.sendmail(smtp_email, to_email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
+# ...
+
+@app.route('/api/admin/users/<int:user_id>/reset_password', methods=['POST'])
+@admin_required
+def admin_reset_password(user_id):
+    # Generate random password
+    chars = string.ascii_letters + string.digits
+    new_pass = ''.join(secrets.choice(chars) for _ in range(10))
+    
+    hashed = generate_password_hash(new_pass)
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
+    
+    # Send Email
+    user_email_row = c.execute("SELECT email FROM users WHERE id=?", (user_id,)).fetchone()
+    email_sent = False
+    if user_email_row:
+        to_email = user_email_row['email']
+        subject = "Exclusive Aim - Password Reset"
+        body = f"Your password has been reset by an administrator.\n\nNew Password: {new_pass}\n\nPlease login and change it immediately."
+        email_sent = send_email(to_email, subject, body)
+        email_info = f"Email sent to {to_email}" if email_sent else f"Email FAILED (Check SMTP config). New pass: {new_pass}"
+    else:
+        email_info = f"User has no email? New pass: {new_pass}"
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({
+        'message': f'Password reset. {email_info}',
+        'new_password': new_pass if not email_sent else "***** (Sent via Email)"
+    })
 
 # --- Routes: Licenses & Keys ---
 
@@ -288,47 +454,41 @@ def share_model(model_id):
 
 # --- Routes: Client / Verification ---
 
-@app.route('/api/verify', methods=['POST'])
+@app.route('/api/verify_license', methods=['GET'])
 def verify_license():
-    data = request.json
-    key = data.get('key')
-    hwid = data.get('hwid')
+    key = request.headers.get('X-License-Key')
+    hwid = request.headers.get('X-HWID')
     
     if not key or not hwid:
-        return jsonify({'valid': False, 'reason': 'Missing data'}), 400
-
+        return jsonify({'error': 'Missing Key or HWID'}), 400
+        
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM licenses WHERE key=?", (key,))
-    row = c.fetchone()
+    license_row = c.execute("SELECT * FROM licenses WHERE key=?", (key,)).fetchone()
     
-    if not row:
+    if not license_row:
         conn.close()
-        return jsonify({'valid': False, 'reason': 'Invalid Key'}), 403
-
-    db_hwid = row['hwid']
-    expiry = row['expiry']
-    
-    # HWID Locking
-    if not db_hwid:
-        c.execute("UPDATE licenses SET hwid=? WHERE key=?", (hwid, key))
+        return jsonify({'error': 'Invalid Key'}), 403
+        
+    # Check HWID
+    if not license_row['hwid']:
+        # Bind HWID
+        c.execute("UPDATE licenses SET hwid=? WHERE id=?", (hwid, license_row['id']))
         conn.commit()
-    elif db_hwid != hwid:
+    elif license_row['hwid'] != hwid:
         conn.close()
-        return jsonify({'valid': False, 'reason': 'HWID Mismatch'}), 403
-
-    if time.time() > expiry:
+        return jsonify({'error': 'HWID Mismatch'}), 403
+        
+    # Check Expiry (if applicable)
+    if license_row['expiry'] and license_row['expiry'] < time.time():
         conn.close()
-        return jsonify({'valid': False, 'reason': 'Key Expired'}), 403
-
+        return jsonify({'error': 'License Expired'}), 403
+        
     conn.close()
-    return jsonify({'valid': True, 'expiry': expiry})
+    return jsonify({'message': 'License Valid', 'duration': license_row['duration']})
 
 @app.route('/api/model', methods=['GET'])
 def get_model():
-    # Authenticate via Header Key (C++ Client)
-    key = request.headers.get('X-License-Key')
-    hwid = request.headers.get('X-HWID')
     
     # NOTE: The client currently requests /api/model generically.
     # To download a SPECIFIC model, the client needs to update to send ?model_id=X
@@ -384,3 +544,5 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
+
+
