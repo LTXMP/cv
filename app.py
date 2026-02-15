@@ -825,17 +825,108 @@ def list_models():
     
     # Get Shared Models (check expiry)
     current_time = time.time()
+    # Get shared models
     c.execute('''
-        SELECT m.*, s.expiry_date as share_expiry, u.username as owner_username
+        SELECT m.id, m.name, m.filename, m.model_size, m.image_size 
         FROM models m 
         JOIN shares s ON m.id = s.model_id 
-        JOIN users u ON m.user_id = u.id
         WHERE s.target_user_id=? AND (s.expiry_date IS NULL OR s.expiry_date > ?)
     ''', (user_id, current_time))
     shared_models = [dict(row) for row in c.fetchall()]
     
     conn.close()
     return jsonify({'own': own_models, 'shared': shared_models})
+
+@app.route('/api/models/list', methods=['GET'])
+def list_all_models():
+    """List all available models (for C++ client to fetch remotely)"""
+    email = request.headers.get('X-User-Email')
+    password = request.headers.get('X-User-Password')
+    
+    if not email or not password:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    c = get_db().cursor()
+    c.execute('SELECT id, email, password_hash, is_admin FROM users WHERE email = ?', (email,))
+    user = c.fetchone()
+    
+    if not user or not check_password_hash(user['password_hash'], password):
+        return jsonify({'error': 'Invalid credentials'}), 401
+    
+    user_id = user['id']
+    is_admin = user['is_admin']
+    
+    if is_admin:
+        # Admins see all models
+        c.execute('''SELECT id, name, filename, model_size, image_size, 
+                     created_at as uploaded_at, is_public as is_shared 
+                     FROM models ORDER BY created_at DESC''')
+    else:
+        # Regular users see their own + shared models + public models
+        c.execute('''SELECT DISTINCT m.id, m.name, m.filename, m.model_size, 
+                     m.image_size, m.created_at as uploaded_at, m.is_public as is_shared
+                     FROM models m
+                     LEFT JOIN shares s ON m.id = s.model_id
+                     WHERE m.user_id = ? OR s.target_user_id = ? OR m.is_public = 1
+                     ORDER BY m.created_at DESC''', (user_id, user_id))
+    
+    models = []
+    for row in c.fetchall():
+        models.append({
+            'id': row['id'],
+            'name': row['name'],
+            'filename': row['filename'],
+            'model_size': row['model_size'],
+            'image_size': row['image_size'],
+            'uploaded_at': row['uploaded_at'],
+            'is_shared': bool(row['is_shared'])
+        })
+    return jsonify(models)
+
+@app.route('/api/models/<int:model_id>/download', methods=['GET'])
+def download_model_by_id(model_id):
+    """Download a specific model by ID (for C++ client)"""
+    email = request.headers.get('X-User-Email')
+    password = request.headers.get('X-User-Password')
+    
+    if not email or not password:
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT id, password_hash, is_admin FROM users WHERE email = ?', (email,))
+    user = c.fetchone()
+    
+    if not user or not check_password_hash(user['password_hash'], password):
+        return jsonify({'error': 'Invalid credentials'}), 401
+        
+    user_id = user['id']
+    is_admin = user['is_admin']
+    
+    # Check access permission
+    query = '''
+        SELECT filename FROM models m 
+        LEFT JOIN shares s ON s.model_id = m.id 
+        WHERE m.id = ? AND (
+            m.is_public = 1 OR 
+            m.user_id = ? OR 
+            is_admin = 1 OR
+            (s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?))
+        )
+    '''
+    c.execute(query, (model_id, user_id, user_id, time.time()))
+    model = c.fetchone()
+    
+    if not model:
+        conn.close()
+        return jsonify({'error': 'Access denied'}), 403
+        
+    path = os.path.join(MODEL_DIR, model['filename'])
+    conn.close()
+    
+    if os.path.exists(path):
+        return send_file(path, as_attachment=True)
+    return jsonify({'error': 'File not found'}), 404
 
 @app.route('/api/models/upload', methods=['POST'])
 @login_required
