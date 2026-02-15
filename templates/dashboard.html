@@ -457,6 +457,60 @@
 
         // ...
 
+        // --- UI Navigation Helper Functions (Restoring Missing Code) ---
+
+        function hideAll() {
+            document.getElementById('auth-wrapper').style.display = 'none';
+            document.getElementById('dashboard-wrapper').style.display = 'none';
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('register-section').classList.add('hidden');
+            document.getElementById('reset-request-section').classList.add('hidden');
+            document.getElementById('reset-perform-section').classList.add('hidden');
+        }
+
+        function showLogin() {
+            hideAll();
+            document.getElementById('auth-wrapper').style.display = 'block';
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
+        function showRegister() {
+            hideAll();
+            document.getElementById('auth-wrapper').style.display = 'block';
+            document.getElementById('register-section').classList.remove('hidden');
+        }
+
+        function showDashboard(username, isAdmin) {
+            hideAll();
+            document.getElementById('dashboard-wrapper').style.display = 'flex';
+
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? " [ADMIN]" : "");
+
+            // Initial load
+            showPage('account');
+            loadAccountData();
+        }
+
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+            // Show target
+            document.getElementById(`page-${pageId}`).classList.remove('hidden');
+            document.getElementById(`page-${pageId}`).classList.add('active');
+
+            // Highlight nav
+            const navBtn = document.getElementById(`nav-${pageId}`);
+            if (navBtn) navBtn.classList.add('active');
+
+            if (pageId === 'models') {
+                loadModels();
+            }
+        }
+
         async function loadAccountData() {
             try {
                 const res = await fetch(`${API_URL}/user/license`);
@@ -832,4 +886,4 @@
     </script>
 </body>
 
-</html>
+</html>oh ye
