@@ -12,6 +12,7 @@
             --card-bg: #1a1a20;
             --text: #ffffff;
             --text-dim: #a0a0a0;
+            --border: #333;
         }
 
         body {
@@ -34,7 +35,11 @@
         }
 
         /* Auth Wrapper */
-        #auth-wrapper,
+        #auth-wrapper {
+            display: block;
+            /* Default visible */
+        }
+
         #dashboard-wrapper {
             display: none;
         }
@@ -100,19 +105,8 @@
             margin-left: 10px;
         }
 
-        .tag-public {
-            background: #2ecc71;
-            color: #000;
-        }
-
-        .tag-private {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .tag-shared {
-            background: #f1c40f;
-            color: #000;
+        .hidden {
+            display: none !important;
         }
 
         .nav {
@@ -121,6 +115,86 @@
             align-items: center;
             margin-bottom: 20px;
         }
+
+        /* Auth Container Styling */
+        .section {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .sidebar {
+            width: 200px;
+            background: var(--card-bg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: 80vh;
+            border-radius: 12px;
+        }
+
+        #dashboard-wrapper {
+            display: none;
+            gap: 20px;
+        }
+
+        .content {
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            text-align: left;
+            background: transparent;
+            color: var(--text-dim);
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            transform: translateY(100px);
+            transition: transform 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .notification.error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .notification.info {
+            border-left: 4px solid #3498db;
+        }
     </style>
 </head>
 
@@ -128,34 +202,22 @@
 
     <div class="container">
         <header class="nav">
-            <h1>EXCLUSIVE<span>AIM</span></h1>
+            <h1 style="color:white; margin:0;">EXCLUSIVE<span style="color:var(--primary)">AIM</span></h1>
             <div id="userInfo" style="display:none">
-                <span id="usernameDisplay">User</span>
-                <button onclick="logout()" style="width: auto; margin-left:10px; padding: 5px 15px;">Logout</button>
+                <span id="usernameDisplay" style="color:var(--text-dim);">User</span>
             </div>
         </header>
 
         <!-- Auth View -->
         <div id="auth-wrapper">
-            <!-- Main Dashboard (Hidden by default) -->
-            <div id="dashboard-section" class="hidden">
-                <!-- Sidebar -->
-                <div class="sidebar">
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <!-- Mini Logo -->
-                        <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 80px;">
-                    </div>
-                    <button class="nav-item active" onclick="showPage('home')">Home</button>
-                </div>
-            </div>
+
             <!-- Login Section -->
             <div id="login-section" class="section">
                 <!-- User Logo -->
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 150px;">
+                    <h2 style="color: var(--primary); margin: 0;">LOGIN</h2>
                 </div>
 
-                <h2>Login</h2>
                 <input type="email" id="login-email" placeholder="Email Address">
                 <input type="password" id="login-pass" placeholder="Password">
                 <div class="row">
@@ -163,14 +225,16 @@
                     <button class="btn secondary" onclick="showRegister()">Register</button>
                 </div>
                 <div style="margin-top: 10px;">
-                    <a href="#" onclick="showResetRequest()" style="color: var(--text-muted); font-size: 0.9em;">Forgot
-                        Password?</a>
+                    <a href="#" onclick="showResetRequest()"
+                        style="color: var(--text-dim); font-size: 0.9em; text-decoration: none;">Forgot Password?</a>
                 </div>
             </div>
 
             <!-- Register Section -->
             <div id="register-section" class="section hidden">
-                <h2>Register</h2>
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: var(--primary); margin: 0;">REGISTER</h2>
+                </div>
                 <input type="text" id="reg-user" placeholder="Username (for sharing)">
                 <input type="email" id="reg-email" placeholder="Email Address">
                 <input type="password" id="reg-pass" placeholder="Password">
@@ -183,7 +247,7 @@
             <!-- Request Reset Section -->
             <div id="reset-request-section" class="section hidden">
                 <h2>Reset Password</h2>
-                <p>Enter your email to receive a reset link.</p>
+                <p style="color:var(--text-dim); font-size:0.9em;">Enter your email to receive a reset link.</p>
                 <input type="email" id="reset-email" placeholder="Enter your Email">
                 <div class="row">
                     <button class="btn primary" onclick="requestReset()">Send Link</button>
@@ -206,8 +270,9 @@
         <div id="dashboard-wrapper">
             <!-- Sidebar -->
             <div class="sidebar">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 80px;">
+                <div
+                    style="text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333;">
+                    <h3 style="margin:0; color:var(--primary)">EA <span style="color:white">DASH</span></h3>
                 </div>
                 <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
@@ -352,6 +417,8 @@
 
         async function logout() {
             await fetch(`${API_URL}/logout`, { method: 'POST' });
+            localStorage.removeItem('username');
+            localStorage.removeItem('isAdmin');
             location.reload();
         }
 
@@ -472,10 +539,17 @@
                     card.style.gap = '15px';
                     card.style.alignItems = 'center';
                     // Model Metadata
-                    const thumb = m.thumbnail_path || '/static/logo2.png'; // Fallback
+                    const thumb = m.thumbnail_path || '';
+
+                    let thumbHtml = '';
+                    if (thumb) {
+                        thumbHtml = `<img src="${thumb}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">`;
+                    } else {
+                        thumbHtml = `<div style="width: 80px; height: 80px; background: #333; border-radius: 8px; display:flex; align-items:center; justify-content:center; color:#555; font-size:0.8em;">No Img</div>`;
+                    }
 
                     card.innerHTML = `
-                    <img src="${thumb}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
+                    ${thumbHtml}
                     <div style="flex-grow: 1;">
                         <h3 style="margin: 0;">${m.name} <span style="font-size:0.8em; color:var(--primary);">#${m.unique_id}</span></h3>
                         <p style="font-size: 0.9em; color: var(--text-dim); margin: 5px 0;">
@@ -695,223 +769,20 @@
             }
         }
 
-        async function checkSession() {
-            // Simple session check by trying to fetch models
-            const res = await fetch(`${API_URL}/models`);
-            if (res.ok) {
-                // Determine if admin by trying verification or just UI hint
-                // Since we don't have a dedicated /me, we'll assume not admin 
-                // unless we can verify.
-                // Actually, let's try to access admin endpoint to check? No.
-                // Let's just default to user.
-
-                // NOTE: To get username/admin properly, we should add /api/me.
-                // But for now, let's just show dashboard.
-                currentUser = { username: "User", isAdmin: false };
-                showDashboard();
-
-                // Lazy load admin check (optional)
-            } else {
-                showAuth();
-            }
-        }
-
-        // --- Dashboard ---
-        function showAuth() {
+        function showResetRequest() {
+            hideAll();
+            document.getElementById('reset-request-section').classList.remove('hidden');
             document.getElementById('auth-wrapper').style.display = 'block';
-            document.getElementById('dashboard-wrapper').style.display = 'none';
-            document.getElementById('userInfo').style.display = 'none';
         }
 
-        function showDashboard() {
-            document.getElementById('auth-wrapper').style.display = 'none';
-            document.getElementById('dashboard-wrapper').style.display = 'block';
-            document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('usernameDisplay').textContent = "Welcome"; // Fallback since we don't have username
-
-            // Show admin panel if we can... 
-            // In this simple version we might hide it until verified or just keep it hidden.
-            // Admin can login as 'admin' user.
-
-            loadModels();
+        function showResetPerform(token) {
+            hideAll();
+            document.getElementById('reset-token').value = token;
+            document.getElementById('reset-perform-section').classList.remove('hidden');
+            document.getElementById('auth-wrapper').style.display = 'block';
         }
 
-        // --- Features ---
-        async function claimKey() {
-            const key = document.getElementById('claimKeyInput').value;
-            const res = await fetch(`${API}/user/claim_key`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key })
-            });
-            const data = await res.json();
-            alert(res.ok ? data.message : data.error);
-        }
-
-        async function generateLicense() {
-            const duration = document.getElementById('genDuration').value;
-            const res = await fetch(`${API}/admin/generate_license`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ duration })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                document.getElementById('adminOutput').innerText = `Generated Key: ${data.key}\n(Copy this now!)`;
-            } else {
-                alert(data.error);
-            }
-        }
-
-        async function uploadModel() {
-            const fileInput = document.getElementById('uploadFile');
-            const file = fileInput.files[0];
-            if (!file) return alert('Select a file');
-
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('name', document.getElementById('uploadName').value);
-            formData.append('is_public', document.getElementById('uploadPublic').checked);
-
-            const res = await fetch(`${API}/models/upload`, {
-                method: 'POST',
-                body: formData
-            });
-            if (res.ok) {
-                alert('Uploaded!');
-                loadModels();
-                fileInput.value = '';
-            } else {
-                alert('Upload failed');
-            }
-        }
-
-        async function loadModels() {
-            const res = await fetch(`${API}/models`);
-            const models = await res.json();
-            const list = document.getElementById('modelsList');
-            list.innerHTML = '';
-
-            models.forEach(m => {
-                const div = document.createElement('div');
-                div.className = 'model-item';
-
-                let html = `<div>
-                <strong>${m.name}</strong> 
-                <span style="font-size:0.8em; color:#888">by ${m.owner}</span>`;
-
-                if (m.type === 'public') html += `<span class="tag tag-public">Public</span>`;
-                if (m.type === 'shared') html += `<span class="tag tag-shared">Shared</span>`;
-
-                html += `</div>`;
-
-                // Actions
-                html += `<div>`;
-                if (m.type === 'owned') {
-                    html += `<button class="secondary" onclick="shareModel(${m.id})" style="width:auto; padding:5px 10px; font-size:0.8em; margin-right:5px;">Share</button>`;
-                }
-                // ID needed for download logic in client, but for now just showing existence
-                html += `<span style="font-size:0.8em; color:#666">ID: ${m.id}</span>`;
-                html += `</div>`;
-
-                div.innerHTML = html;
-                list.appendChild(div);
-            });
-        }
-
-        async function shareModel(id) {
-            const user = prompt("Enter username to share with:");
-            if (!user) return;
-
-            const days = prompt("Duration (days)?", "30");
-
-            const res = await fetch(`${API}/models/${id}/share`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user, days })
-            });
-            const data = await res.json();
-            alert(res.ok ? data.message : data.error);
-        }
-
-        // --- Settings ---
-        async function updateProfile(type) {
-            let body = {};
-            if (type === 'email') body.email = document.getElementById('updateEmail').value;
-            if (type === 'password') body.password = document.getElementById('updatePass').value;
-
-            const res = await fetch(`${API}/user/update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-            alert(res.ok ? data.message : data.error);
-        }
-
-        async function resetHWID() {
-            if (!confirm("Reset Hardware ID linkage?")) return;
-            const res = await fetch(`${API}/user/reset_hwid`, { method: 'POST' });
-            const data = await res.json();
-            alert(data.message || data.error);
-        }
-
-        // --- Desktop Admin ---
-        async function loadUsers() {
-            const res = await fetch(`${API}/admin/users`);
-            if (!res.ok) return alert("Failed to load users");
-            const users = await res.json();
-
-            const list = document.getElementById('userList');
-            list.innerHTML = '';
-
-            // Table Header
-            const table = document.createElement('table');
-            table.style.width = '100%';
-            table.innerHTML = `<tr style="text-align:left"><th>ID</th><th>User</th><th>Email</th><th>Actions</th></tr>`;
-
-            users.forEach(u => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${u.id}</td>
-                    <td>${u.username} ${u.is_admin ? '👑' : ''}</td>
-                    <td>${u.email}</td>
-                    <td>
-                        <button onclick="resetUserPassword(${u.id})" class="secondary" style="font-size:0.7em; padding:2px 5px; width:auto">Reset Pass</button>
-                        ${u.id !== currentUser.id ? `<button onclick="deleteUser(${u.id})" class="danger" style="font-size:0.7em; padding:2px 5px; width:auto">Delete</button>` : ''}
-                    </td>
-                `;
-                table.appendChild(tr);
-            });
-            list.appendChild(table);
-        }
-
-        async function deleteUser(id) {
-            if (!confirm("Are you sure? This deletes the user AND their licenses/models!")) return;
-            const res = await fetch(`${API}/admin/users/${id}`, { method: 'DELETE' });
-            if (res.ok) { loadUsers(); } else { alert((await res.json()).error); }
-        }
-
-        async function resetUserPassword(id) {
-            if (!confirm("Generate new password for this user?")) return;
-
-            const res = await fetch(`${API}/admin/users/${id}/reset_password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}) // No password needed, server generates it
-            });
-            const data = await res.json();
-            if (res.ok) {
-                prompt("Password Reset! Send this to the user:", data.new_password);
-            } else {
-                alert(data.error);
-            }
-        }
-
-        // Init
-        checkSession();
     </script>
-
 </body>
 
 </html>
