@@ -40,6 +40,12 @@ def init_db():
                   password_hash TEXT NOT NULL, 
                   is_admin BOOLEAN DEFAULT 0,
                   created_at REAL)''')
+
+    # Migration: Check for email column
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
+    except sqlite3.OperationalError:
+        pass # Column already exists
                   
     # Licenses Table (Updated with user_id)
     # Note: If migrating from old schema, this might need manual ALTER. 
@@ -74,9 +80,15 @@ def init_db():
     # Create default admin if not exists
     try:
         admin_hash = generate_password_hash("admin")
+        # Assuming 'admin@example.com' for the default admin email
+        c.execute("INSERT OR IGNORE INTO users (username, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)",
+                  ("admin", "admin@example.com", admin_hash, 1, time.time()))
+    except sqlite3.IntegrityError:
+        pass # Admin user or email already exists
+    except sqlite3.OperationalError:
+        # Fallback for older DBs without email column during initial setup
         c.execute("INSERT OR IGNORE INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
                   ("admin", admin_hash, 1, time.time()))
-    except:
         pass
 
     # Add demo key (unclaimed)
@@ -161,8 +173,15 @@ def login():
     
     conn = get_db()
     c = conn.cursor()
-    # Support login by Email OR Username
-    c.execute("SELECT * FROM users WHERE email=? OR username=?", (entered_login, entered_login))
+    # Support login by Email OR Username. 
+    # MIGRATION NOTE: if email column is missing in DB on Render, this will crash. 
+    # The init_db update fixes this.
+    try:
+        c.execute("SELECT * FROM users WHERE email=? OR username=?", (entered_login, entered_login))
+    except sqlite3.OperationalError:
+        # Fallback if migration failed (shouldn't happen with new init_db)
+        c.execute("SELECT * FROM users WHERE username=?", (entered_login,))
+        
     user = c.fetchone()
     conn.close()
     
@@ -387,7 +406,7 @@ def upload_model():
     conn = get_db()
     c = conn.cursor()
     c.execute("INSERT INTO models (user_id, name, filename, is_public, created_at) VALUES (?, ?, ?, ?, ?)",
-              (session['user_id'], name, filename, is_public, time.time()))
+              (session['user_id'], name, filename, is_time.time()))
     conn.commit()
     conn.close()
     
@@ -473,7 +492,7 @@ def verify_license():
     # Check HWID
     if not license_row['hwid']:
         # Bind HWID
-        c.execute("UPDATE licenses SET hwid=? WHERE id=?", (hwid, license_row['id']))
+        c.execute("UPDATE licenses SET hwid=? WHERE key=?", (hwid, key)) # Changed id to key for update
         conn.commit()
     elif license_row['hwid'] != hwid:
         conn.close()
@@ -489,6 +508,11 @@ def verify_license():
 
 @app.route('/api/model', methods=['GET'])
 def get_model():
+    key = request.headers.get('X-License-Key')
+    hwid = request.headers.get('X-HWID')
+    
+    if not key or not hwid:
+        abort(403, description="Missing Key/HWID")
     
     # NOTE: The client currently requests /api/model generically.
     # To download a SPECIFIC model, the client needs to update to send ?model_id=X
@@ -531,7 +555,7 @@ def get_model():
     
     # Fallback to default model if allowed
     # (Assuming basic subscription allows access to default model)
-    default_path = 'models/best.enc'
+    default_path = os.path.join(MODEL_DIR, 'best_encrypted.onnx')
     if os.path.exists(default_path):
         return send_file(default_path, as_attachment=True)
         
@@ -544,4 +568,5 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
+
 
