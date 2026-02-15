@@ -59,7 +59,12 @@ def init_db():
     if 'email' not in columns:
         print("Migrating DB: Adding email column to users...")
         try:
-            c.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
+            # SQLite cannot add UNIQUE column in one go if table has data.
+            # 1. Add column nullable
+            c.execute("ALTER TABLE users ADD COLUMN email TEXT")
+            conn.commit()
+            # 2. Create Unique Index
+            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             conn.commit()
         except Exception as e:
             print(f"Migration Failed: {e}")
