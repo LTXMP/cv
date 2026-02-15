@@ -12,6 +12,7 @@
             --card-bg: #1a1a20;
             --text: #ffffff;
             --text-dim: #a0a0a0;
+            --border: #333;
         }
 
         body {
@@ -34,7 +35,11 @@
         }
 
         /* Auth Wrapper */
-        #auth-wrapper,
+        #auth-wrapper {
+            display: block;
+            /* Default visible */
+        }
+
         #dashboard-wrapper {
             display: none;
         }
@@ -100,19 +105,8 @@
             margin-left: 10px;
         }
 
-        .tag-public {
-            background: #2ecc71;
-            color: #000;
-        }
-
-        .tag-private {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .tag-shared {
-            background: #f1c40f;
-            color: #000;
+        .hidden {
+            display: none !important;
         }
 
         .nav {
@@ -121,6 +115,86 @@
             align-items: center;
             margin-bottom: 20px;
         }
+
+        /* Auth Container Styling */
+        .section {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .sidebar {
+            width: 200px;
+            background: var(--card-bg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: 80vh;
+            border-radius: 12px;
+        }
+
+        #dashboard-wrapper {
+            display: none;
+            gap: 20px;
+        }
+
+        .content {
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            text-align: left;
+            background: transparent;
+            color: var(--text-dim);
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            transform: translateY(100px);
+            transition: transform 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .notification.error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .notification.info {
+            border-left: 4px solid #3498db;
+        }
     </style>
 </head>
 
@@ -128,10 +202,9 @@
 
     <div class="container">
         <header class="nav">
-            <h1>EXCLUSIVE<span>AIM</span></h1>
+            <h1 style="color:white; margin:0;">EXCLUSIVE<span style="color:var(--primary)">AIM</span></h1>
             <div id="userInfo" style="display:none">
-                <span id="usernameDisplay">User</span>
-                <button onclick="logout()" style="width: auto; margin-left:10px; padding: 5px 15px;">Logout</button>
+                <span id="usernameDisplay" style="color:var(--text-dim);">User</span>
             </div>
         </header>
 
@@ -142,10 +215,9 @@
             <div id="login-section" class="section">
                 <!-- User Logo -->
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 150px;">
+                    <h2 style="color: var(--primary); margin: 0;">LOGIN</h2>
                 </div>
 
-                <h2>Login</h2>
                 <input type="email" id="login-email" placeholder="Email Address">
                 <input type="password" id="login-pass" placeholder="Password">
                 <div class="row">
@@ -153,17 +225,22 @@
                     <button class="btn secondary" onclick="showRegister()">Register</button>
                 </div>
                 <div style="margin-top: 10px;">
-                    <a href="#" onclick="showResetRequest()" style="color: var(--text-muted); font-size: 0.9em;">Forgot
-                        Password?</a>
+                    <a href="#" onclick="showResetRequest()"
+                        style="color: var(--text-dim); font-size: 0.9em; text-decoration: none;">Forgot Password?</a>
                 </div>
             </div>
 
             <!-- Register Section -->
             <div id="register-section" class="section hidden">
-                <h2>Register</h2>
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: var(--primary); margin: 0;">REGISTER</h2>
+                </div>
                 <input type="text" id="reg-user" placeholder="Username (for sharing)">
                 <input type="email" id="reg-email" placeholder="Email Address">
                 <input type="password" id="reg-pass" placeholder="Password">
+                <p style="font-size: 0.8em; color: var(--text-dim); text-align: left; margin: 5px 0 15px 0;">
+                    Password must be at least 8 characters and contain at least one number or special character.
+                </p>
                 <div class="row">
                     <button class="btn primary" onclick="register()">Create Account</button>
                     <button class="btn secondary" onclick="showLogin()">Back to Login</button>
@@ -173,7 +250,7 @@
             <!-- Request Reset Section -->
             <div id="reset-request-section" class="section hidden">
                 <h2>Reset Password</h2>
-                <p>Enter your email to receive a reset link.</p>
+                <p style="color:var(--text-dim); font-size:0.9em;">Enter your email to receive a reset link.</p>
                 <input type="email" id="reset-email" placeholder="Enter your Email">
                 <div class="row">
                     <button class="btn primary" onclick="requestReset()">Send Link</button>
@@ -196,8 +273,9 @@
         <div id="dashboard-wrapper">
             <!-- Sidebar -->
             <div class="sidebar">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 80px;">
+                <div
+                    style="text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333;">
+                    <h3 style="margin:0; color:var(--primary)">EA <span style="color:white">DASH</span></h3>
                 </div>
                 <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
@@ -219,75 +297,80 @@
                         </p>
                         <p><strong>Expiry:</strong> <span id="status-expiry">-</span></p>
 
-                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
-                            <h4>Hardware ID (HWID)</h4>
-                            <p style="font-size:0.9em; color:var(--text-dim);">Reset this to use your license on a new
-                                PC. (Limit: Once per hour)</p>
-                            <button class="btn secondary" onclick="resetHWID()" id="btn-reset-hwid">Reset HWID</button>
-                        </div>
+                        <h4>Hardware ID (HWID)</h4>
+                        <p style="font-size:0.9em; color:var(--text-dim);">Reset this to use your license on a new
+                            PC. (Limit: Once per hour)</p>
+                        <button class="btn secondary" onclick="resetHWID()" id="btn-reset-hwid">Reset HWID</button>
                     </div>
 
-                    <!-- Profile Settings -->
-                    <div class="card">
-                        <h3>Edit Profile</h3>
-                        <input type="email" id="update-email" placeholder="New Email">
-                        <input type="password" id="update-pass" placeholder="New Password">
-                        <button class="btn primary" onclick="updateProfile()">Save Changes</button>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+                        <h4>Redeem License Key</h4>
+                        <input type="text" id="license-key-input" placeholder="Enter License Key">
+                        <button class="btn primary" onclick="redeemKey()">Activate Key</button>
                     </div>
                 </div>
 
-                <!-- Tab: Model Sharing -->
-                <div id="page-models" class="page hidden">
-                    <h1>Model Sharing & Management</h1>
-
-                    <!-- Upload Section -->
-                    <div class="card">
-                        <h3>Upload New Model</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div>
-                                <label>Model Name</label>
-                                <input type="text" id="upload-name" placeholder="E.g. Titan v1">
-                            </div>
-                            <div>
-                                <label>Model File (.onnx)</label>
-                                <input type="file" id="upload-file" accept=".onnx">
-                            </div>
-                            <div>
-                                <label>Model Size</label>
-                                <select id="upload-model-size">
-                                    <option value="Nano">Nano</option>
-                                    <option value="Small">Small</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="Large">Large</option>
-                                    <option value="XLarge">XLarge</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label>Image Size</label>
-                                <select id="upload-img-size">
-                                    <option value="320">320</option>
-                                    <option value="416">416</option>
-                                    <option value="640">640</option>
-                                    <option value="1280">1280</option>
-                                </select>
-                            </div>
-                            <div style="grid-column: span 2;">
-                                <label>Thumbnail (Image)</label>
-                                <input type="file" id="upload-thumb" accept="image/*">
-                            </div>
-                        </div>
-                        <button class="btn primary" style="margin-top: 10px;" onclick="uploadModel()">Upload
-                            Model</button>
-                    </div>
-
-                    <!-- Models List -->
-                    <div id="models-list">
-                        <!-- Populated by JS -->
-                    </div>
+                <!-- Profile Settings -->
+                <div class="card">
+                    <h3>Edit Profile</h3>
+                    <input type="email" id="update-email" placeholder="New Email">
+                    <input type="password" id="update-pass" placeholder="New Password">
+                    <button class="btn primary" onclick="updateProfile()">Save Changes</button>
                 </div>
-
             </div>
+
+            <!-- Tab: Model Sharing -->
+            <div id="page-models" class="page hidden">
+                <h1>Model Sharing & Management</h1>
+
+                <!-- Upload Section -->
+                <div class="card">
+                    <h3>Upload New Model</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label>Model Name</label>
+                            <input type="text" id="upload-name" placeholder="E.g. Titan v1">
+                        </div>
+                        <div>
+                            <label>Model File (.onnx)</label>
+                            <input type="file" id="upload-file" accept=".onnx">
+                        </div>
+                        <div>
+                            <label>Model Size</label>
+                            <select id="upload-model-size">
+                                <option value="Nano">Nano</option>
+                                <option value="Small">Small</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Large">Large</option>
+                                <option value="XLarge">XLarge</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Image Size</label>
+                            <select id="upload-img-size">
+                                <option value="320">320</option>
+                                <option value="416">416</option>
+                                <option value="640">640</option>
+                                <option value="1280">1280</option>
+                            </select>
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label>Thumbnail (Image)</label>
+                            <input type="file" id="upload-thumb" accept="image/*">
+                        </div>
+                    </div>
+                    <button class="btn primary" style="margin-top: 10px;" onclick="uploadModel()">Upload
+                        Model</button>
+                </div>
+
+                <!-- Models List -->
+                <div id="models-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
         </div>
+    </div>
 
     </div>
 
@@ -314,7 +397,11 @@
                 showNotification('Login Successful!', 'success');
                 localStorage.setItem('username', data.username);
                 localStorage.setItem('isAdmin', data.is_admin);
-                showDashboard(data.username, data.is_admin);
+
+                // FORCE UI UPDATE
+                setTimeout(() => {
+                    showDashboard(data.username, data.is_admin);
+                }, 500);
             } else {
                 showNotification(data.error || 'Login Failed', 'error');
             }
@@ -341,62 +428,51 @@
         }
 
         async function logout() {
-            await fetch(`${API_URL}/logout`, { method: 'POST' });
-            location.reload();
+            // Clear credentials IMMEDIATELY so we don't get stuck loop
+            localStorage.removeItem('username');
+            localStorage.removeItem('isAdmin');
+
+            try {
+                await fetch(`${API_URL}/logout`, { method: 'POST' });
+            } catch (e) {
+                console.error("Logout fetch failed", e);
+            }
+
+            // Force reload to clear memory state
+            window.location.reload();
         }
 
-        function showLogin() {
-            hideAll();
-            document.getElementById('auth-wrapper').style.display = 'block';
-            document.getElementById('login-section').classList.remove('hidden');
-        }
-
-        function showRegister() {
-            hideAll();
-            document.getElementById('auth-wrapper').style.display = 'block';
-            document.getElementById('register-section').classList.remove('hidden');
-        }
-
-        function showDashboard(username, isAdmin) {
-            hideAll();
-            document.getElementById('auth-wrapper').style.display = 'none';
-            document.getElementById('dashboard-wrapper').style.display = 'flex';
-            document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('usernameDisplay').textContent = username;
-            showPage('account'); // Default to account settings page
-        }
-
-        function hideAll() {
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('register-section').classList.add('hidden');
-            document.getElementById('reset-request-section').classList.add('hidden');
-            document.getElementById('reset-perform-section').classList.add('hidden');
-            document.getElementById('dashboard-wrapper').style.display = 'none';
-            document.getElementById('auth-wrapper').style.display = 'none';
-            document.getElementById('userInfo').style.display = 'none';
-        }
-
-        // --- Navigation ---
-
-        function showPage(pageId) {
-            document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-
-            document.getElementById(`page-${pageId}`).classList.remove('hidden');
-            document.getElementById(`nav-${pageId}`).classList.add('active');
-
-            if (pageId === 'models') loadModels();
-            if (pageId === 'account') loadAccountData();
-        }
-
-        // --- Account Functions ---
+        // ...
 
         async function loadAccountData() {
-            // Mock License Check for now (or implement real endpoint)
-            // In a real app, you'd fetch /api/user/license
-            document.getElementById('status-license').innerText = "Active (Demo)";
-            document.getElementById('status-license').className = "status-active";
-            document.getElementById('status-expiry').innerText = "Lifetime";
+            try {
+                const res = await fetch(`${API_URL}/user/license`);
+                if (res.status === 401) {
+                    // Session expired
+                    logout();
+                    return;
+                }
+
+                const data = await res.json();
+
+                const statusEl = document.getElementById('status-license');
+                const expiryEl = document.getElementById('status-expiry');
+
+                if (data.status === 'Active') {
+                    statusEl.innerText = `${data.status} (${data.type})`;
+                    statusEl.className = "status-active";
+                    statusEl.style.color = "#2ecc71";
+                    expiryEl.innerText = data.expiry;
+                } else {
+                    statusEl.innerText = "Inactive / No License";
+                    statusEl.className = "status-invalid";
+                    statusEl.style.color = "#e74c3c";
+                    expiryEl.innerText = "-";
+                }
+            } catch (e) {
+                console.error("Failed to load license:", e);
+                document.getElementById('status-license').innerText = "Error Loading";
+            }
         }
 
         async function updateProfile() {
@@ -423,6 +499,26 @@
                 showNotification('Profile Updated', 'success');
                 document.getElementById('update-pass').value = '';
                 document.getElementById('update-email').value = '';
+            } else {
+                showNotification(data.error, 'error');
+            }
+        }
+
+        async function redeemKey() {
+            const key = document.getElementById('license-key-input').value;
+            if (!key) return showNotification('Please enter a key', 'error');
+
+            const res = await fetch(`${API_URL}/user/claim_key`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification('License Activated!', 'success');
+                loadAccountData(); // Refresh status
+                document.getElementById('license-key-input').value = '';
             } else {
                 showNotification(data.error, 'error');
             }
@@ -462,10 +558,17 @@
                     card.style.gap = '15px';
                     card.style.alignItems = 'center';
                     // Model Metadata
-                    const thumb = m.thumbnail_path || '/static/logo2.png'; // Fallback
+                    const thumb = m.thumbnail_path || '';
+
+                    let thumbHtml = '';
+                    if (thumb) {
+                        thumbHtml = `<img src="${thumb}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">`;
+                    } else {
+                        thumbHtml = `<div style="width: 80px; height: 80px; background: #333; border-radius: 8px; display:flex; align-items:center; justify-content:center; color:#555; font-size:0.8em;">No Img</div>`;
+                    }
 
                     card.innerHTML = `
-                    <img src="${thumb}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
+                    ${thumbHtml}
                     <div style="flex-grow: 1;">
                         <h3 style="margin: 0;">${m.name} <span style="font-size:0.8em; color:var(--primary);">#${m.unique_id}</span></h3>
                         <p style="font-size: 0.9em; color: var(--text-dim); margin: 5px 0;">
