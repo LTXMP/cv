@@ -202,7 +202,10 @@
 
     <div class="container">
         <header class="nav">
-            <h1 style="color:white; margin:0;">EXCLUSIVE<span style="color:var(--primary)">AIM</span></h1>
+            <div>
+                <h1 style="color:white; margin:0;">EXCLUSIVE<span style="color:var(--primary)">AIM</span></h1>
+                <small style="color: #ffff00; font-weight: bold;">v2.0 - DEBUG ENABLED</small>
+            </div>
             <div id="userInfo" style="display:none">
                 <span id="usernameDisplay" style="color:var(--text-dim);">User</span>
             </div>
@@ -383,23 +386,34 @@
         // --- Auth Functions --- //
 
         async function login() {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-pass').value;
+            try {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-pass').value;
 
-            const res = await fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await res.json();
+                console.log("Attempting login...");
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
 
-            if (res.ok) {
-                showNotification('Login Successful!', 'success');
-                localStorage.setItem('username', data.username);
-                localStorage.setItem('isAdmin', data.is_admin);
-                showDashboard(data.username, data.is_admin);
-            } else {
-                showNotification(data.error || 'Login Failed', 'error');
+                if (res.ok) {
+                    console.log("Login OK, saving token and reloading...");
+
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('isAdmin', data.is_admin);
+
+                    // RELOAD THE PAGE to let the initial check handle the view
+                    // This avoids any weird state/CSS issues with the transition
+                    alert("Login Successful! Loading Dashboard...");
+                    window.location.reload();
+                } else {
+                    showNotification(data.error || 'Login Failed', 'error');
+                }
+            } catch (e) {
+                alert("Login Critical Error: " + e);
+                console.error(e);
             }
         }
 
