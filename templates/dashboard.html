@@ -419,6 +419,7 @@
                                 <tr style="border-bottom:1px solid #333;">
                                     <th style="padding:10px;">ID</th>
                                     <th style="padding:10px;">User (Hover for Info)</th>
+                                    <th style="padding:10px;">Subscription</th>
                                     <th style="padding:10px;">Status</th>
                                     <th style="padding:10px;">Role</th>
                                     <th style="padding:10px;">Actions</th>
@@ -489,9 +490,15 @@
             list.forEach(l => {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #333';
+
+                // Format Duration
+                let durDisplay = l.duration;
+                if (l.duration === '2592000') durDisplay = '30 Days';
+                if (l.duration === '86400') durDisplay = '1 Day';
+
                 tr.innerHTML = `
                     <td style="padding:10px; font-family:monospace; color:#2ecc71;">${l.key}</td>
-                    <td style="padding:10px;">${l.duration}</td>
+                    <td style="padding:10px;">${durDisplay}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -532,13 +539,23 @@
                     const banStatus = u.is_banned ? '<span class="tag" style="background:#e74c3c">BANNED</span>' : '<span class="tag" style="background:#2ecc71">Active</span>';
                     const tooltip = `Email: ${u.email}\nLast IP: ${u.last_ip || 'None'}\nCreated: ${new Date(u.created_at * 1000).toLocaleDateString()}`;
 
+                    // Format Subscription
+                    let subStatus = '<span style="color:#777">None</span>';
+                    if (u.duration) {
+                        const isExpired = u.expiry < (Date.now() / 1000);
+                        const color = isExpired ? '#e74c3c' : '#f1c40f'; // Red if expired, Gold if active
+                        const text = isExpired ? 'Expired' : u.duration;
+                        subStatus = `<span style="color:${color}; font-weight:bold;">${text}</span>`;
+                    }
+
                     tr.innerHTML = `
                         <td style="padding:10px;">${u.id}</td>
                         <td style="padding:10px;" title="${tooltip}">
                             <span style="border-bottom:1px dotted #777; cursor:help;">${u.username}</span>
                         </td>
+                         <td style="padding:10px;">${subStatus}</td>
                         <td style="padding:10px;">${banStatus}</td>
-                        <td style="padding:10px;">${u.is_admin ? 'ADMIN' : 'User'}</td>
+                        <td style="padding:10px;">${u.is_admin ? '<span style="color:#e056fd">ADMIN</span>' : 'User'}</td>
                         <td style="padding:10px; display:flex; gap:5px; flex-wrap:wrap;">
                             ${!u.is_admin ? `
                                 <button class="btn secondary" style="padding:5px; font-size:0.75em;" onclick="adminResetPass(${u.id})">Reset PW</button>
