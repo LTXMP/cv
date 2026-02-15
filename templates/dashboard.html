@@ -411,7 +411,7 @@
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card" id="admin-users-card">
                     <h3>User Management</h3>
                     <div style="overflow-x:auto;">
                         <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
@@ -432,7 +432,7 @@
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card" id="admin-models-card">
                     <h3>System Models (All)</h3>
                     <div style="overflow-x:auto;">
                         <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
@@ -548,6 +548,33 @@
                         subStatus = `<span style="color:${color}; font-weight:bold;">${text}</span>`;
                     }
 
+                    // Format Role
+                    let roleDisplay = 'User';
+                    if (u.is_admin) roleDisplay = '<span style="color:#e056fd">ADMIN</span>';
+                    else if (u.is_helper) roleDisplay = '<span style="color:#f1c40f">HELPER</span>';
+
+                    // Actions Dropdown
+                    let actionsHtml = '-';
+                    // Prevent modifying admins or self (handled by backend mostly, but UI check good too)
+                    if (!u.is_admin) {
+                        actionsHtml = `
+                            <div style="display:flex; gap:5px;">
+                                <select id="action-select-${u.id}" style="padding:5px; background:#222; color:white; border:1px solid #444; border-radius:4px;">
+                                    <option value="">Select Action...</option>
+                                    <option value="reset_pass">Reset Password</option>
+                                    ${u.is_banned ? '<option value="unban">Unban User</option>' : '<option value="ban">Ban User</option>'}
+                                    <option value="cancel_sub">Cancel Subscription</option>
+                                    <option value="ban_ip">Ban IP</option>
+                                    <option value="delete">Delete User</option>
+                                    <option value="divider" disabled>---------</option>
+                                    ${u.is_helper ? '<option value="demote_user">Demote to User</option>' : '<option value="promote_helper">Promote to Helper</option>'}
+                                    <option value="promote_admin">Promote to Admin</option>
+                                </select>
+                                <button class="btn secondary" style="padding:5px 10px;" onclick="executeAdminAction(${u.id}, '${u.username}', '${u.last_ip}')">Go</button>
+                            </div>
+                        `;
+                    }
+
                     tr.innerHTML = `
                         <td style="padding:10px;">${u.id}</td>
                         <td style="padding:10px;" title="${tooltip}">
@@ -555,22 +582,84 @@
                         </td>
                          <td style="padding:10px;">${subStatus}</td>
                         <td style="padding:10px;">${banStatus}</td>
-                        <td style="padding:10px;">${u.is_admin ? '<span style="color:#e056fd">ADMIN</span>' : 'User'}</td>
-                        <td style="padding:10px; display:flex; gap:5px; flex-wrap:wrap;">
-                            ${!u.is_admin ? `
-                                <button class="btn secondary" style="padding:5px; font-size:0.75em;" onclick="adminResetPass(${u.id})">Reset PW</button>
-                                ${u.is_banned ?
-                                `<button class="btn primary" style="padding:5px; font-size:0.75em;" onclick="adminUnbanUser(${u.id})">Unban</button>` :
-                                `<button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanUser(${u.id})">Ban</button>`}
-                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanIP('${u.last_ip}')">Ban IP</button>
-                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminDeleteUser(${u.id}, '${u.username}')">X</button>
-                            ` : '-'}
-                        </td>
+                        <td style="padding:10px;">${roleDisplay}</td>
+                        <td style="padding:10px;">${actionsHtml}</td>
                     `;
                     tbody.appendChild(tr);
                 });
             } catch (e) {
                 console.error("Failed to load users", e);
+            }
+        }
+
+        async function executeAdminAction(id, username, ip) {
+            const select = document.getElementById(`action-select-${id}`);
+            const action = select.value;
+            if (!action) return;
+
+            if (action === 'reset_pass') {
+                if (!confirm(`Reset password for ${username}? A random password will be generated and emailed.`)) return;
+                const res = await fetch(`${API_URL}/admin/users/${id}/reset_pass`, { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+            }
+            else if (action === 'ban') {
+                if (!confirm(`Ban user ${username}?`)) return;
+                await fetch(`${API_URL}/admin/users/${id}/ban`, { method: 'POST' });
+                loadAdminUsers();
+            }
+            else if (action === 'unban') {
+                if (!confirm(`Unban user ${username}?`)) return;
+                await fetch(`${API_URL}/admin/users/${id}/unban`, { method: 'POST' });
+                loadAdminUsers();
+            }
+            else if (action === 'cancel_sub') {
+                if (!confirm(`Cancel subscription for ${username}? They will lose access immediately.`)) return;
+                const res = await fetch(`${API_URL}/admin/users/${id}/cancel_sub`, { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) alert(data.message);
+                loadAdminUsers();
+            }
+            else if (action === 'ban_ip') {
+                if (!confirm(`Ban IP ${ip}?`)) return;
+                const res = await fetch(`${API_URL}/admin/ip_ban`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip })
+                });
+                if (res.ok) showNotification("IP Banned", "success");
+            }
+            else if (action === 'delete') {
+                if (!confirm(`PERMANENTLY DELETE ${username}?`)) return;
+                const res = await fetch(`${API_URL}/admin/users/${id}/delete`, { method: 'POST' });
+                if (res.ok) { showNotification("User Deleted", "success"); loadAdminUsers(); }
+            }
+            else if (action === 'promote_helper') {
+                if (!confirm(`Promote ${username} to Helper?`)) return;
+                await fetch(`${API_URL}/admin/users/${id}/role`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: 'helper' })
+                });
+                loadAdminUsers();
+            }
+            else if (action === 'promote_admin') {
+                if (!confirm(`Promote ${username} to ADMIN? They will have full access.`)) return;
+                await fetch(`${API_URL}/admin/users/${id}/role`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: 'admin' })
+                });
+                loadAdminUsers();
+            }
+            else if (action === 'demote_user') {
+                if (!confirm(`Demote ${username} to regular User?`)) return;
+                await fetch(`${API_URL}/admin/users/${id}/role`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: 'user' })
+                });
+                loadAdminUsers();
             }
         }
 
@@ -716,6 +805,7 @@
 
                     localStorage.setItem('username', data.username);
                     localStorage.setItem('isAdmin', data.is_admin);
+                    localStorage.setItem('isHelper', data.is_helper);
 
                     alert(`Login Success! Saving User: ${data.username}\nReloading now...`);
                     window.location.reload();
@@ -788,16 +878,26 @@
             document.getElementById('register-section').classList.remove('hidden');
         }
 
-        function showDashboard(username, isAdmin) {
+        function showDashboard(username, isAdmin, isHelper) {
             hideAll();
             document.getElementById('dashboard-wrapper').style.display = 'flex';
 
             document.getElementById('userInfo').style.display = 'block';
             document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? " [ADMIN]" : "");
+            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? " [ADMIN]" : "") + (isHelper && !isAdmin ? " [HELPER]" : "");
 
-            if (isAdmin) {
+            if (isAdmin || isHelper) {
                 document.getElementById('nav-admin').style.display = 'block';
+                if (isHelper) document.getElementById('nav-admin').style.color = '#f1c40f'; // Gold for Helper
+            }
+
+            // Helper UI Hiding Logic
+            if (isHelper && !isAdmin) {
+                // Wait for page load or apply immediately if elements exist (they do)
+                const usersCard = document.getElementById('admin-users-card');
+                const modelsCard = document.getElementById('admin-models-card');
+                if (usersCard) usersCard.style.display = 'none';
+                if (modelsCard) modelsCard.style.display = 'none';
             }
 
             // Initial load
@@ -1135,7 +1235,8 @@
                 if (u && u !== "undefined" && u !== "null") {
                     console.log("Found user, showing dashboard...");
                     try {
-                        showDashboard(u, admin === 'true');
+                        const isHelper = localStorage.getItem('isHelper');
+                        showDashboard(u, admin === 'true', isHelper === 'true');
                     } catch (e) {
                         alert("CRITICAL ERROR in showDashboard: " + e);
                         console.error(e);
