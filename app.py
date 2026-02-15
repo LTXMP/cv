@@ -349,6 +349,60 @@ def login():
     conn.close()
     return jsonify({'error': 'Invalid credentials'}), 401
 
+@app.route('/api/client/auth', methods=['POST'])
+def client_auth():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    hwid = data.get('hwid') # Client HWID
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # 1. Verify User
+    user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    if not user or not check_password_hash(user['password_hash'], password):
+        conn.close()
+        return jsonify({'authorized': False, 'message': 'Invalid credentials'}), 401
+    
+    if user['is_banned']:
+        conn.close()
+        return jsonify({'authorized': False, 'message': 'Account suspended'}), 403
+
+    # 2. Check License
+    conn.execute("UPDATE users SET last_ip=? WHERE id=?", (request.remote_addr, user['id']))
+    
+    current_time = time.time()
+    license = c.execute("SELECT * FROM licenses WHERE user_id=?", (user['id'],)).fetchone()
+
+    if not license:
+        conn.close()
+        return jsonify({'authorized': False, 'message': 'No active subscription found. Please claim a key on the dashboard.'}), 403
+
+    if license['expiry'] < current_time:
+         conn.close()
+         return jsonify({'authorized': False, 'message': 'Subscription expired.'}), 403
+
+    # 3. HWID Check/Bind
+    stored_hwid = license['hwid']
+    if not stored_hwid or stored_hwid == "":
+        # Bind first time
+        c.execute("UPDATE licenses SET hwid=? WHERE key=?", (hwid, license['key']))
+        conn.commit()
+    elif stored_hwid != hwid:
+        conn.close()
+        return jsonify({'authorized': False, 'message': 'HWID Mismatch. Reset HWID in dashboard if needed.'}), 403
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'authorized': True, 
+        'message': 'Authorized', 
+        'expiry': license['expiry'],
+        'duration': license['duration']
+    })
+
 @app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
