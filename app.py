@@ -16,13 +16,24 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # For sessions
 
-DB_PATH = 'database.db'
-MODEL_DIR = 'models'
+# Absolute path to models directory (Better for Render Disks)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.environ.get('MODEL_DIR', os.path.join(BASE_DIR, 'models'))
+print(f"Server starting. ROOT: {BASE_DIR}")
+print(f"Model Storage Path: {MODEL_DIR}")
+
 SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
 IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
 
 # Ensure model directory exists
-os.makedirs(MODEL_DIR, exist_ok=True)
+try:
+    os.makedirs(MODEL_DIR, exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create MODEL_DIR: {e}")
+
+# Database should also be in persistent storage if possible.
+# Since MODEL_DIR is the mounted disk, let's put the DB inside it.
+DB_PATH = os.environ.get('DB_PATH', os.path.join(MODEL_DIR, 'database.db'))
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -386,6 +397,9 @@ def generate_license():
 
 # --- Routes: Models ---
 
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+
 @app.route('/api/models/upload', methods=['POST'])
 @login_required
 def upload_model():
@@ -399,18 +413,30 @@ def upload_model():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
         
-    filename = secure_filename(f"{uuid.uuid4()}_{file.filename}")
-    path = os.path.join(MODEL_DIR, filename)
-    file.save(path)
-    
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT INTO models (user_id, name, filename, is_public, created_at) VALUES (?, ?, ?, ?, ?)",
-              (session['user_id'], name, filename, is_time.time()))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({'message': 'Model uploaded'})
+    # Encrypt the file
+    try:
+        file_data = file.read()
+        cipher = AES.new(SECRET_KEY, AES.MODE_CBC, IV)
+        encrypted_data = cipher.encrypt(pad(file_data, AES.block_size))
+        
+        # Save with .enc extension
+        filename = secure_filename(f"{uuid.uuid4()}_{file.filename}.enc")
+        path = os.path.join(MODEL_DIR, filename)
+        
+        with open(path, 'wb') as f:
+            f.write(encrypted_data)
+            
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("INSERT INTO models (user_id, name, filename, is_public, created_at) VALUES (?, ?, ?, ?, ?)",
+                  (session['user_id'], name, filename, is_public, time.time()))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Model uploaded and encrypted'})
+        
+    except Exception as e:
+        return jsonify({'error': f'Encryption failed: {str(e)}'}), 500
 
 @app.route('/api/models', methods=['GET'])
 @login_required
@@ -555,7 +581,8 @@ def get_model():
     
     # Fallback to default model if allowed
     # (Assuming basic subscription allows access to default model)
-    default_path = os.path.join(MODEL_DIR, 'best_encrypted.onnx')
+    # Check for a pre-encrypted default model shipped with the app
+    default_path = os.path.join(os.path.dirname(__file__), 'models', 'best.enc')
     if os.path.exists(default_path):
         return send_file(default_path, as_attachment=True)
         
@@ -568,5 +595,3 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
-
-
