@@ -202,114 +202,146 @@
             </div>
         </div>
 
-    </div>
+        <!-- Main Dashboard (Hidden by default) -->
+        <div id="dashboard-wrapper">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 80px;">
+                </div>
+                <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
+                <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
+                <div style="flex-grow:1"></div>
+                <button class="nav-item" onclick="logout()">Logout</button>
+            </div>
 
-    <!-- User Settings -->
-    <div class="card">
-        <h2>Settings</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div>
-                <h3>Change Email</h3>
-                <input type="email" id="updateEmail" placeholder="New Email">
-                <button onclick="updateProfile('email')">Update Email</button>
-            </div>
-            <div>
-                <h3>Change Password</h3>
-                <input type="password" id="updatePass" placeholder="New Password">
-                <button onclick="updateProfile('password')">Update Password</button>
-            </div>
-            <div style="grid-column: span 2; margin-top: 10px; padding-top:10px; border-top: 1px solid #333">
-                <h3>Hardware ID</h3>
-                <p style="font-size:0.8em; color:#888">Resetting this allows you to use your license on a new
-                    PC.</p>
-                <button onclick="resetHWID()" class="secondary">Reset HWID</button>
+            <!-- Content Area -->
+            <div class="content">
+
+                <!-- Tab: Account Settings -->
+                <div id="page-account" class="page active">
+                    <h1>Account Settings</h1>
+
+                    <!-- License Status -->
+                    <div class="card">
+                        <h3>License Status</h3>
+                        <p><strong>Status:</strong> <span id="status-license" class="status-invalid">Checking...</span>
+                        </p>
+                        <p><strong>Expiry:</strong> <span id="status-expiry">-</span></p>
+
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+                            <h4>Hardware ID (HWID)</h4>
+                            <p style="font-size:0.9em; color:var(--text-dim);">Reset this to use your license on a new
+                                PC. (Limit: Once per hour)</p>
+                            <button class="btn secondary" onclick="resetHWID()" id="btn-reset-hwid">Reset HWID</button>
+                        </div>
+                    </div>
+
+                    <!-- Profile Settings -->
+                    <div class="card">
+                        <h3>Edit Profile</h3>
+                        <input type="email" id="update-email" placeholder="New Email">
+                        <input type="password" id="update-pass" placeholder="New Password">
+                        <button class="btn primary" onclick="updateProfile()">Save Changes</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Model Sharing -->
+                <div id="page-models" class="page hidden">
+                    <h1>Model Sharing & Management</h1>
+
+                    <!-- Upload Section -->
+                    <div class="card">
+                        <h3>Upload New Model</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div>
+                                <label>Model Name</label>
+                                <input type="text" id="upload-name" placeholder="E.g. Titan v1">
+                            </div>
+                            <div>
+                                <label>Model File (.onnx)</label>
+                                <input type="file" id="upload-file" accept=".onnx">
+                            </div>
+                            <div>
+                                <label>Model Size</label>
+                                <select id="upload-model-size">
+                                    <option value="Nano">Nano</option>
+                                    <option value="Small">Small</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Large">Large</option>
+                                    <option value="XLarge">XLarge</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Image Size</label>
+                                <select id="upload-img-size">
+                                    <option value="320">320</option>
+                                    <option value="416">416</option>
+                                    <option value="640">640</option>
+                                    <option value="1280">1280</option>
+                                </select>
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <label>Thumbnail (Image)</label>
+                                <input type="file" id="upload-thumb" accept="image/*">
+                            </div>
+                        </div>
+                        <button class="btn primary" style="margin-top: 10px;" onclick="uploadModel()">Upload
+                            Model</button>
+                    </div>
+
+                    <!-- Models List -->
+                    <div id="models-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
             </div>
         </div>
-    </div>
 
-    <!-- Admin Section -->
-    <div id="adminPanel" class="card" style="display:none; border: 1px solid var(--primary);">
-        <h2>👑 Admin Panel</h2>
-
-        <div style="margin-bottom: 20px;">
-            <h3>Generate License</h3>
-            <div style="display: flex; gap: 10px;">
-                <select id="genDuration">
-                    <option value="LIFETIME">Lifetime</option>
-                    <option value="2592000">30 Days</option>
-                    <option value="86400">1 Day</option>
-                </select>
-                <button onclick="generateLicense()">Generate License Key</button>
-            </div>
-            <div id="adminOutput" style="margin-top: 10px; font-family: monospace; color: #2ecc71;"></div>
-        </div>
-
-        <div style="border-top: 1px solid #333; padding-top: 10px;">
-            <h3>Manage Users</h3>
-            <button onclick="loadUsers()" class="secondary" style="width: auto;">Refresh User List</button>
-            <div id="userList" style="margin-top: 10px;"></div>
-        </div>
-    </div>
-
-    <!-- Model Upload -->
-    <div class="card">
-        <h2>Upload Model</h2>
-        <input type="text" id="uploadName" placeholder="Model Name (e.g. V1 Legit)">
-        <input type="file" id="uploadFile">
-        <label style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
-            <input type="checkbox" id="uploadPublic" style="width: 20px;"> Make Public
-        </label>
-        <button onclick="uploadModel()">Upload .enc / .onnx</button>
-    </div>
-
-    <!-- My Models -->
-    <div class="card">
-        <h2>My Models</h2>
-        <div id="modelsList">Loading...</div>
-    </div>
-    </div>
     </div>
 
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
     <script>
-        const API_URL = '/api'; // Renamed from API for clarity
-        let currentUser = null;
+        const API_URL = '/api';
 
-        // --- Auth ---
+        // --- Auth Functions --- //
+
         async function login() {
             const email = document.getElementById('login-email').value;
-            const p = document.getElementById('login-pass').value;
+            const password = document.getElementById('login-pass').value;
+
             const res = await fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, password: p })
+                body: JSON.stringify({ email, password })
             });
             const data = await res.json();
+
             if (res.ok) {
                 showNotification('Login Successful!', 'success');
-                // If backend supports returning username/admin status on login
-                // Ideally backend returns { message: "...", is_admin: true }
-                // We might not get username, but we can trust the session check to fill it or 
-                // just reload to trigger checkSession logic if we implemented a /me endpoint.
-                // For now, let's just reload page to simple things.
-                window.location.reload();
+                localStorage.setItem('username', data.username);
+                localStorage.setItem('isAdmin', data.is_admin);
+                showDashboard(data.username, data.is_admin);
             } else {
                 showNotification(data.error || 'Login Failed', 'error');
             }
         }
 
         async function register() {
-            const u = document.getElementById('reg-user').value;
-            const e = document.getElementById('reg-email').value;
-            const p = document.getElementById('reg-pass').value;
+            const username = document.getElementById('reg-user').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-pass').value;
+
             const res = await fetch(`${API_URL}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: u, email: e, password: p })
+                body: JSON.stringify({ username, email, password })
             });
             const data = await res.json();
+
             if (res.ok) {
                 showNotification('Account Created! Please Login.', 'success');
                 showLogin();
@@ -320,8 +352,318 @@
 
         async function logout() {
             await fetch(`${API_URL}/logout`, { method: 'POST' });
-            window.location.reload();
+            location.reload();
         }
+
+        function showLogin() {
+            hideAll();
+            document.getElementById('auth-wrapper').style.display = 'block';
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
+        function showRegister() {
+            hideAll();
+            document.getElementById('auth-wrapper').style.display = 'block';
+            document.getElementById('register-section').classList.remove('hidden');
+        }
+
+        function showDashboard(username, isAdmin) {
+            hideAll();
+            document.getElementById('auth-wrapper').style.display = 'none';
+            document.getElementById('dashboard-wrapper').style.display = 'flex';
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('usernameDisplay').textContent = username;
+            showPage('account'); // Default to account settings page
+        }
+
+        function hideAll() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('register-section').classList.add('hidden');
+            document.getElementById('reset-request-section').classList.add('hidden');
+            document.getElementById('reset-perform-section').classList.add('hidden');
+            document.getElementById('dashboard-wrapper').style.display = 'none';
+            document.getElementById('auth-wrapper').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'none';
+        }
+
+        // --- Navigation ---
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(`page-${pageId}`).classList.remove('hidden');
+            document.getElementById(`nav-${pageId}`).classList.add('active');
+
+            if (pageId === 'models') loadModels();
+            if (pageId === 'account') loadAccountData();
+        }
+
+        // --- Account Functions ---
+
+        async function loadAccountData() {
+            // Mock License Check for now (or implement real endpoint)
+            // In a real app, you'd fetch /api/user/license
+            document.getElementById('status-license').innerText = "Active (Demo)";
+            document.getElementById('status-license').className = "status-active";
+            document.getElementById('status-expiry').innerText = "Lifetime";
+        }
+
+        async function updateProfile() {
+            const email = document.getElementById('update-email').value;
+            const password = document.getElementById('update-pass').value;
+
+            const body = {};
+            if (email) body.email = email;
+            if (password) body.password = password;
+
+            if (Object.keys(body).length === 0) {
+                showNotification('No changes to save.', 'info');
+                return;
+            }
+
+            const res = await fetch(`${API_URL}/user/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification('Profile Updated', 'success');
+                document.getElementById('update-pass').value = '';
+                document.getElementById('update-email').value = '';
+            } else {
+                showNotification(data.error, 'error');
+            }
+        }
+
+        async function resetHWID() {
+            if (!confirm("Are you sure? You can only do this once per hour.")) return;
+
+            const res = await fetch(`${API_URL}/user/reset_hwid`, { method: 'POST' });
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification('HWID Reset Successful', 'success');
+            } else {
+                showNotification(data.error, 'error');
+            }
+        }
+
+        // --- Model Functions ---
+
+        async function loadModels() {
+            const res = await fetch(`${API_URL}/models`);
+            const data = await res.json();
+            const list = document.getElementById('models-list');
+            list.innerHTML = '';
+
+            // Own Models
+            if (data.own && data.own.length > 0) {
+                const ownHeader = document.createElement('h3');
+                ownHeader.innerText = "My Models";
+                list.appendChild(ownHeader);
+
+                data.own.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = 'card model-item';
+                    card.style.display = 'flex';
+                    card.style.gap = '15px';
+                    card.style.alignItems = 'center';
+                    // Model Metadata
+                    const thumb = m.thumbnail_path || '/static/logo2.png'; // Fallback
+
+                    card.innerHTML = `
+                    <img src="${thumb}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
+                    <div style="flex-grow: 1;">
+                        <h3 style="margin: 0;">${m.name} <span style="font-size:0.8em; color:var(--primary);">#${m.unique_id}</span></h3>
+                        <p style="font-size: 0.9em; color: var(--text-dim); margin: 5px 0;">
+                            Size: ${m.model_size} | Img: ${m.image_size}
+                        </p>
+                        <div class="row" style="margin-top:10px; gap:10px;">
+                            <button class="btn secondary" onclick="openShareModal(${m.id})">Share</button>
+                            <button class="btn secondary" onclick="replaceModel(${m.id})">Replace File</button>
+                            <button class="btn danger" onclick="deleteModel(${m.id})">Delete</button>
+                        </div>
+                    </div>
+                `;
+                    list.appendChild(card);
+                });
+            }
+
+
+            // Shared Models
+            if (data.shared && data.shared.length > 0) {
+                const header = document.createElement('h3');
+                header.innerText = "Shared With Me";
+                header.style.marginTop = "20px";
+                list.appendChild(header);
+
+                data.shared.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <h4>${m.name} <span style="font-size:0.8em; color:var(--text-dim);">#${m.unique_id}</span></h4>
+                         <p style="font-size: 0.9em; color: var(--text-dim);">Shared by ${m.owner_username}</p>
+                    `;
+                    list.appendChild(card);
+                });
+            }
+
+            if ((!data.own || data.own.length === 0) && (!data.shared || data.shared.length === 0)) {
+                list.innerHTML = '<p>No models found. Upload one to get started!</p>';
+            }
+        }
+
+        async function uploadModel() {
+            const file = document.getElementById('upload-file').files[0];
+            const name = document.getElementById('upload-name').value;
+            const modelSize = document.getElementById('upload-model-size').value;
+            const imgSize = document.getElementById('upload-img-size').value;
+            const thumb = document.getElementById('upload-thumb').files[0];
+
+            if (!file || !name) {
+                showNotification('Please select a file and name.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('name', name);
+            formData.append('model_size', modelSize);
+            formData.append('image_size', imgSize);
+            if (thumb) formData.append('thumbnail', thumb);
+
+            showNotification('Uploading...', 'info');
+
+            const res = await fetch(`${API_URL}/models/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification('Upload Successful', 'success');
+                loadModels();
+                // Clear form
+                document.getElementById('upload-file').value = '';
+                document.getElementById('upload-name').value = '';
+                document.getElementById('upload-thumb').value = '';
+            } else {
+                showNotification(data.error || 'Upload Failed', 'error');
+            }
+        }
+
+        async function deleteModel(id) {
+            if (!confirm("Are you sure you want to delete this model?")) return;
+            const res = await fetch(`${API_URL}/models/${id}/delete`, { method: 'DELETE' });
+            if (res.ok) {
+                showNotification('Model Deleted', 'success');
+                loadModels();
+            } else {
+                showNotification('Delete Failed', 'error');
+            }
+        }
+
+        async function replaceModel(id) {
+            // Create a hidden file input to trigger selection
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.onnx';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                showNotification('Replacing file...', 'info');
+                const res = await fetch(`${API_URL}/models/${id}/replace`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (res.ok) {
+                    showNotification('Model File Replaced', 'success');
+                } else {
+                    const data = await res.json();
+                    showNotification(data.error || 'Replace Failed', 'error');
+                }
+            };
+            input.click();
+        }
+
+        // --- Sharing Logic ---
+
+        function openShareModal(modelId) {
+            // Simplified "Modal" using prompts for now to save UI complexity
+            // In a full implementation, build a proper overlay div
+
+            // 1. Search User
+            const username = prompt("Enter username to share with:");
+            if (!username) return;
+
+            // 2. Select Duration
+            const durationStr = prompt("Enter duration in days (leave empty for Permanent):");
+            let expiry = null;
+            if (durationStr) {
+                const days = parseFloat(durationStr);
+                if (!isNaN(days)) {
+                    // Current Time + Days * Seconds in Day
+                    expiry = (Date.now() / 1000) + (days * 86400);
+                }
+            }
+
+            shareModel(modelId, username, expiry);
+        }
+
+        async function shareModel(modelId, username, expiry) {
+            const res = await fetch(`${API_URL}/models/${modelId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, expiry })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification(data.message, 'success');
+            } else {
+                showNotification(data.error, 'error');
+            }
+        }
+
+        // --- Notifications ---
+
+        function showNotification(msg, type = 'info') {
+            const notif = document.getElementById('notification');
+            notif.innerText = msg;
+            notif.className = `notification ${type} show`;
+            setTimeout(() => {
+                notif.className = 'notification';
+            }, 3000);
+        }
+
+        // --- Init ---
+
+        // Check session on load
+        (async () => {
+            // If we had a session check endpoint, we'd use it here.
+            // For now, check if we have stored username
+            const u = localStorage.getItem('username');
+            if (u) {
+                showDashboard(u, localStorage.getItem('isAdmin') === 'true');
+            } else {
+                showLogin();
+            }
+
+            // Check for Reset Token
+            const urlParams = new URLSearchParams(window.location.search);
+            const resetToken = urlParams.get('reset_token');
+            if (resetToken) {
+                showResetPerform(resetToken);
+            }
+        })();
 
         async function requestReset() {
             const email = document.getElementById('reset-email').value;
