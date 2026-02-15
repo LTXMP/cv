@@ -396,19 +396,15 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    // showNotification('Login Successful!', 'success');
-                    console.log("Login OK, switching dashboard...");
+                    console.log("Login OK, saving token and reloading...");
 
                     localStorage.setItem('username', data.username);
                     localStorage.setItem('isAdmin', data.is_admin);
 
-                    // Direct call without timeout first to see if it throws
-                    try {
-                        showDashboard(data.username, data.is_admin);
-                    } catch (e) {
-                        alert("Error showing dashboard: " + e);
-                        console.error(e);
-                    }
+                    // RELOAD THE PAGE to let the initial check handle the view
+                    // This avoids any weird state/CSS issues with the transition
+                    alert("Login Successful! Loading Dashboard...");
+                    window.location.reload();
                 } else {
                     showNotification(data.error || 'Login Failed', 'error');
                 }
