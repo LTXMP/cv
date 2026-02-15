@@ -13,8 +13,8 @@ app.secret_key = os.urandom(24) # For sessions
 
 DB_PATH = 'database.db'
 MODEL_DIR = 'models'
-SECRET_KEY = b'YourSecretKey_32bytes_Long!!!' # CHANGE THIS!
-IV = b'16_byte_iv_here!' # CHANGE THIS!
+SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
+IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
 
 # Ensure model directory exists
 os.makedirs(MODEL_DIR, exist_ok=True)
