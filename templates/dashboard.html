@@ -166,18 +166,51 @@
                 </div>
             </div>
 
+            <!-- User Settings -->
+            <div class="card">
+                <h2>Settings</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <h3>Change Email</h3>
+                        <input type="email" id="updateEmail" placeholder="New Email">
+                        <button onclick="updateProfile('email')">Update Email</button>
+                    </div>
+                    <div>
+                        <h3>Change Password</h3>
+                        <input type="password" id="updatePass" placeholder="New Password">
+                        <button onclick="updateProfile('password')">Update Password</button>
+                    </div>
+                    <div style="grid-column: span 2; margin-top: 10px; padding-top:10px; border-top: 1px solid #333">
+                        <h3>Hardware ID</h3>
+                        <p style="font-size:0.8em; color:#888">Resetting this allows you to use your license on a new
+                            PC.</p>
+                        <button onclick="resetHWID()" class="secondary">Reset HWID</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Admin Section -->
             <div id="adminPanel" class="card" style="display:none; border: 1px solid var(--primary);">
                 <h2>👑 Admin Panel</h2>
-                <div style="display: flex; gap: 10px;">
-                    <select id="genDuration">
-                        <option value="LIFETIME">Lifetime</option>
-                        <option value="2592000">30 Days</option>
-                        <option value="86400">1 Day</option>
-                    </select>
-                    <button onclick="generateLicense()">Generate License Key</button>
+
+                <div style="margin-bottom: 20px;">
+                    <h3>Generate License</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="genDuration">
+                            <option value="LIFETIME">Lifetime</option>
+                            <option value="2592000">30 Days</option>
+                            <option value="86400">1 Day</option>
+                        </select>
+                        <button onclick="generateLicense()">Generate License Key</button>
+                    </div>
+                    <div id="adminOutput" style="margin-top: 10px; font-family: monospace; color: #2ecc71;"></div>
                 </div>
-                <div id="adminOutput" style="margin-top: 10px; font-family: monospace; color: #2ecc71;"></div>
+
+                <div style="border-top: 1px solid #333; padding-top: 10px;">
+                    <h3>Manage Users</h3>
+                    <button onclick="loadUsers()" class="secondary" style="width: auto;">Refresh User List</button>
+                    <div id="userList" style="margin-top: 10px;"></div>
+                </div>
             </div>
 
             <!-- Model Upload -->
@@ -383,6 +416,80 @@
             });
             const data = await res.json();
             alert(res.ok ? data.message : data.error);
+        }
+
+        // --- Settings ---
+        async function updateProfile(type) {
+            let body = {};
+            if (type === 'email') body.email = document.getElementById('updateEmail').value;
+            if (type === 'password') body.password = document.getElementById('updatePass').value;
+
+            const res = await fetch(`${API}/user/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            alert(res.ok ? data.message : data.error);
+        }
+
+        async function resetHWID() {
+            if (!confirm("Reset Hardware ID linkage?")) return;
+            const res = await fetch(`${API}/user/reset_hwid`, { method: 'POST' });
+            const data = await res.json();
+            alert(data.message || data.error);
+        }
+
+        // --- Desktop Admin ---
+        async function loadUsers() {
+            const res = await fetch(`${API}/admin/users`);
+            if (!res.ok) return alert("Failed to load users");
+            const users = await res.json();
+
+            const list = document.getElementById('userList');
+            list.innerHTML = '';
+
+            // Table Header
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.innerHTML = `<tr style="text-align:left"><th>ID</th><th>User</th><th>Email</th><th>Actions</th></tr>`;
+
+            users.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${u.id}</td>
+                    <td>${u.username} ${u.is_admin ? '👑' : ''}</td>
+                    <td>${u.email}</td>
+                    <td>
+                        <button onclick="resetUserPassword(${u.id})" class="secondary" style="font-size:0.7em; padding:2px 5px; width:auto">Reset Pass</button>
+                        ${u.id !== currentUser.id ? `<button onclick="deleteUser(${u.id})" class="danger" style="font-size:0.7em; padding:2px 5px; width:auto">Delete</button>` : ''}
+                    </td>
+                `;
+                table.appendChild(tr);
+            });
+            list.appendChild(table);
+        }
+
+        async function deleteUser(id) {
+            if (!confirm("Are you sure? This deletes the user AND their licenses/models!")) return;
+            const res = await fetch(`${API}/admin/users/${id}`, { method: 'DELETE' });
+            if (res.ok) { loadUsers(); } else { alert((await res.json()).error); }
+        }
+
+        async function resetUserPassword(id) {
+            if (!confirm("Generate new password for this user?")) return;
+
+            const res = await fetch(`${API}/admin/users/${id}/reset_password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}) // No password needed, server generates it
+            });
+            const data = await res.json();
+            if (res.ok) {
+                prompt("Password Reset! Send this to the user:", data.new_password);
+            } else {
+                alert(data.error);
+            }
         }
 
         // Init
