@@ -282,6 +282,8 @@
                 </div>
                 <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
+                <button class="nav-item" onclick="showPage('admin')" id="nav-admin"
+                    style="display:none; color:#e056fd;">Admin Panel</button>
                 <div style="flex-grow:1"></div>
                 <button class="nav-item" onclick="logout()">Logout</button>
             </div>
@@ -311,14 +313,13 @@
                         <input type="text" id="license-key-input" placeholder="Enter License Key">
                         <button class="btn primary" onclick="redeemKey()">Activate Key</button>
                     </div>
-                </div>
-
-                <!-- Profile Settings -->
-                <div class="card">
-                    <h3>Edit Profile</h3>
-                    <input type="email" id="update-email" placeholder="New Email">
-                    <input type="password" id="update-pass" placeholder="New Password">
-                    <button class="btn primary" onclick="updateProfile()">Save Changes</button>
+                    <!-- Profile Settings -->
+                    <div class="card" style="margin-top: 20px;">
+                        <h3>Edit Profile</h3>
+                        <input type="email" id="update-email" placeholder="New Email">
+                        <input type="password" id="update-pass" placeholder="New Password">
+                        <button class="btn primary" onclick="updateProfile()">Save Changes</button>
+                    </div>
                 </div>
             </div>
 
@@ -372,10 +373,163 @@
                 </div>
             </div>
 
+            <!-- Tab: Admin Panel -->
+            <div id="page-admin" class="page hidden">
+                <h1>Admin Dashboard</h1>
+
+                <div class="card">
+                    <h3>Generate License Key</h3>
+                    <div class="row">
+                        <select id="gen-duration">
+                            <option value="LIFETIME">Lifetime</option>
+                            <option value="2592000">30 Days</option>
+                            <option value="86400">1 Day</option>
+                        </select>
+                        <button class="btn primary" onclick="generateLicense()">Generate Key</button>
+                    </div>
+                    <div id="gen-result"
+                        style="margin-top:15px; display:none; background:#222; padding:10px; border-radius:6px;">
+                        <p style="margin:0; color:var(--text-dim);">Generated Key:</p>
+                        <code id="new-license-key"
+                            style="font-size:1.2em; color:#2ecc71; display:block; margin:5px 0;"></code>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>User Management</h3>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
+                            <thead>
+                                <tr style="border-bottom:1px solid #333;">
+                                    <th style="padding:10px;">ID</th>
+                                    <th style="padding:10px;">Username</th>
+                                    <th style="padding:10px;">Email</th>
+                                    <th style="padding:10px;">Role</th>
+                                    <th style="padding:10px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-list">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>System Models (All)</h3>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
+                            <thead>
+                                <tr style="border-bottom:1px solid #333;">
+                                    <th style="padding:10px;">ID</th>
+                                    <th style="padding:10px;">Name</th>
+                                    <th style="padding:10px;">Owner</th>
+                                    <th style="padding:10px;">Size</th>
+                                    <th style="padding:10px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-models-list">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    </div>
+    <!-- ... (Notification div remains) ... -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // ... (Existing variables) ...
+        const API_URL = '/api';
+
+        // --- Admin Functions ---
+
+        async function loadAdminData() {
+            loadAdminUsers();
+            loadAdminModels();
+        }
+
+        async function loadAdminUsers() {
+            try {
+                const res = await fetch(`${API_URL}/admin/users`);
+                const users = await res.json();
+                const tbody = document.getElementById('admin-users-list');
+                tbody.innerHTML = '';
+
+                users.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #333';
+                    tr.innerHTML = `
+                        <td style="padding:10px;">${u.id}</td>
+                        <td style="padding:10px; color:${u.is_admin ? 'var(--primary)' : 'white'}">${u.username}</td>
+                        <td style="padding:10px;">${u.email}</td>
+                        <td style="padding:10px;">${u.is_admin ? 'ADMIN' : 'User'}</td>
+                        <td style="padding:10px;">
+                            ${!u.is_admin ? `<button class="btn danger" style="padding:5px 10px; font-size:0.8em;" onclick="adminDeleteUser(${u.id}, '${u.username}')">Delete</button>` : '-'}
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Failed to load users", e);
+            }
+        }
+
+        async function adminDeleteUser(id, name) {
+            if (!confirm(`Are you sure you want to PERMANENTLY delete user '${name}'? This will delete all their models and licenses.`)) return;
+
+            const res = await fetch(`${API_URL}/admin/users/${id}/delete`, { method: 'POST' }); // Using POST for safety if DELETE is blocked by some proxies
+            if (res.ok) {
+                showNotification('User Deleted', 'success');
+                loadAdminUsers();
+                loadAdminModels();
+            } else {
+                showNotification('Failed to delete user', 'error');
+            }
+        }
+
+        async function loadAdminModels() {
+            try {
+                const res = await fetch(`${API_URL}/admin/models`);
+                const models = await res.json();
+                const tbody = document.getElementById('admin-models-list');
+                tbody.innerHTML = '';
+
+                models.forEach(m => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #333';
+                    tr.innerHTML = `
+                        <td style="padding:10px;">${m.id}</td>
+                        <td style="padding:10px;">${m.name}</td>
+                        <td style="padding:10px;">${m.owner_username}</td>
+                        <td style="padding:10px;">${m.model_size}</td>
+                        <td style="padding:10px;">
+                            <button class="btn danger" style="padding:5px 10px; font-size:0.8em;" onclick="adminDeleteModel(${m.id})">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Failed to load all models", e);
+            }
+        }
+
+        async function adminDeleteModel(id) {
+            if (!confirm("Delete this model?")) return;
+            const res = await fetch(`${API_URL}/admin/models/${id}/delete`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('Model Deleted', 'success');
+                loadAdminModels();
+            } else {
+                showNotification('Failed to delete model', 'error');
+            }
+        }
+
+    </div >
 
     <!-- Notification -->
     <div id="notification" class="notification"></div>
@@ -485,7 +639,12 @@
             document.getElementById('dashboard-wrapper').style.display = 'flex';
 
             document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'block';
             document.getElementById('usernameDisplay').innerText = username + (isAdmin ? " [ADMIN]" : "");
+
+            if (isAdmin) {
+                document.getElementById('nav-admin').style.display = 'block';
+            }
 
             // Initial load
             showPage('account');
@@ -508,6 +667,9 @@
 
             if (pageId === 'models') {
                 loadModels();
+            }
+            if (pageId === 'admin') {
+                loadAdminData();
             }
         }
 
@@ -818,15 +980,15 @@
 
                 if (u && u !== "undefined" && u !== "null") {
                     console.log("Found user, showing dashboard...");
-                    try {
-                        showDashboard(u, admin === 'true');
+                try {
+                    showDashboard(u, admin === 'true');
                     } catch (e) {
-                        alert("CRITICAL ERROR in showDashboard: " + e);
-                        console.error(e);
+                    alert("CRITICAL ERROR in showDashboard: " + e);
+                console.error(e);
                     }
                 } else {
                     console.log("No user found, showing login.");
-                    showLogin();
+                showLogin();
                 }
 
                 // Check for Reset Token
@@ -836,51 +998,51 @@
                     showResetPerform(resetToken);
                 }
             } catch (err) {
-                alert("CRITICAL STARTUP ERROR: " + err);
+                    alert("CRITICAL STARTUP ERROR: " + err);
             }
         })();
 
-        async function requestReset() {
+                async function requestReset() {
             const email = document.getElementById('reset-email').value;
-            const res = await fetch(`${API_URL}/auth/request_reset`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                const res = await fetch(`${API_URL}/auth/request_reset`, {
+                    method: 'POST',
+                headers: {'Content-Type': 'application/json' },
+                body: JSON.stringify({email})
             });
-            const data = await res.json();
-            showNotification(data.message || data.error, res.ok ? 'success' : 'error');
+                const data = await res.json();
+                showNotification(data.message || data.error, res.ok ? 'success' : 'error');
         }
 
-        async function performReset() {
+                async function performReset() {
             const token = document.getElementById('reset-token').value;
-            const password = document.getElementById('new-reset-pass').value;
+                const password = document.getElementById('new-reset-pass').value;
 
-            const res = await fetch(`${API_URL}/auth/reset_password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, password })
+                const res = await fetch(`${API_URL}/auth/reset_password`, {
+                    method: 'POST',
+                headers: {'Content-Type': 'application/json' },
+                body: JSON.stringify({token, password})
             });
-            const data = await res.json();
+                const data = await res.json();
 
-            if (res.ok) {
-                showNotification('Password Changed! Please Login.', 'success');
+                if (res.ok) {
+                    showNotification('Password Changed! Please Login.', 'success');
                 showLogin();
             } else {
-                showNotification(data.error || 'Failed', 'error');
+                    showNotification(data.error || 'Failed', 'error');
             }
         }
 
-        function showResetRequest() {
-            hideAll();
-            document.getElementById('reset-request-section').classList.remove('hidden');
-            document.getElementById('auth-wrapper').style.display = 'block';
+                function showResetRequest() {
+                    hideAll();
+                document.getElementById('reset-request-section').classList.remove('hidden');
+                document.getElementById('auth-wrapper').style.display = 'block';
         }
 
-        function showResetPerform(token) {
-            hideAll();
-            document.getElementById('reset-token').value = token;
-            document.getElementById('reset-perform-section').classList.remove('hidden');
-            document.getElementById('auth-wrapper').style.display = 'block';
+                function showResetPerform(token) {
+                    hideAll();
+                document.getElementById('reset-token').value = token;
+                document.getElementById('reset-perform-section').classList.remove('hidden');
+                document.getElementById('auth-wrapper').style.display = 'block';
         }
 
     </script>
