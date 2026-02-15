@@ -372,6 +372,16 @@ def reset_hwid():
     conn.close()
     return jsonify({'message': 'HWID Reset Successful'})
 
+@app.route('/api/user/license', methods=['GET'])
+@login_required
+def get_user_license():
+    print(f"Checking license for user_id: {session.get('user_id')}")
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, username, email, is_admin, created_at FROM users")
+    users = [dict(row) for row in c.fetchall()]
+    conn.close()
+
 # --- Routes: Admin Management ---
 
 @app.route('/api/admin/users', methods=['GET'])
