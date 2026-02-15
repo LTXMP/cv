@@ -134,14 +134,23 @@ def init_db():
 
     # Create default admin if not exists
     try:
-        admin_hash = generate_password_hash("admin")
         # Check if admin exists by username to avoid duplicates
         c.execute("SELECT id FROM users WHERE username=?", ("admin",))
         if not c.fetchone():
+            chars = string.ascii_letters + string.digits
+            admin_pass = ''.join(secrets.choice(chars) for _ in range(12))
+            admin_hash = generate_password_hash(admin_pass)
             c.execute("INSERT INTO users (username, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)",
                       ("admin", "admin@example.com", admin_hash, 1, time.time()))
+            print(f"Admin account created. Password: {admin_pass}")
+
+        # Ensure 'Exclusive' user is admin if exists
+        c.execute("UPDATE users SET is_admin=1 WHERE username='Exclusive'")
+        if c.rowcount > 0:
+            print("Promoted user 'Exclusive' to ADMIN.")
+        
     except Exception as e:
-        print(f"Error creating default admin: {e}")
+        print(f"Error configuring admin: {e}")
 
     # Add demo key (unclaimed)
     c.execute("INSERT OR IGNORE INTO licenses (key, hwid, duration, expiry) VALUES (?, ?, ?, ?)",
@@ -648,7 +657,26 @@ def replace_model(model_id):
             f.write(encrypted_data)
             
         conn.close()
-        return jsonify({'message': 'Model file replaced successfully'})
+        return jsonify({'message': 'Model file replaced successfully!'})
+
+@app.route('/api/users/search', methods=['GET'])
+@login_required
+def search_users():
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 2:
+        return jsonify([])
+    
+    conn = get_db()
+    c = conn.cursor()
+    # Search users, excluding self
+    c.execute("SELECT id, username FROM users WHERE username LIKE ? AND id != ? LIMIT 10", 
+              (f"%{query}%", session['user_id']))
+    results = [{'id': row['id'], 'username': row['username']} for row in c.fetchall()]
+    conn.close()
+    
+    return jsonify(results)
+
+# --- Routes: Client / Verification ---
     except Exception as e:
         conn.close()
         return jsonify({'error': f'Replacement failed: {str(e)}'}), 500
