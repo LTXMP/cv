@@ -13,6 +13,39 @@ from flask import Flask, request, jsonify, send_file, abort, session, render_tem
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
+# --- Helper to send email ---
+def send_email(to_email, subject, body):
+    smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+    smtp_port = int(os.environ.get('SMTP_PORT', 587))
+    smtp_user = os.environ.get('SMTP_USER', '')
+    smtp_pass = os.environ.get('SMTP_PASS', '')
+    
+    if not smtp_user or not smtp_pass:
+        print(f"SMTP Config Missing. MOCK EMAIL to {to_email}: {subject}\n{body}")
+        # Try to use a log file for "sent" emails in development
+        try:
+            with open("sent_emails.log", "a") as f:
+                f.write(f"--- EMAIL TO {to_email} ---\nSubject: {subject}\n{body}\n-----------------------\n")
+        except: pass
+        return True # Return True in dev so app doesn't break
+        
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = smtp_user
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
 app = Flask(__name__)
 # Use persistent key if available, else random (invalidates sessions on restart)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
@@ -64,6 +97,11 @@ def init_db():
         try:
             c.execute("ALTER TABLE users ADD COLUMN email TEXT")
             c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+        except: pass
+
+    if 'is_helper' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN is_helper BOOLEAN DEFAULT 0")
         except: pass
             
     if 'is_banned' not in columns:
@@ -192,6 +230,16 @@ def admin_required(f):
     wrapper.__name__ = f.__name__
     return wrapper
 
+def staff_required(f):
+    def wrapper(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        if not session.get('is_admin') and not session.get('is_helper'):
+            return jsonify({'error': 'Forbidden: Staff only'}), 403
+        return f(*args, **kwargs)
+    wrapper.__name__ = f.__name__
+    return wrapper
+
 # --- Routes: Auth & Profile ---
 
 @app.route('/')
@@ -280,12 +328,14 @@ def login():
         session['user_id'] = user['id']
         session['username'] = user['username'] 
         session['is_admin'] = user['is_admin']
+        session['is_helper'] = user.get('is_helper', 0) # Use .get for safety until migration is 100%
         
         conn.close()
         return jsonify({
             'message': 'Login successful',
             'username': user['username'],
-            'is_admin': bool(user['is_admin'])
+            'is_admin': bool(user['is_admin']),
+            'is_helper': bool(user.get('is_helper', 0))
         })
     
     conn.close()
@@ -480,14 +530,55 @@ def admin_unban_user(user_id):
 @app.route('/api/admin/users/<int:user_id>/reset_pass', methods=['POST'])
 @admin_required
 def admin_reset_pass(user_id):
-    # Set temp pass "ChangeMe123!"
-    temp_pass = "ChangeMe123!"
-    hashed = generate_password_hash(temp_pass)
+    # Determine the password:
+    # 1. Random 8 chars (User requested specific length)
+    chars = string.ascii_letters + string.digits
+    new_pass = ''.join(secrets.choice(chars) for _ in range(8))
+    
+    hashed = generate_password_hash(new_pass)
     conn = get_db()
-    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
+    c = conn.cursor()
+    c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
+    
+    # Send Email
+    user = c.execute("SELECT email, username FROM users WHERE id=?", (user_id,)).fetchone()
+    email_msg = ""
+    if user and user['email']:
+        subject = "Exclusive Aim - Admin Reset"
+        body = f"Hello {user['username']},\n\nAn administrator has reset your password.\n\nNew Password: {new_pass}\n\nPlease login and change it immediately."
+        sent = send_email(user['email'], subject, body)
+        email_msg = " (Email Sent)" if sent else " (Email FAILED)"
+    else:
+        email_msg = " (No Email on file)"
+        
     conn.commit()
     conn.close()
-    return jsonify({'message': f'Password reset to: {temp_pass}'})
+    return jsonify({'message': f'Password reset to: {new_pass}{email_msg}'})
+
+@app.route('/api/admin/users/<int:user_id>/role', methods=['POST'])
+@admin_required
+def admin_set_role(user_id):
+    role = request.json.get('role') # 'admin', 'helper', 'user'
+    if not role: return jsonify({'error': 'Missing role'}), 400
+    if user_id == session['user_id']: return jsonify({'error': 'Cannot change own role'}), 400
+    
+    is_admin = 1 if role == 'admin' else 0
+    is_helper = 1 if role == 'helper' else 0
+    
+    conn = get_db()
+    conn.execute("UPDATE users SET is_admin=?, is_helper=? WHERE id=?", (is_admin, is_helper, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Role updated to {role}'})
+
+@app.route('/api/admin/users/<int:user_id>/cancel_sub', methods=['POST'])
+@admin_required
+def admin_cancel_sub(user_id):
+    conn = get_db()
+    conn.execute("UPDATE licenses SET user_id=NULL WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Subscription cancelled (License unlinked)'})
 
 @app.route('/api/admin/ip_ban', methods=['POST'])
 @admin_required
@@ -555,7 +646,7 @@ def admin_reset_password(user_id):
 
 
 @app.route('/api/admin/generate_license', methods=['POST'])
-@admin_required
+@staff_required
 def generate_license():
     data = request.json
     duration = data.get('duration', 'LIFETIME')
@@ -578,9 +669,9 @@ def generate_license():
 def admin_list_users():
     conn = get_db()
     c = conn.cursor()
-    # Join with licenses to get subscription status
+    # Join with licenses to get subscription status and include is_helper
     c.execute('''
-        SELECT u.id, u.username, u.email, u.is_admin, u.is_banned, u.created_at, u.last_ip,
+        SELECT u.id, u.username, u.email, u.is_admin, u.is_helper, u.is_banned, u.created_at, u.last_ip,
                l.duration, l.expiry
         FROM users u
         LEFT JOIN licenses l ON u.id = l.user_id
