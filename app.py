@@ -910,11 +910,11 @@ def download_model_by_id(model_id):
         WHERE m.id = ? AND (
             m.is_public = 1 OR 
             m.user_id = ? OR 
-            is_admin = 1 OR
+            ? = 1 OR
             (s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?))
         )
     '''
-    c.execute(query, (model_id, user_id, user_id, time.time()))
+    c.execute(query, (model_id, user_id, is_admin, user_id, time.time()))
     model = c.fetchone()
     
     if not model:
