@@ -424,9 +424,16 @@
         }
 
         async function logout() {
-            await fetch(`${API_URL}/logout`, { method: 'POST' });
+            // Clear credentials IMMEDIATELY so we don't get stuck loop
             localStorage.removeItem('username');
             localStorage.removeItem('isAdmin');
+
+            try {
+                await fetch(`${API_URL}/logout`, { method: 'POST' });
+            } catch (e) {
+                console.error("Logout fetch failed", e);
+            }
+
             // Force reload to clear memory state
             window.location.reload();
         }
@@ -436,6 +443,12 @@
         async function loadAccountData() {
             try {
                 const res = await fetch(`${API_URL}/user/license`);
+                if (res.status === 401) {
+                    // Session expired
+                    logout();
+                    return;
+                }
+
                 const data = await res.json();
 
                 const statusEl = document.getElementById('status-license');
@@ -454,6 +467,7 @@
                 }
             } catch (e) {
                 console.error("Failed to load license:", e);
+                document.getElementById('status-license').innerText = "Error Loading";
             }
         }
 
