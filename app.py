@@ -737,21 +737,7 @@ def share_model(model_id):
     conn.close()
     return jsonify({'message': f'Shared with {target_username}'})
 
-@app.route('/api/users/search', methods=['GET'])
-@login_required
-def search_users():
-    query = request.args.get('q', '').strip()
-    if not query or len(query) < 2:
-        return jsonify([])
-    
-    conn = get_db()
-    c = conn.cursor()
-    # Find matching usernames (exclude self)
-    c.execute("SELECT id, username FROM users WHERE username LIKE ? AND id != ? LIMIT 5", 
-              (f"%{query}%", session['user_id']))
-    users = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return jsonify(users)
+
 
 # --- Routes: Client / Verification ---
 
