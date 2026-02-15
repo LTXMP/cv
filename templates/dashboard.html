@@ -204,7 +204,6 @@
         <header class="nav">
             <div>
                 <h1 style="color:white; margin:0;">EXCLUSIVE<span style="color:var(--primary)">AIM</span></h1>
-                <small style="color: #ffff00; font-weight: bold;">v2.0 - DEBUG ENABLED</small>
             </div>
             <div id="userInfo" style="display:none">
                 <span id="usernameDisplay" style="color:var(--text-dim);">User</span>
@@ -529,13 +528,8 @@
             }
         }
 
-    </div >
 
-    <!-- Notification -->
-    <div id="notification" class="notification"></div>
 
-    <script>
-        const API_URL = '/api';
 
         // --- Auth Functions --- //
 
@@ -980,15 +974,15 @@
 
                 if (u && u !== "undefined" && u !== "null") {
                     console.log("Found user, showing dashboard...");
-                try {
-                    showDashboard(u, admin === 'true');
+                    try {
+                        showDashboard(u, admin === 'true');
                     } catch (e) {
-                    alert("CRITICAL ERROR in showDashboard: " + e);
-                console.error(e);
+                        alert("CRITICAL ERROR in showDashboard: " + e);
+                        console.error(e);
                     }
                 } else {
                     console.log("No user found, showing login.");
-                showLogin();
+                    showLogin();
                 }
 
                 // Check for Reset Token
@@ -998,54 +992,54 @@
                     showResetPerform(resetToken);
                 }
             } catch (err) {
-                    alert("CRITICAL STARTUP ERROR: " + err);
+                alert("CRITICAL STARTUP ERROR: " + err);
             }
         })();
 
-                async function requestReset() {
+        async function requestReset() {
             const email = document.getElementById('reset-email').value;
-                const res = await fetch(`${API_URL}/auth/request_reset`, {
-                    method: 'POST',
-                headers: {'Content-Type': 'application/json' },
-                body: JSON.stringify({email})
+            const res = await fetch(`${API_URL}/auth/request_reset`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
             });
-                const data = await res.json();
-                showNotification(data.message || data.error, res.ok ? 'success' : 'error');
+            const data = await res.json();
+            showNotification(data.message || data.error, res.ok ? 'success' : 'error');
         }
 
-                async function performReset() {
+        async function performReset() {
             const token = document.getElementById('reset-token').value;
-                const password = document.getElementById('new-reset-pass').value;
+            const password = document.getElementById('new-reset-pass').value;
 
-                const res = await fetch(`${API_URL}/auth/reset_password`, {
-                    method: 'POST',
-                headers: {'Content-Type': 'application/json' },
-                body: JSON.stringify({token, password})
+            const res = await fetch(`${API_URL}/auth/reset_password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, password })
             });
-                const data = await res.json();
+            const data = await res.json();
 
-                if (res.ok) {
-                    showNotification('Password Changed! Please Login.', 'success');
+            if (res.ok) {
+                showNotification('Password Changed! Please Login.', 'success');
                 showLogin();
             } else {
-                    showNotification(data.error || 'Failed', 'error');
+                showNotification(data.error || 'Failed', 'error');
             }
         }
 
-                function showResetRequest() {
-                    hideAll();
-                document.getElementById('reset-request-section').classList.remove('hidden');
-                document.getElementById('auth-wrapper').style.display = 'block';
+        function showResetRequest() {
+            hideAll();
+            document.getElementById('reset-request-section').classList.remove('hidden');
+            document.getElementById('auth-wrapper').style.display = 'block';
         }
 
-                function showResetPerform(token) {
-                    hideAll();
-                document.getElementById('reset-token').value = token;
-                document.getElementById('reset-perform-section').classList.remove('hidden');
-                document.getElementById('auth-wrapper').style.display = 'block';
+        function showResetPerform(token) {
+            hideAll();
+            document.getElementById('reset-token').value = token;
+            document.getElementById('reset-perform-section').classList.remove('hidden');
+            document.getElementById('auth-wrapper').style.display = 'block';
         }
 
     </script>
 </body>
 
-</html>oh ye
+</html>
