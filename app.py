@@ -539,6 +539,80 @@ def generate_license():
     
     return jsonify({'key': key, 'duration': duration})
 
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def admin_list_users():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, username, email, is_admin, created_at FROM users")
+    users = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify(users)
+
+@app.route('/api/admin/users/<int:user_id>/delete', methods=['POST', 'DELETE'])
+@admin_required
+def admin_delete_user(user_id):
+    if user_id == session['user_id']:
+        return jsonify({'error': 'Cannot delete yourself'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    # 1. Get user's models to delete files
+    c.execute("SELECT filename FROM models WHERE user_id=?", (user_id,))
+    models = c.fetchall()
+    for m in models:
+        try:
+            os.remove(os.path.join(MODEL_DIR, m['filename']))
+        except OSError:
+            pass
+            
+    # 2. Delete DB records (Cascading manually to be safe)
+    c.execute("DELETE FROM models WHERE user_id=?", (user_id,))
+    c.execute("DELETE FROM shares WHERE target_user_id=?", (user_id,))
+    c.execute("UPDATE licenses SET user_id=NULL WHERE user_id=?", (user_id,)) # Release license
+    c.execute("DELETE FROM users WHERE id=?", (user_id,))
+    
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'User deleted'})
+
+@app.route('/api/admin/models', methods=['GET'])
+@admin_required
+def admin_list_models():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        SELECT m.*, u.username as owner_username 
+        FROM models m 
+        JOIN users u ON m.user_id = u.id
+    ''')
+    models = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify(models)
+
+@app.route('/api/admin/models/<int:model_id>/delete', methods=['POST', 'DELETE'])
+@admin_required
+def admin_delete_model(model_id):
+    conn = get_db()
+    c = conn.cursor()
+    model = c.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    
+    if model:
+        try:
+            os.remove(os.path.join(MODEL_DIR, model['filename']))
+        except OSError:
+            pass
+            
+        c.execute("DELETE FROM models WHERE id=?", (model_id,))
+        c.execute("DELETE FROM shares WHERE model_id=?", (model_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Model deleted'})
+        
+    conn.close()
+    return jsonify({'error': 'Model not found'}), 404
+
 # --- Routes: Models ---
 
 from Crypto.Cipher import AES
