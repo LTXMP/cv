@@ -137,116 +137,158 @@
 
         <!-- Auth View -->
         <div id="auth-wrapper">
-            <div class="card">
-                <h2>Login</h2>
-                <input type="email" id="loginEmail" placeholder="Email Address">
-                <input type="password" id="loginPass" placeholder="Password">
-                <button onclick="login()">Login</button>
+            <!-- Main Dashboard (Hidden by default) -->
+            <div id="dashboard-section" class="hidden">
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <!-- Mini Logo -->
+                        <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 80px;">
+                    </div>
+                    <button class="nav-item active" onclick="showPage('home')">Home</button>
+                </div>
             </div>
-            <div class="card">
+            <!-- Login Section -->
+            <div id="login-section" class="section">
+                <!-- User Logo -->
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="/static/logo2.png" alt="Exclusive Aim" style="max-width: 150px;">
+                </div>
+
+                <h2>Login</h2>
+                <input type="email" id="login-email" placeholder="Email Address">
+                <input type="password" id="login-pass" placeholder="Password">
+                <div class="row">
+                    <button class="btn primary" onclick="login()">Login</button>
+                    <button class="btn secondary" onclick="showRegister()">Register</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <a href="#" onclick="showResetRequest()" style="color: var(--text-muted); font-size: 0.9em;">Forgot
+                        Password?</a>
+                </div>
+            </div>
+
+            <!-- Register Section -->
+            <div id="register-section" class="section hidden">
                 <h2>Register</h2>
-                <input type="text" id="regUser" placeholder="Username (for sharing)">
-                <input type="email" id="regEmail" placeholder="Email Address">
-                <input type="password" id="regPass" placeholder="Password">
-                <button onclick="register()" class="secondary">Create Account</button>
+                <input type="text" id="reg-user" placeholder="Username (for sharing)">
+                <input type="email" id="reg-email" placeholder="Email Address">
+                <input type="password" id="reg-pass" placeholder="Password">
+                <div class="row">
+                    <button class="btn primary" onclick="register()">Create Account</button>
+                    <button class="btn secondary" onclick="showLogin()">Back to Login</button>
+                </div>
+            </div>
+
+            <!-- Request Reset Section -->
+            <div id="reset-request-section" class="section hidden">
+                <h2>Reset Password</h2>
+                <p>Enter your email to receive a reset link.</p>
+                <input type="email" id="reset-email" placeholder="Enter your Email">
+                <div class="row">
+                    <button class="btn primary" onclick="requestReset()">Send Link</button>
+                    <button class="btn secondary" onclick="showLogin()">Back</button>
+                </div>
+            </div>
+
+            <!-- Perform Reset Section -->
+            <div id="reset-perform-section" class="section hidden">
+                <h2>Set New Password</h2>
+                <input type="hidden" id="reset-token">
+                <input type="password" id="new-reset-pass" placeholder="New Password">
+                <div class="row">
+                    <button class="btn primary" onclick="performReset()">Change Password</button>
+                </div>
             </div>
         </div>
 
-        <!-- Dashboard View -->
-        <div id="dashboard-wrapper">
+    </div>
 
-            <!-- License Section -->
-            <div class="card">
-                <h2>License Key</h2>
-                <p style="font-size: 0.9em; color: var(--text-dim);">Enter a key provided by the admin to unlock client
-                    access.</p>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="claimKeyInput" placeholder="Enter License Key">
-                    <button onclick="claimKey()" style="width: 150px;">Claim</button>
-                </div>
+    <!-- User Settings -->
+    <div class="card">
+        <h2>Settings</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <h3>Change Email</h3>
+                <input type="email" id="updateEmail" placeholder="New Email">
+                <button onclick="updateProfile('email')">Update Email</button>
             </div>
-
-            <!-- User Settings -->
-            <div class="card">
-                <h2>Settings</h2>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div>
-                        <h3>Change Email</h3>
-                        <input type="email" id="updateEmail" placeholder="New Email">
-                        <button onclick="updateProfile('email')">Update Email</button>
-                    </div>
-                    <div>
-                        <h3>Change Password</h3>
-                        <input type="password" id="updatePass" placeholder="New Password">
-                        <button onclick="updateProfile('password')">Update Password</button>
-                    </div>
-                    <div style="grid-column: span 2; margin-top: 10px; padding-top:10px; border-top: 1px solid #333">
-                        <h3>Hardware ID</h3>
-                        <p style="font-size:0.8em; color:#888">Resetting this allows you to use your license on a new
-                            PC.</p>
-                        <button onclick="resetHWID()" class="secondary">Reset HWID</button>
-                    </div>
-                </div>
+            <div>
+                <h3>Change Password</h3>
+                <input type="password" id="updatePass" placeholder="New Password">
+                <button onclick="updateProfile('password')">Update Password</button>
             </div>
-
-            <!-- Admin Section -->
-            <div id="adminPanel" class="card" style="display:none; border: 1px solid var(--primary);">
-                <h2>👑 Admin Panel</h2>
-
-                <div style="margin-bottom: 20px;">
-                    <h3>Generate License</h3>
-                    <div style="display: flex; gap: 10px;">
-                        <select id="genDuration">
-                            <option value="LIFETIME">Lifetime</option>
-                            <option value="2592000">30 Days</option>
-                            <option value="86400">1 Day</option>
-                        </select>
-                        <button onclick="generateLicense()">Generate License Key</button>
-                    </div>
-                    <div id="adminOutput" style="margin-top: 10px; font-family: monospace; color: #2ecc71;"></div>
-                </div>
-
-                <div style="border-top: 1px solid #333; padding-top: 10px;">
-                    <h3>Manage Users</h3>
-                    <button onclick="loadUsers()" class="secondary" style="width: auto;">Refresh User List</button>
-                    <div id="userList" style="margin-top: 10px;"></div>
-                </div>
-            </div>
-
-            <!-- Model Upload -->
-            <div class="card">
-                <h2>Upload Model</h2>
-                <input type="text" id="uploadName" placeholder="Model Name (e.g. V1 Legit)">
-                <input type="file" id="uploadFile">
-                <label style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
-                    <input type="checkbox" id="uploadPublic" style="width: 20px;"> Make Public
-                </label>
-                <button onclick="uploadModel()">Upload .enc / .onnx</button>
-            </div>
-
-            <!-- My Models -->
-            <div class="card">
-                <h2>My Models</h2>
-                <div id="modelsList">Loading...</div>
+            <div style="grid-column: span 2; margin-top: 10px; padding-top:10px; border-top: 1px solid #333">
+                <h3>Hardware ID</h3>
+                <p style="font-size:0.8em; color:#888">Resetting this allows you to use your license on a new
+                    PC.</p>
+                <button onclick="resetHWID()" class="secondary">Reset HWID</button>
             </div>
         </div>
     </div>
 
+    <!-- Admin Section -->
+    <div id="adminPanel" class="card" style="display:none; border: 1px solid var(--primary);">
+        <h2>👑 Admin Panel</h2>
+
+        <div style="margin-bottom: 20px;">
+            <h3>Generate License</h3>
+            <div style="display: flex; gap: 10px;">
+                <select id="genDuration">
+                    <option value="LIFETIME">Lifetime</option>
+                    <option value="2592000">30 Days</option>
+                    <option value="86400">1 Day</option>
+                </select>
+                <button onclick="generateLicense()">Generate License Key</button>
+            </div>
+            <div id="adminOutput" style="margin-top: 10px; font-family: monospace; color: #2ecc71;"></div>
+        </div>
+
+        <div style="border-top: 1px solid #333; padding-top: 10px;">
+            <h3>Manage Users</h3>
+            <button onclick="loadUsers()" class="secondary" style="width: auto;">Refresh User List</button>
+            <div id="userList" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- Model Upload -->
+    <div class="card">
+        <h2>Upload Model</h2>
+        <input type="text" id="uploadName" placeholder="Model Name (e.g. V1 Legit)">
+        <input type="file" id="uploadFile">
+        <label style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
+            <input type="checkbox" id="uploadPublic" style="width: 20px;"> Make Public
+        </label>
+        <button onclick="uploadModel()">Upload .enc / .onnx</button>
+    </div>
+
+    <!-- My Models -->
+    <div class="card">
+        <h2>My Models</h2>
+        <div id="modelsList">Loading...</div>
+    </div>
+    </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification"></div>
+
     <script>
-        const API = '/api';
+        const API_URL = '/api'; // Renamed from API for clarity
         let currentUser = null;
 
         // --- Auth ---
         async function login() {
-            const email = document.getElementById('loginEmail').value;
-            const p = document.getElementById('loginPass').value;
-            const res = await fetch(`${API}/login`, {
+            const email = document.getElementById('login-email').value;
+            const p = document.getElementById('login-pass').value;
+            const res = await fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: email, password: p })
             });
             const data = await res.json();
             if (res.ok) {
+                showNotification('Login Successful!', 'success');
                 // If backend supports returning username/admin status on login
                 // Ideally backend returns { message: "...", is_admin: true }
                 // We might not get username, but we can trust the session check to fill it or 
@@ -254,34 +296,66 @@
                 // For now, let's just reload page to simple things.
                 window.location.reload();
             } else {
-                alert(data.error);
+                showNotification(data.error || 'Login Failed', 'error');
             }
         }
 
         async function register() {
-            const u = document.getElementById('regUser').value;
-            const e = document.getElementById('regEmail').value;
-            const p = document.getElementById('regPass').value;
-            const res = await fetch(`${API}/register`, {
+            const u = document.getElementById('reg-user').value;
+            const e = document.getElementById('reg-email').value;
+            const p = document.getElementById('reg-pass').value;
+            const res = await fetch(`${API_URL}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: u, email: e, password: p })
             });
+            const data = await res.json();
             if (res.ok) {
-                alert('Registered! Please login.');
+                showNotification('Account Created! Please Login.', 'success');
+                showLogin();
             } else {
-                alert((await res.json()).error);
+                showNotification(data.error || 'Registration Failed', 'error');
             }
         }
 
         async function logout() {
-            await fetch(`${API}/logout`, { method: 'POST' });
+            await fetch(`${API_URL}/logout`, { method: 'POST' });
             window.location.reload();
+        }
+
+        async function requestReset() {
+            const email = document.getElementById('reset-email').value;
+            const res = await fetch(`${API_URL}/auth/request_reset`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            showNotification(data.message || data.error, res.ok ? 'success' : 'error');
+        }
+
+        async function performReset() {
+            const token = document.getElementById('reset-token').value;
+            const password = document.getElementById('new-reset-pass').value;
+
+            const res = await fetch(`${API_URL}/auth/reset_password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, password })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification('Password Changed! Please Login.', 'success');
+                showLogin();
+            } else {
+                showNotification(data.error || 'Failed', 'error');
+            }
         }
 
         async function checkSession() {
             // Simple session check by trying to fetch models
-            const res = await fetch(`${API}/models`);
+            const res = await fetch(`${API_URL}/models`);
             if (res.ok) {
                 // Determine if admin by trying verification or just UI hint
                 // Since we don't have a dedicated /me, we'll assume not admin 
