@@ -80,7 +80,7 @@ def init_db():
                   expiry REAL,
                   FOREIGN KEY(user_id) REFERENCES users(id))''')
 
-    # Models Table
+    # Models Table - Updated Schema
     c.execute('''CREATE TABLE IF NOT EXISTS models 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                   user_id INTEGER, 
@@ -88,7 +88,34 @@ def init_db():
                   filename TEXT NOT NULL, 
                   is_public BOOLEAN DEFAULT 0,
                   created_at REAL,
+                  model_size TEXT,
+                  image_size INTEGER,
+                  thumbnail_path TEXT,
+                  unique_id TEXT,
                   FOREIGN KEY(user_id) REFERENCES users(id))''')
+
+    # Migration: Check for new model columns
+    c.execute("PRAGMA table_info(models)")
+    model_columns = [info[1] for info in c.fetchall()]
+    if 'model_size' not in model_columns:
+        print("Migrating DB: Adding new columns to models...")
+        try:
+            c.execute("ALTER TABLE models ADD COLUMN model_size TEXT")
+            c.execute("ALTER TABLE models ADD COLUMN image_size INTEGER")
+            c.execute("ALTER TABLE models ADD COLUMN thumbnail_path TEXT")
+            c.execute("ALTER TABLE models ADD COLUMN unique_id TEXT")
+        except Exception as e:
+            print(f"Model Migration Failed: {e}")
+
+    # Migration: Check for last_hwid_reset in users
+    c.execute("PRAGMA table_info(users)")
+    user_columns = [info[1] for info in c.fetchall()]
+    if 'last_hwid_reset' not in user_columns:
+        print("Migrating DB: Adding last_hwid_reset to users...")
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
+        except Exception as e:
+            print(f"User Migration Failed: {e}")
 
     # Shares Table
     c.execute('''CREATE TABLE IF NOT EXISTS shares 
@@ -477,6 +504,30 @@ def generate_license():
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 
+@app.route('/api/models', methods=['GET'])
+@login_required
+def list_models():
+    user_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Get Own Models
+    c.execute("SELECT * FROM models WHERE user_id=?", (user_id,))
+    own_models = [dict(row) for row in c.fetchall()]
+    
+    # Get Shared Models (check expiry)
+    current_time = time.time()
+    c.execute('''
+        SELECT m.*, s.expiry_date as share_expiry 
+        FROM models m 
+        JOIN shares s ON m.id = s.model_id 
+        WHERE s.target_user_id=? AND (s.expiry_date IS NULL OR s.expiry_date > ?)
+    ''', (user_id, current_time))
+    shared_models = [dict(row) for row in c.fetchall()]
+    
+    conn.close()
+    return jsonify({'own': own_models, 'shared': shared_models})
+
 @app.route('/api/models/upload', methods=['POST'])
 @login_required
 def upload_model():
@@ -485,11 +536,28 @@ def upload_model():
         
     file = request.files['file']
     name = request.form.get('name', file.filename)
+    model_size = request.form.get('model_size', 'Unknown')
+    image_size = request.form.get('image_size', 0)
     is_public = request.form.get('is_public', 'false').lower() == 'true'
     
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
         
+    # Handle Thumbnail
+    thumbnail_path = ""
+    if 'thumbnail' in request.files:
+        thumb = request.files['thumbnail']
+        if thumb.filename != '':
+            thumb_filename = secure_filename(f"thumb_{uuid.uuid4()}_{thumb.filename}")
+            # Ensure static/thumbnails exists
+            thumb_dir = os.path.join(os.path.dirname(__file__), 'static', 'thumbnails')
+            os.makedirs(thumb_dir, exist_ok=True)
+            thumb.save(os.path.join(thumb_dir, thumb_filename))
+            thumbnail_path = f"/static/thumbnails/{thumb_filename}"
+
+    # Generate 6-digit Unique ID
+    unique_id = ''.join(secrets.choice(string.digits) for _ in range(6))
+
     # Encrypt the file
     try:
         file_data = file.read()
@@ -505,74 +573,126 @@ def upload_model():
             
         conn = get_db()
         c = conn.cursor()
-        c.execute("INSERT INTO models (user_id, name, filename, is_public, created_at) VALUES (?, ?, ?, ?, ?)",
-                  (session['user_id'], name, filename, is_public, time.time()))
+        c.execute('''INSERT INTO models 
+                     (user_id, name, filename, is_public, created_at, model_size, image_size, thumbnail_path, unique_id) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (session['user_id'], name, filename, is_public, time.time(), model_size, image_size, thumbnail_path, unique_id))
         conn.commit()
         conn.close()
         
-        return jsonify({'message': 'Model uploaded and encrypted'})
+        return jsonify({'message': 'Model uploaded successfully'})
         
     except Exception as e:
-        return jsonify({'error': f'Encryption failed: {str(e)}'}), 500
+        return jsonify({'error': f'Encryption/Upload failed: {str(e)}'}), 500
 
-@app.route('/api/models', methods=['GET'])
+@app.route('/api/models/<int:model_id>/replace', methods=['POST'])
 @login_required
-def list_models():
-    user_id = session['user_id']
+def replace_model(model_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
     conn = get_db()
     c = conn.cursor()
+    model = c.execute("SELECT * FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
     
-    # Get Own + Public + Shared
-    query = '''
-        SELECT m.id, m.name, u.username as owner, 'owned' as type 
-        FROM models m JOIN users u ON m.user_id = u.id 
-        WHERE m.user_id = ?
-        UNION
-        SELECT m.id, m.name, u.username as owner, 'public' as type 
-        FROM models m JOIN users u ON m.user_id = u.id 
-        WHERE m.is_public = 1
-        UNION
-        SELECT m.id, m.name, u.username as owner, 'shared' as type 
-        FROM models m JOIN users u ON m.user_id = u.id 
-        JOIN shares s ON s.model_id = m.id 
-        WHERE s.target_user_id = ? AND s.expiry_date > ?
-    '''
+    if not model:
+        conn.close()
+        return jsonify({'error': 'Model not found or permission denied'}), 403
+
+    # Encrypt the NEW file
+    try:
+        file_data = file.read()
+        cipher = AES.new(SECRET_KEY, AES.MODE_CBC, IV)
+        encrypted_data = cipher.encrypt(pad(file_data, AES.block_size))
+        
+        # Overwrite the existing file
+        path = os.path.join(MODEL_DIR, model['filename'])
+        
+        with open(path, 'wb') as f:
+            f.write(encrypted_data)
+            
+        conn.close()
+        return jsonify({'message': 'Model file replaced successfully'})
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f'Replacement failed: {str(e)}'}), 500
+
+@app.route('/api/models/<int:model_id>/delete', methods=['DELETE'])
+@login_required
+def delete_model(model_id):
+    conn = get_db()
+    c = conn.cursor()
+    model = c.execute("SELECT * FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
     
-    c.execute(query, (user_id, user_id, time.time()))
-    models = [dict(row) for row in c.fetchall()]
+    if model:
+        # Remove file
+        try:
+            os.remove(os.path.join(MODEL_DIR, model['filename']))
+        except OSError:
+            pass # File might be gone properly
+            
+        c.execute("DELETE FROM models WHERE id=?", (model_id,))
+        c.execute("DELETE FROM shares WHERE model_id=?", (model_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Model deleted'})
+    
     conn.close()
-    
-    return jsonify(models)
+    return jsonify({'error': 'Model not found or permission denied'}), 404
 
 @app.route('/api/models/<int:model_id>/share', methods=['POST'])
 @login_required
 def share_model(model_id):
-    target_username = request.json.get('username')
-    days = float(request.json.get('days', 30))
+    data = request.json
+    target_username = data.get('username')
+    expiry_timestamp = data.get('expiry') # Timestamp or None for permanent
     
     conn = get_db()
     c = conn.cursor()
     
     # Verify ownership
-    c.execute("SELECT * FROM models WHERE id=? AND user_id=?", (model_id, session['user_id']))
-    if not c.fetchone():
+    model = c.execute("SELECT * FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
+    if not model:
         conn.close()
-        return jsonify({'error': 'Model not found or access denied'}), 403
+        return jsonify({'error': 'Model not found or permission denied'}), 403
         
-    # Find target user
-    c.execute("SELECT id FROM users WHERE username=?", (target_username,))
-    target = c.fetchone()
-    if not target:
+    target_user = c.execute("SELECT id FROM users WHERE username=?", (target_username,)).fetchone()
+    if not target_user:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
         
-    expiry = time.time() + (days * 24 * 3600)
+    if target_user['id'] == session['user_id']:
+        conn.close()
+        return jsonify({'error': 'Cannot share with yourself'}), 400
+
+    # Create/Update Share
+    c.execute("DELETE FROM shares WHERE model_id=? AND target_user_id=?", (model_id, target_user['id']))
     c.execute("INSERT INTO shares (model_id, target_user_id, expiry_date) VALUES (?, ?, ?)",
-              (model_id, target['id'], expiry))
+              (model_id, target_user['id'], expiry_timestamp))
+              
     conn.commit()
     conn.close()
-    
     return jsonify({'message': f'Shared with {target_username}'})
+
+@app.route('/api/users/search', methods=['GET'])
+@login_required
+def search_users():
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 2:
+        return jsonify([])
+    
+    conn = get_db()
+    c = conn.cursor()
+    # Find matching usernames (exclude self)
+    c.execute("SELECT id, username FROM users WHERE username LIKE ? AND id != ? LIMIT 5", 
+              (f"%{query}%", session['user_id']))
+    users = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify(users)
 
 # --- Routes: Client / Verification ---
 
