@@ -659,6 +659,10 @@ def replace_model(model_id):
         conn.close()
         return jsonify({'message': 'Model file replaced successfully!'})
 
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f'Replacement failed: {str(e)}'}), 500
+
 @app.route('/api/users/search', methods=['GET'])
 @login_required
 def search_users():
@@ -675,11 +679,6 @@ def search_users():
     conn.close()
     
     return jsonify(results)
-
-# --- Routes: Client / Verification ---
-    except Exception as e:
-        conn.close()
-        return jsonify({'error': f'Replacement failed: {str(e)}'}), 500
 
 @app.route('/api/models/<int:model_id>/delete', methods=['DELETE'])
 @login_required
