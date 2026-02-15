@@ -401,12 +401,15 @@
                 if (res.ok) {
                     console.log("Login OK, saving token and reloading...");
 
+                    if (!data.username) {
+                        alert("CRITICAL: Server returned login success but NO USERNAME!\nData: " + JSON.stringify(data));
+                        return;
+                    }
+
                     localStorage.setItem('username', data.username);
                     localStorage.setItem('isAdmin', data.is_admin);
 
-                    // RELOAD THE PAGE to let the initial check handle the view
-                    // This avoids any weird state/CSS issues with the transition
-                    alert("Login Successful! Loading Dashboard...");
+                    alert(`Login Success! Saving User: ${data.username}\nReloading now...`);
                     window.location.reload();
                 } else {
                     showNotification(data.error || 'Login Failed', 'error');
@@ -750,21 +753,36 @@
         // --- Init ---
 
         // Check session on load
+        // Check session on load
         (async () => {
-            // If we had a session check endpoint, we'd use it here.
-            // For now, check if we have stored username
-            const u = localStorage.getItem('username');
-            if (u) {
-                showDashboard(u, localStorage.getItem('isAdmin') === 'true');
-            } else {
-                showLogin();
-            }
+            try {
+                // DEBUG: Check what we actually have
+                const u = localStorage.getItem('username');
+                const admin = localStorage.getItem('isAdmin');
 
-            // Check for Reset Token
-            const urlParams = new URLSearchParams(window.location.search);
-            const resetToken = urlParams.get('reset_token');
-            if (resetToken) {
-                showResetPerform(resetToken);
+                // alert(`DEBUG STARTUP:\nUser: ${u}\nAdmin: ${admin}`); // Uncomment if needed, but let's try to just log first unless it fails hard
+
+                if (u && u !== "undefined" && u !== "null") {
+                    console.log("Found user, showing dashboard...");
+                    try {
+                        showDashboard(u, admin === 'true');
+                    } catch (e) {
+                        alert("CRITICAL ERROR in showDashboard: " + e);
+                        console.error(e);
+                    }
+                } else {
+                    console.log("No user found, showing login.");
+                    showLogin();
+                }
+
+                // Check for Reset Token
+                const urlParams = new URLSearchParams(window.location.search);
+                const resetToken = urlParams.get('reset_token');
+                if (resetToken) {
+                    showResetPerform(resetToken);
+                }
+            } catch (err) {
+                alert("CRITICAL STARTUP ERROR: " + err);
             }
         })();
 
