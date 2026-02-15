@@ -578,7 +578,14 @@ def generate_license():
 def admin_list_users():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, username, email, is_admin, created_at FROM users")
+    # Join with licenses to get subscription status
+    c.execute('''
+        SELECT u.id, u.username, u.email, u.is_admin, u.is_banned, u.created_at, u.last_ip,
+               l.duration, l.expiry
+        FROM users u
+        LEFT JOIN licenses l ON u.id = l.user_id
+        ORDER BY u.id DESC
+    ''')
     users = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify(users)
