@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exclusive Aim - User Dashboard</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --bg: #0f0f13;
+            --card-bg: #1a1a20;
+            --text: #ffffff;
+            --text-dim: #a0a0a0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1,
+        h2 {
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Auth Wrapper */
+        #auth-wrapper,
+        #dashboard-wrapper {
+            display: none;
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Forms */
+        input,
+        select,
+        button {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #25252b;
+            color: white;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: var(--primary);
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.secondary {
+            background-color: #444;
+        }
+
+        button.danger {
+            background-color: #e74c3c;
+        }
+
+        /* Model List */
+        .model-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #222;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+
+        .tag {
+            font-size: 0.8em;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 10px;
+        }
+
+        .tag-public {
+            background: #2ecc71;
+            color: #000;
+        }
+
+        .tag-private {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .tag-shared {
+            background: #f1c40f;
+            color: #000;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header class="nav">
+            <h1>EXCLUSIVE<span>AIM</span></h1>
+            <div id="userInfo" style="display:none">
+                <span id="usernameDisplay">User</span>
+                <button onclick="logout()" style="width: auto; margin-left:10px; padding: 5px 15px;">Logout</button>
+            </div>
+        </header>
+
+        <!-- Auth View -->
+        <div id="auth-wrapper">
+            <div class="card">
+                <h2>Login</h2>
+                <input type="text" id="loginUser" placeholder="Username">
+                <input type="password" id="loginPass" placeholder="Password">
+                <button onclick="login()">Login</button>
+            </div>
+            <div class="card">
+                <h2>Register</h2>
+                <input type="text" id="regUser" placeholder="Username">
+                <input type="password" id="regPass" placeholder="Password">
+                <button onclick="register()" class="secondary">Create Account</button>
+            </div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-wrapper">
+
+            <!-- License Section -->
+            <div class="card">
+                <h2>License Key</h2>
+                <p style="font-size: 0.9em; color: var(--text-dim);">Enter a key provided by the admin to unlock client
+                    access.</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="claimKeyInput" placeholder="Enter License Key">
+                    <button onclick="claimKey()" style="width: 150px;">Claim</button>
+                </div>
+            </div>
+
+            <!-- Admin Section -->
+            <div id="adminPanel" class="card" style="display:none; border: 1px solid var(--primary);">
+                <h2>👑 Admin Panel</h2>
+                <div style="display: flex; gap: 10px;">
+                    <select id="genDuration">
+                        <option value="LIFETIME">Lifetime</option>
+                        <option value="2592000">30 Days</option>
+                        <option value="86400">1 Day</option>
+                    </select>
+                    <button onclick="generateLicense()">Generate License Key</button>
+                </div>
+                <div id="adminOutput" style="margin-top: 10px; font-family: monospace; color: #2ecc71;"></div>
+            </div>
+
+            <!-- Model Upload -->
+            <div class="card">
+                <h2>Upload Model</h2>
+                <input type="text" id="uploadName" placeholder="Model Name (e.g. V1 Legit)">
+                <input type="file" id="uploadFile">
+                <label style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
+                    <input type="checkbox" id="uploadPublic" style="width: 20px;"> Make Public
+                </label>
+                <button onclick="uploadModel()">Upload .enc / .onnx</button>
+            </div>
+
+            <!-- My Models -->
+            <div class="card">
+                <h2>My Models</h2>
+                <div id="modelsList">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+        let currentUser = null;
+
+        // --- Auth ---
+        async function login() {
+            const u = document.getElementById('loginUser').value;
+            const p = document.getElementById('loginPass').value;
+            const res = await fetch(`${API}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                currentUser = { username: u, isAdmin: data.is_admin };
+                showDashboard();
+            } else {
+                alert(data.error);
+            }
+        }
+
+        async function register() {
+            const u = document.getElementById('regUser').value;
+            const p = document.getElementById('regPass').value;
+            const res = await fetch(`${API}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p })
+            });
+            if (res.ok) {
+                alert('Registered! Please login.');
+            } else {
+                alert((await res.json()).error);
+            }
+        }
+
+        async function logout() {
+            await fetch(`${API}/logout`, { method: 'POST' });
+            currentUser = null;
+            showAuth();
+        }
+
+        // --- Dashboard ---
+        function showAuth() {
+            document.getElementById('auth-wrapper').style.display = 'block';
+            document.getElementById('dashboard-wrapper').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'none';
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-wrapper').style.display = 'none';
+            document.getElementById('dashboard-wrapper').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('usernameDisplay').textContent = currentUser.username;
+
+            if (currentUser.isAdmin) {
+                document.getElementById('adminPanel').style.display = 'block';
+            }
+
+            loadModels();
+        }
+
+        // --- Features ---
+        async function claimKey() {
+            const key = document.getElementById('claimKeyInput').value;
+            const res = await fetch(`${API}/user/claim_key`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            });
+            const data = await res.json();
+            alert(res.ok ? data.message : data.error);
+        }
+
+        async function generateLicense() {
+            const duration = document.getElementById('genDuration').value;
+            const res = await fetch(`${API}/admin/generate_license`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ duration })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('adminOutput').innerText = `Generated Key: ${data.key}\n(Copy this now!)`;
+            } else {
+                alert(data.error);
+            }
+        }
+
+        async function uploadModel() {
+            const fileInput = document.getElementById('uploadFile');
+            const file = fileInput.files[0];
+            if (!file) return alert('Select a file');
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('name', document.getElementById('uploadName').value);
+            formData.append('is_public', document.getElementById('uploadPublic').checked);
+
+            const res = await fetch(`${API}/models/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                alert('Uploaded!');
+                loadModels();
+                fileInput.value = '';
+            } else {
+                alert('Upload failed');
+            }
+        }
+
+        async function loadModels() {
+            const res = await fetch(`${API}/models`);
+            const models = await res.json();
+            const list = document.getElementById('modelsList');
+            list.innerHTML = '';
+
+            models.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'model-item';
+
+                let html = `<div>
+                <strong>${m.name}</strong> 
+                <span style="font-size:0.8em; color:#888">by ${m.owner}</span>`;
+
+                if (m.type === 'public') html += `<span class="tag tag-public">Public</span>`;
+                if (m.type === 'shared') html += `<span class="tag tag-shared">Shared</span>`;
+
+                html += `</div>`;
+
+                // Actions
+                html += `<div>`;
+                if (m.type === 'owned') {
+                    html += `<button class="secondary" onclick="shareModel(${m.id})" style="width:auto; padding:5px 10px; font-size:0.8em; margin-right:5px;">Share</button>`;
+                }
+                // ID needed for download logic in client, but for now just showing existence
+                html += `<span style="font-size:0.8em; color:#666">ID: ${m.id}</span>`;
+                html += `</div>`;
+
+                div.innerHTML = html;
+                list.appendChild(div);
+            });
+        }
+
+        async function shareModel(id) {
+            const user = prompt("Enter username to share with:");
+            if (!user) return;
+
+            const days = prompt("Duration (days)?", "30");
+
+            const res = await fetch(`${API}/models/${id}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, days })
+            });
+            const data = await res.json();
+            alert(res.ok ? data.message : data.error);
+        }
+
+        // Init
+        showAuth();
+    </script>
+
+</body>
+
+</html>
