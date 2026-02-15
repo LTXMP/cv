@@ -518,9 +518,10 @@ def list_models():
     # Get Shared Models (check expiry)
     current_time = time.time()
     c.execute('''
-        SELECT m.*, s.expiry_date as share_expiry 
+        SELECT m.*, s.expiry_date as share_expiry, u.username as owner_username
         FROM models m 
         JOIN shares s ON m.id = s.model_id 
+        JOIN users u ON m.user_id = u.id
         WHERE s.target_user_id=? AND (s.expiry_date IS NULL OR s.expiry_date > ?)
     ''', (user_id, current_time))
     shared_models = [dict(row) for row in c.fetchall()]
