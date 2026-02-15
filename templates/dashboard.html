@@ -395,14 +395,31 @@
                 </div>
 
                 <div class="card">
+                    <h3>Unclaimed Licenses</h3>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
+                            <thead>
+                                <tr style="border-bottom:1px solid #333; cursor:pointer;">
+                                    <th style="padding:10px;" onclick="sortLicenses('key')">Key ↕</th>
+                                    <th style="padding:10px;" onclick="sortLicenses('duration')">Duration ↕</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-licenses-list">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
                     <h3>User Management</h3>
                     <div style="overflow-x:auto;">
                         <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
                             <thead>
                                 <tr style="border-bottom:1px solid #333;">
                                     <th style="padding:10px;">ID</th>
-                                    <th style="padding:10px;">Username</th>
-                                    <th style="padding:10px;">Email</th>
+                                    <th style="padding:10px;">User (Hover for Info)</th>
+                                    <th style="padding:10px;">Status</th>
                                     <th style="padding:10px;">Role</th>
                                     <th style="padding:10px;">Actions</th>
                                 </tr>
@@ -423,7 +440,7 @@
                                     <th style="padding:10px;">ID</th>
                                     <th style="padding:10px;">Name</th>
                                     <th style="padding:10px;">Owner</th>
-                                    <th style="padding:10px;">Size</th>
+                                    <th style="padding:10px;">Visibility</th>
                                     <th style="padding:10px;">Actions</th>
                                 </tr>
                             </thead>
@@ -450,6 +467,55 @@
         async function loadAdminData() {
             loadAdminUsers();
             loadAdminModels();
+            loadAdminLicenses();
+        }
+
+        let adminLicenses = []; // Store for sorting
+        let sortDir = 1; // 1 asc, -1 desc
+
+        async function loadAdminLicenses() {
+            try {
+                const res = await fetch(`${API_URL}/admin/licenses`);
+                adminLicenses = await res.json();
+                renderLicenses(adminLicenses);
+            } catch (e) {
+                console.error("Failed to load licenses", e);
+            }
+        }
+
+        function renderLicenses(list) {
+            const tbody = document.getElementById('admin-licenses-list');
+            tbody.innerHTML = '';
+            list.forEach(l => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #333';
+                tr.innerHTML = `
+                    <td style="padding:10px; font-family:monospace; color:#2ecc71;">${l.key}</td>
+                    <td style="padding:10px;">${l.duration}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sortLicenses(col) {
+            sortDir *= -1; // Toggle
+            adminLicenses.sort((a, b) => {
+                let valA = a[col];
+                let valB = b[col];
+
+                // Map Duration Strings to values for sorting if needed
+                if (col === 'duration') {
+                    if (valA === 'LIFETIME') valA = 9999999999;
+                    else valA = parseInt(valA);
+                    if (valB === 'LIFETIME') valB = 9999999999;
+                    else valB = parseInt(valB);
+                }
+
+                if (valA < valB) return -1 * sortDir;
+                if (valA > valB) return 1 * sortDir;
+                return 0;
+            });
+            renderLicenses(adminLicenses);
         }
 
         async function loadAdminUsers() {
@@ -462,13 +528,26 @@
                 users.forEach(u => {
                     const tr = document.createElement('tr');
                     tr.style.borderBottom = '1px solid #333';
+
+                    const banStatus = u.is_banned ? '<span class="tag" style="background:#e74c3c">BANNED</span>' : '<span class="tag" style="background:#2ecc71">Active</span>';
+                    const tooltip = `Email: ${u.email}\nLast IP: ${u.last_ip || 'None'}\nCreated: ${new Date(u.created_at * 1000).toLocaleDateString()}`;
+
                     tr.innerHTML = `
                         <td style="padding:10px;">${u.id}</td>
-                        <td style="padding:10px; color:${u.is_admin ? 'var(--primary)' : 'white'}">${u.username}</td>
-                        <td style="padding:10px;">${u.email}</td>
+                        <td style="padding:10px;" title="${tooltip}">
+                            <span style="border-bottom:1px dotted #777; cursor:help;">${u.username}</span>
+                        </td>
+                        <td style="padding:10px;">${banStatus}</td>
                         <td style="padding:10px;">${u.is_admin ? 'ADMIN' : 'User'}</td>
-                        <td style="padding:10px;">
-                            ${!u.is_admin ? `<button class="btn danger" style="padding:5px 10px; font-size:0.8em;" onclick="adminDeleteUser(${u.id}, '${u.username}')">Delete</button>` : '-'}
+                        <td style="padding:10px; display:flex; gap:5px; flex-wrap:wrap;">
+                            ${!u.is_admin ? `
+                                <button class="btn secondary" style="padding:5px; font-size:0.75em;" onclick="adminResetPass(${u.id})">Reset PW</button>
+                                ${u.is_banned ?
+                                `<button class="btn primary" style="padding:5px; font-size:0.75em;" onclick="adminUnbanUser(${u.id})">Unban</button>` :
+                                `<button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanUser(${u.id})">Ban</button>`}
+                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanIP('${u.last_ip}')">Ban IP</button>
+                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminDeleteUser(${u.id}, '${u.username}')">X</button>
+                            ` : '-'}
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -476,6 +555,36 @@
             } catch (e) {
                 console.error("Failed to load users", e);
             }
+        }
+
+        async function adminBanUser(id) {
+            if (!confirm("Ban this user?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${id}/ban`, { method: 'POST' });
+            if (res.ok) { showNotification("User Banned", "success"); loadAdminUsers(); }
+        }
+
+        async function adminUnbanUser(id) {
+            if (!confirm("Unban this user?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${id}/unban`, { method: 'POST' });
+            if (res.ok) { showNotification("User Unbanned", "success"); loadAdminUsers(); }
+        }
+
+        async function adminResetPass(id) {
+            if (!confirm("Reset user password to 'ChangeMe123!'?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${id}/reset_pass`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) { alert(data.message); }
+        }
+
+        async function adminBanIP(ip) {
+            if (!ip || ip === 'null' || ip === 'None') { alert("No IP recorded for user."); return; }
+            if (!confirm(`Ban IP Address ${ip}?`)) return;
+            const res = await fetch(`${API_URL}/admin/ip_ban`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip })
+            });
+            if (res.ok) { showNotification("IP Banned", "success"); }
         }
 
         async function adminDeleteUser(id, name) {
@@ -505,9 +614,14 @@
                         <td style="padding:10px;">${m.id}</td>
                         <td style="padding:10px;">${m.name}</td>
                         <td style="padding:10px;">${m.owner_username}</td>
-                        <td style="padding:10px;">${m.model_size}</td>
                         <td style="padding:10px;">
-                            <button class="btn danger" style="padding:5px 10px; font-size:0.8em;" onclick="adminDeleteModel(${m.id})">Delete</button>
+                             ${m.is_public ? '<span style="color:#2ecc71">Public</span>' : '<span style="color:#e74c3c">Private</span>'}
+                        </td>
+                        <td style="padding:10px; display:flex; gap:5px;">
+                            <button class="btn secondary" style="padding:5px; font-size:0.75em;" onclick="adminToggleModel(${m.id}, ${m.is_public})">
+                                ${m.is_public ? 'Unpublish' : 'Publish'}
+                            </button>
+                            <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminDeleteModel(${m.id})">Delete</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -515,6 +629,16 @@
             } catch (e) {
                 console.error("Failed to load all models", e);
             }
+        }
+
+        async function adminToggleModel(id, current) {
+            const action = current ? 'private' : 'public';
+            const res = await fetch(`${API_URL}/admin/models/${id}/publish`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+            if (res.ok) { loadAdminModels(); }
         }
 
         async function adminDeleteModel(id) {
@@ -525,6 +649,23 @@
                 loadAdminModels();
             } else {
                 showNotification('Failed to delete model', 'error');
+            }
+        }
+
+        // Generate License Wrapper to refresh list
+        const originalGen = window.generateLicense;
+        window.generateLicense = async function () {
+            const duration = document.getElementById('gen-duration').value;
+            const res = await fetch(`${API_URL}/admin/generate_license`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ duration })
+            });
+            const data = await res.json();
+            if (data.key) {
+                document.getElementById('new-license-key').innerText = data.key;
+                document.getElementById('gen-result').style.display = 'block';
+                loadAdminLicenses(); // Refresh list
             }
         }
 
