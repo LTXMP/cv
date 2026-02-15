@@ -203,9 +203,11 @@ def register():
         return jsonify({'error': 'Missing credentials'}), 400
 
     if not is_valid_email(email):
+        print(f"Register Failed: Invalid email '{email}'")
         return jsonify({'error': 'Invalid email format'}), 400
         
     if not is_valid_password(password):
+        print(f"Register Failed: Weak password for '{username}'")
         return jsonify({'error': 'Password too weak. Min 8 chars, 1 number/special required.'}), 400
 
     conn = get_db()
@@ -215,10 +217,13 @@ def register():
         c.execute("INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
                   (username, email, hashed, time.time()))
         conn.commit()
+        print(f"Register Success: Created user '{username}'")
         return jsonify({'message': 'Registered successfully'})
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as e:
+        print(f"Register Failed: Integrity Error: {e}")
         return jsonify({'error': 'Username or Email taken'}), 409
     except Exception as e:
+        print(f"Register Failed: DB Error: {e}")
         return jsonify({'error': f'Database error: {str(e)}'}), 500
     finally:
         conn.close()
@@ -236,13 +241,19 @@ def login():
     c.execute("SELECT * FROM users WHERE email=? OR username=?", (entered_login, entered_login))
     user = c.fetchone()
     conn.close()
+
+    if not user:
+        print(f"Login Failed: User '{entered_login}' not found.")
+        return jsonify({'error': 'Invalid credentials'}), 401
     
     if user and check_password_hash(user['password_hash'], password):
+        print(f"Login Success: User '{entered_login}' logged in.")
         session['user_id'] = user['id']
         session['username'] = user['username']
         session['is_admin'] = user['is_admin']
         return jsonify({'message': 'Logged in', 'username': user['username'], 'is_admin': bool(user['is_admin'])})
     
+    print(f"Login Failed: Password mismatch for user '{entered_login}'.")
     return jsonify({'error': 'Invalid credentials'}), 401
 
 @app.route('/api/logout', methods=['POST'])
