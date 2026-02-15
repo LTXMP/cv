@@ -8,8 +8,8 @@ from Crypto.Util.Padding import pad
 app = Flask(__name__)
 DB_PATH = 'database.db'
 MODEL_PATH = 'models/best.enc'
-SECRET_KEY = b'YourSecretKey_32bytes_Long!!!' # CHANGE THIS!
-IV = b'16_byte_iv_here!' # CHANGE THIS!
+SECRET_KEY = b'a7Kp9Xq2LmR4tZ8bN3vY6cD1wH5eJ0uQ' 
+IV = b'G7kP2xQ9mR4zT1bN' 
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -87,3 +87,4 @@ def get_model():
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=10000)
+
