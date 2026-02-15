@@ -17,8 +17,8 @@ from werkzeug.utils import secure_filename
 def send_email(to_email, subject, body):
     smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
     smtp_port = int(os.environ.get('SMTP_PORT', 587))
-    smtp_user = os.environ.get('SMTP_USER', '')
-    smtp_pass = os.environ.get('SMTP_PASS', '')
+    smtp_user = os.environ.get('SMTP_USER') or os.environ.get('SMTP_EMAIL')
+    smtp_pass = os.environ.get('SMTP_PASS') or os.environ.get('SMTP_PASSWORD')
     
     if not smtp_user or not smtp_pass:
         print(f"SMTP Config Missing. MOCK EMAIL to {to_email}: {subject}\n{body}")
