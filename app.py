@@ -373,13 +373,28 @@ def client_auth():
     conn.execute("UPDATE users SET last_ip=? WHERE id=?", (request.remote_addr, user['id']))
     
     current_time = time.time()
-    license = c.execute("SELECT * FROM licenses WHERE user_id=?", (user['id'],)).fetchone()
+    # Fix: Get the license with the most time remaining (Greatest expiry)
+    license = c.execute("SELECT * FROM licenses WHERE user_id=? ORDER BY expiry DESC", (user['id'],)).fetchone()
 
     if not license:
         conn.close()
         return jsonify({'authorized': False, 'message': 'No active subscription found. Please claim a key on the dashboard.'}), 403
 
-    if license['expiry'] < current_time:
+    # Handle numeric vs 'LIFETIME' string
+    expiry = license['expiry']
+    is_expired = False
+    if isinstance(expiry, (int, float)):
+        if expiry < current_time:
+            is_expired = True
+    elif isinstance(expiry, str) and expiry != 'LIFETIME':
+        # Fallback for stored numbers as strings
+        try:
+            if float(expiry) < current_time:
+                is_expired = True
+        except ValueError:
+            pass
+
+    if is_expired:
          conn.close()
          return jsonify({'authorized': False, 'message': 'Subscription expired.'}), 403
 
@@ -464,7 +479,8 @@ def get_user_license():
     conn = get_db()
     c = conn.cursor()
     
-    license = c.execute("SELECT * FROM licenses WHERE user_id=?", (user_id,)).fetchone()
+    # Fix: Always show the best/latest license info
+    license = c.execute("SELECT * FROM licenses WHERE user_id=? ORDER BY expiry DESC", (user_id,)).fetchone()
     conn.close()
     
     if license:
@@ -635,7 +651,7 @@ def admin_set_role(user_id):
 
 @app.route('/api/admin/users/<int:user_id>/cancel_sub', methods=['POST'])
 @admin_required
-def admin_cancel_sub(user_id):
+def admin_cancel_sub_old(user_id):
     conn = get_db()
     conn.execute("UPDATE licenses SET user_id=NULL WHERE user_id=?", (user_id,))
     conn.commit()
@@ -726,22 +742,6 @@ def generate_license():
     
     return jsonify({'key': key, 'duration': duration})
 
-@app.route('/api/admin/users', methods=['GET'])
-@admin_required
-def admin_list_users():
-    conn = get_db()
-    c = conn.cursor()
-    # Join with licenses to get subscription status and include is_helper
-    c.execute('''
-        SELECT u.id, u.username, u.email, u.is_admin, u.is_helper, u.is_banned, u.created_at, u.last_ip,
-               l.duration, l.expiry
-        FROM users u
-        LEFT JOIN licenses l ON u.id = l.user_id
-        ORDER BY u.id DESC
-    ''')
-    users = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return jsonify(users)
 
 @app.route('/api/admin/users/<int:user_id>/delete', methods=['POST', 'DELETE'])
 @admin_required
@@ -770,6 +770,23 @@ def admin_delete_user(user_id):
     conn.commit()
     conn.close()
     return jsonify({'message': 'User deleted'})
+
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def admin_list_users():
+    conn = get_db()
+    c = conn.cursor()
+    # Comprehensive joined list with license info
+    c.execute('''
+        SELECT u.id, u.username, u.email, u.is_admin, u.is_helper, u.is_banned, u.created_at, u.last_ip,
+               l.duration, l.expiry
+        FROM users u
+        LEFT JOIN licenses l ON u.id = l.user_id
+        ORDER BY u.id DESC
+    ''')
+    users = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify(users)
 
 @app.route('/api/admin/models', methods=['GET'])
 @admin_required
@@ -1130,9 +1147,14 @@ def verify_license():
         return jsonify({'error': 'HWID Mismatch'}), 403
         
     # Check Expiry (if applicable)
-    if license_row['expiry'] and license_row['expiry'] < time.time():
-        conn.close()
-        return jsonify({'error': 'License Expired'}), 403
+    expiry = license_row['expiry']
+    if expiry and expiry != 'LIFETIME':
+        try:
+            if float(expiry) < time.time():
+                conn.close()
+                return jsonify({'error': 'License Expired'}), 403
+        except (ValueError, TypeError):
+            pass
         
     conn.close()
     return jsonify({'message': 'License Valid', 'duration': license_row['duration']})
