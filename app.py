@@ -878,11 +878,12 @@ def list_models():
     
     # Get Shared Models (check expiry)
     current_time = time.time()
-    # Get shared models
+    # Get shared models with owner username
     c.execute('''
-        SELECT m.id, m.name, m.filename, m.model_size, m.image_size 
+        SELECT m.id, m.name, m.filename, m.model_size, m.image_size, m.unique_id, u.username as owner_username
         FROM models m 
         JOIN shares s ON m.id = s.model_id 
+        JOIN users u ON m.user_id = u.id
         WHERE s.target_user_id=? AND (s.expiry_date IS NULL OR s.expiry_date > ?)
     ''', (user_id, current_time))
     shared_models = [dict(row) for row in c.fetchall()]
@@ -1152,6 +1153,54 @@ def share_model(model_id):
     conn.commit()
     conn.close()
     return jsonify({'message': f'Shared with {target_username}'})
+
+@app.route('/api/models/<int:model_id>/shares', methods=['GET'])
+@login_required
+def get_model_shares(model_id):
+    """List all users this model is currently shared with"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Verify ownership or Admin
+    if not session.get('is_admin'):
+        model = c.execute("SELECT 1 FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
+        if not model:
+            conn.close()
+            return jsonify({'error': 'Forbidden'}), 403
+            
+    c.execute('''
+        SELECT s.id, u.username, s.expiry_date 
+        FROM shares s
+        JOIN users u ON s.target_user_id = u.id
+        WHERE s.model_id = ?
+    ''', (model_id,))
+    shares = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify(shares)
+
+@app.route('/api/shares/<int:share_id>/revoke', methods=['POST', 'DELETE'])
+@login_required
+def revoke_share(share_id):
+    """Revoke a specific model share"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check if user owns the model that is shared
+    c.execute('''
+        SELECT m.user_id FROM models m
+        JOIN shares s ON m.id = s.model_id
+        WHERE s.id = ?
+    ''', (share_id,))
+    row = c.fetchone()
+    
+    if not row or (row['user_id'] != session['user_id'] and not session.get('is_admin')):
+        conn.close()
+        return jsonify({'error': 'Forbidden'}), 403
+        
+    c.execute("DELETE FROM shares WHERE id = ?", (share_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Share revoked'})
 
 @app.route('/api/models/verify_access/<int:model_id>', methods=['GET'])
 def verify_model_access(model_id):
