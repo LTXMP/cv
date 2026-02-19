@@ -1153,6 +1153,44 @@ def share_model(model_id):
     conn.close()
     return jsonify({'message': f'Shared with {target_username}'})
 
+@app.route('/api/models/verify_access/<int:model_id>', methods=['GET'])
+def verify_model_access(model_id):
+    """Client-side guard: Check if user still has access to a cached model"""
+    email = request.headers.get('X-User-Email')
+    password = request.headers.get('X-User-Password')
+    
+    if not email or not password:
+        return jsonify({'authorized': False, 'error': 'Auth Required'}), 401
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT id, password_hash, is_admin FROM users WHERE email = ?', (email,))
+    user = c.fetchone()
+    
+    if not user or not check_password_hash(user['password_hash'], password):
+        conn.close()
+        return jsonify({'authorized': False, 'error': 'Invalid Credentials'}), 401
+        
+    user_id = user['id']
+    is_admin = user['is_admin']
+    
+    # Check permission logic (Admin/Owner/Shared/Public)
+    query = '''
+        SELECT 1 FROM models m 
+        LEFT JOIN shares s ON s.model_id = m.id 
+        WHERE m.id = ? AND (
+            m.is_public = 1 OR 
+            m.user_id = ? OR 
+            ? = 1 OR
+            (s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?))
+        )
+    '''
+    c.execute(query, (model_id, user_id, is_admin, user_id, time.time()))
+    allowed = c.fetchone() is not None
+    conn.close()
+    
+    return jsonify({'authorized': allowed, 'model_id': model_id})
+
 
 
 # --- Routes: Client / Verification ---
