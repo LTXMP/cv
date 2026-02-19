@@ -1114,9 +1114,23 @@
                             Size: ${m.model_size} | Img: ${m.image_size}
                         </p>
                         <div class="row" style="margin-top:10px; gap:10px;">
-                            <button class="btn secondary" onclick="openShareModal(${m.id})">Share</button>
+                            <button class="btn secondary" onclick="toggleShareUI(${m.id})">Manage Access</button>
                             <button class="btn secondary" onclick="replaceModel(${m.id})">Replace File</button>
                             <button class="btn danger" onclick="deleteModel(${m.id})">Delete</button>
+                        </div>
+                        <div id="share-ui-${m.id}" class="card hidden" style="margin-top: 15px; background: #111; border: 1px solid #333;">
+                            <h4>Shared Users</h4>
+                            <div id="share-list-${m.id}" style="font-size: 0.9em; margin-bottom: 15px;">
+                                <!-- Shared users list -->
+                            </div>
+                            <div style="border-top: 1px solid #333; padding-top: 10px;">
+                                <label style="font-size: 0.8em; color: var(--text-dim);">Share with User:</label>
+                                <div class="row" style="margin-top: 5px;">
+                                    <input type="text" id="share-username-${m.id}" placeholder="Username" style="flex: 1;">
+                                    <input type="number" id="share-days-${m.id}" placeholder="Days (Opt)" style="width: 80px;">
+                                    <button class="btn primary" style="width: auto; padding: 0 15px;" onclick="executeShare(${m.id})">Grant</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1228,29 +1242,58 @@
 
         // --- Sharing Logic ---
 
-        function openShareModal(modelId) {
-            // Simplified "Modal" using prompts for now to save UI complexity
-            // In a full implementation, build a proper overlay div
+        // --- Sharing UI Logic ---
 
-            // 1. Search User
-            const username = prompt("Enter username to share with:");
-            if (!username) return;
-
-            // 2. Select Duration
-            const durationStr = prompt("Enter duration in days (leave empty for Permanent):");
-            let expiry = null;
-            if (durationStr) {
-                const days = parseFloat(durationStr);
-                if (!isNaN(days)) {
-                    // Current Time + Days * Seconds in Day
-                    expiry = (Date.now() / 1000) + (days * 86400);
-                }
+        async function toggleShareUI(modelId) {
+            const ui = document.getElementById(`share-ui-${modelId}`);
+            if (ui.classList.contains('hidden')) {
+                ui.classList.remove('hidden');
+                loadModelShares(modelId);
+            } else {
+                ui.classList.add('hidden');
             }
-
-            shareModel(modelId, username, expiry);
         }
 
-        async function shareModel(modelId, username, expiry) {
+        async function loadModelShares(modelId) {
+            const list = document.getElementById(`share-list-${modelId}`);
+            list.innerHTML = '<p style="color:var(--text-dim);">Loading shares...</p>';
+
+            try {
+                const res = await fetch(`${API_URL}/models/${modelId}/shares`);
+                const shares = await res.json();
+
+                if (shares.length === 0) {
+                    list.innerHTML = '<p style="color:var(--text-dim); font-style: italic;">Not shared with anyone yet.</p>';
+                    return;
+                }
+
+                list.innerHTML = '';
+                shares.forEach(s => {
+                    const expiry = s.expiry_date ? new Date(s.expiry_date * 1000).toLocaleDateString() : 'Permanent';
+                    const div = document.createElement('div');
+                    div.style = "display: flex; justify-content: space-between; align-items: center; background: #222; padding: 8px; border-radius: 4px; margin-bottom: 5px;";
+                    div.innerHTML = `
+                        <span><strong>${s.username}</strong> <span style="font-size:0.8em; color:var(--text-dim);">(${expiry})</span></span>
+                        <button class="btn danger" style="width: auto; padding: 2px 8px; font-size: 0.8em;" onclick="revokeShare(${modelId}, ${s.id})">Revoke</button>
+                    `;
+                    list.appendChild(div);
+                });
+            } catch (e) {
+                list.innerHTML = '<p style="color:#e74c3c;">Failed to load shares.</p>';
+            }
+        }
+
+        async function executeShare(modelId) {
+            const username = document.getElementById(`share-username-${modelId}`).value.trim();
+            const daysInput = document.getElementById(`share-days-${modelId}`).value;
+
+            if (!username) return showNotification("Enter a username", "error");
+
+            let expiry = null;
+            if (daysInput) {
+                expiry = (Date.now() / 1000) + (parseFloat(daysInput) * 86400);
+            }
+
             const res = await fetch(`${API_URL}/models/${modelId}/share`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1260,8 +1303,22 @@
 
             if (res.ok) {
                 showNotification(data.message, 'success');
+                document.getElementById(`share-username-${modelId}`).value = '';
+                document.getElementById(`share-days-${modelId}`).value = '';
+                loadModelShares(modelId);
             } else {
                 showNotification(data.error, 'error');
+            }
+        }
+
+        async function revokeShare(modelId, shareId) {
+            if (!confirm("Revoke access for this user?")) return;
+            const res = await fetch(`${API_URL}/shares/${shareId}/revoke`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('Access Revoked', 'success');
+                loadModelShares(modelId);
+            } else {
+                showNotification('Revoke Failed', 'error');
             }
         }
 
