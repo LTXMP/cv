@@ -182,6 +182,35 @@ def init_db():
                   FOREIGN KEY(model_id) REFERENCES models(id),
                   FOREIGN KEY(target_user_id) REFERENCES users(id))''')
 
+    # Migration: Check for last_hwid_reset and total_time in users
+    c.execute("PRAGMA table_info(users)")
+    user_cols = [info[1] for info in c.fetchall()]
+    if 'last_hwid_reset' not in user_cols:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
+        except: pass
+        
+    if 'total_time' not in user_cols:
+        try:
+            print("DB Migration: Adding total_time column...")
+            c.execute("ALTER TABLE users ADD COLUMN total_time REAL DEFAULT 0")
+            conn.commit()
+        except Exception as e: 
+            print(f"Col Migration Warning: {e}")
+    
+    # Backfill: Populate total_time from existing licenses if empty
+    try:
+        c.execute("SELECT user_id, duration FROM licenses WHERE user_id IS NOT NULL")
+        license_rows = c.fetchall()
+        for row in license_rows:
+            u_id = row['user_id']
+            dur = str(row['duration'])
+            dur_sec = 315360000 if dur == 'LIFETIME' else (float(dur) if dur.replace('.','').isdigit() else 0)
+            c.execute("UPDATE users SET total_time = ? WHERE id = ? AND (total_time IS NULL OR total_time = 0)", (dur_sec, u_id))
+        conn.commit()
+    except Exception as e:
+        print(f"Backfill Error: {e}")
+
     # User Config Table (JSON storage for device settings)
     c.execute('''CREATE TABLE IF NOT EXISTS user_configs 
                  (user_id INTEGER PRIMARY KEY, 
@@ -481,16 +510,21 @@ def get_user_license():
     
     # Fix: Always show the best/latest license info
     license = c.execute("SELECT * FROM licenses WHERE user_id=? ORDER BY expiry DESC", (user_id,)).fetchone()
+    user = c.execute("SELECT total_time FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
+    
+    total_time = user['total_time'] if user else 0
     
     if license:
         return jsonify({
             'status': 'Active',
             'type': license['duration'],
-            'expiry': time.strftime('%Y-%m-%d', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never'
+            'expiry': time.strftime('%Y-%m-%d', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never',
+            'hwid_bound': True if (license['hwid'] and license['hwid'] != "") else False,
+            'total_time': total_time
         })
     else:
-        return jsonify({'status': 'Inactive'})
+        return jsonify({'status': 'Inactive', 'total_time': total_time})
 
 @app.route('/api/user/claim_key', methods=['POST'])
 @login_required
@@ -774,16 +808,18 @@ def admin_delete_user(user_id):
 @app.route('/api/admin/users', methods=['GET'])
 @admin_required
 def admin_list_users():
+    search = request.args.get('search', '').strip()
     conn = get_db()
     c = conn.cursor()
-    # Comprehensive joined list with license info
-    c.execute('''
-        SELECT u.id, u.username, u.email, u.is_admin, u.is_helper, u.is_banned, u.created_at, u.last_ip,
-               l.duration, l.expiry
-        FROM users u
-        LEFT JOIN licenses l ON u.id = l.user_id
-        ORDER BY u.id DESC
-    ''')
+    
+    if search:
+        # Search closest to the query, limit to 20 for better visibility
+        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
+                  (f"%{search}%", f"%{search}%"))
+    else:
+        # Default: 10 newest registrations
+        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users ORDER BY id DESC LIMIT 10")
+        
     users = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify(users)
