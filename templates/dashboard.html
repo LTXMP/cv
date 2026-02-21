@@ -264,10 +264,14 @@
             <!-- Perform Reset Section -->
             <div id="reset-perform-section" class="section hidden">
                 <h2>Set New Password</h2>
-                <input type="hidden" id="reset-token">
+                <p style="color:var(--text-dim); font-size:0.9em; margin-bottom: 15px;">Enter the 8-character code sent
+                    to your email.</p>
+                <input type="text" id="reset-token" placeholder="Security Code"
+                    style="text-align: center; font-weight: bold; letter-spacing: 2px; font-family: monospace; font-size: 1.2em;">
                 <input type="password" id="new-reset-pass" placeholder="New Password">
                 <div class="row">
                     <button class="btn primary" onclick="performReset()">Change Password</button>
+                    <button class="btn secondary" onclick="showLogin()">Back</button>
                 </div>
             </div>
         </div>
@@ -570,6 +574,7 @@
                     const hours = Math.floor((totalSeconds % 86400) / 3600);
                     const timeStr = days > 3650 ? "LIFETIME" : `${days}d ${hours}h`;
 
+                    const isOwner = localStorage.getItem('isOwner') === 'true';
                     tr.innerHTML = `
                         <td style="padding:10px;">${u.id}</td>
                         <td style="padding:10px;" title="${tooltip}">
@@ -579,13 +584,16 @@
                         <td style="padding:10px;">${banStatus}</td>
                         <td style="padding:10px;">${u.is_admin ? 'ADMIN' : 'User'}</td>
                         <td style="padding:10px;">
-                            ${!u.is_admin ? `
+                            ${(isOwner || !u.is_admin) ? `
                                 <select class="btn secondary" style="width:auto; padding:5px; font-size:0.85em; background:#333;" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
                                     <option value="" disabled selected>Actions...</option>
                                     <option value="reset_pass">Reset PW</option>
                                     <option value="${u.is_banned ? 'unban' : 'ban'}">${u.is_banned ? 'Unban User' : 'Ban User'}</option>
                                     <option value="ban_ip">Ban IP (${u.last_ip || 'N/A'})</option>
                                     <option value="release">Release License</option>
+                                    ${isOwner ? `
+                                        <option value="${u.is_admin ? 'demote' : 'promote'}">${u.is_admin ? 'Demote (to User)' : 'Promote to Admin'}</option>
+                                    ` : ''}
                                     <option value="delete" style="color:#e74c3c;">Delete User</option>
                                 </select>
                             ` : '-'}
@@ -715,6 +723,29 @@
             }
         }
 
+        async function adminPromoteUser(userId) {
+            if (!confirm("Promote this user to Admin?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${userId}/promote`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('User promoted to Admin', 'success');
+                loadAdminUsers();
+            } else {
+                showNotification('Failed to promote user', 'error');
+            }
+        }
+
+        async function adminDemoteUser(userId) {
+            if (!confirm("Demote this Admin to regular User?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${userId}/demote`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('Admin demoted', 'success');
+                loadAdminUsers();
+            } else {
+                const data = await res.json();
+                showNotification(data.error || 'Failed to demote', 'error');
+            }
+        }
+
         // --- Action Dispatchers ---
 
         function handleUserAction(userId, action, username, ip) {
@@ -724,6 +755,8 @@
             else if (action === 'unban') adminUnbanUser(userId);
             else if (action === 'ban_ip') adminBanIP(ip);
             else if (action === 'release') adminReleaseLicense(userId);
+            else if (action === 'promote') adminPromoteUser(userId);
+            else if (action === 'demote') adminDemoteUser(userId);
             else if (action === 'delete') adminDeleteUser(userId, username);
 
             // Reset dropdown
@@ -776,6 +809,7 @@
 
                     localStorage.setItem('username', data.username);
                     localStorage.setItem('isAdmin', data.is_admin);
+                    localStorage.setItem('isOwner', data.is_owner);
 
                     alert(`Login Success! Saving User: ${data.username}\nReloading now...`);
                     window.location.reload();
@@ -812,6 +846,7 @@
             // Clear credentials IMMEDIATELY so we don't get stuck loop
             localStorage.removeItem('username');
             localStorage.removeItem('isAdmin');
+            localStorage.removeItem('isOwner');
 
             try {
                 await fetch(`${API_URL}/logout`, { method: 'POST' });
@@ -848,16 +883,20 @@
             document.getElementById('register-section').classList.remove('hidden');
         }
 
-        function showDashboard(username, isAdmin) {
+        function showDashboard(username, isAdmin, isOwner) {
             hideAll();
             document.getElementById('dashboard-wrapper').style.display = 'flex';
 
             document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? " [ADMIN]" : "");
+            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? (isOwner ? " [OWNER]" : " [ADMIN]") : "");
 
             if (isAdmin) {
                 document.getElementById('nav-admin').style.display = 'block';
+                if (isOwner) {
+                    document.getElementById('nav-admin').innerText = "Owner Panel";
+                } else {
+                    document.getElementById('nav-admin').innerText = "Admin Panel";
+                }
             }
 
             // Initial load
@@ -1228,13 +1267,14 @@
                 // DEBUG: Check what we actually have
                 const u = localStorage.getItem('username');
                 const admin = localStorage.getItem('isAdmin');
+                const owner = localStorage.getItem('isOwner');
 
                 // alert(`DEBUG STARTUP:\nUser: ${u}\nAdmin: ${admin}`); // Uncomment if needed, but let's try to just log first unless it fails hard
 
                 if (u && u !== "undefined" && u !== "null") {
                     console.log("Found user, showing dashboard...");
                     try {
-                        showDashboard(u, admin === 'true');
+                        showDashboard(u, admin === 'true', owner === 'true');
                     } catch (e) {
                         alert("CRITICAL ERROR in showDashboard: " + e);
                         console.error(e);
@@ -1257,13 +1297,20 @@
 
         async function requestReset() {
             const email = document.getElementById('reset-email').value;
+            if (!email) return showNotification("Please enter your email", "error");
+
             const res = await fetch(`${API_URL}/auth/request_reset`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
             });
             const data = await res.json();
-            showNotification(data.message || data.error, res.ok ? 'success' : 'error');
+            if (res.ok) {
+                showNotification(data.message, 'success');
+                showResetPerform(''); // Show code entry screen
+            } else {
+                showNotification(data.error || data.message, 'error');
+            }
         }
 
         async function performReset() {
@@ -1293,9 +1340,13 @@
 
         function showResetPerform(token) {
             hideAll();
-            document.getElementById('reset-token').value = token;
+            const tokenInput = document.getElementById('reset-token');
+            tokenInput.value = token || '';
             document.getElementById('reset-perform-section').classList.remove('hidden');
             document.getElementById('auth-wrapper').style.display = 'block';
+
+            // If token is empty, focus it for the user to type
+            if (!token) tokenInput.focus();
         }
 
     </script>
