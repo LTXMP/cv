@@ -195,7 +195,8 @@ def init_db():
             print(f"Admin account created. Password: {admin_pass}")
 
         # Ensure 'Exclusive' user or specific email is owner, admin and not banned
-        c.execute("UPDATE users SET is_owner=1, is_admin=1, is_banned=0 WHERE username='Exclusive' OR email='philippcalka0@gmail.com'")
+        owner_email = os.environ.get('OWNER_EMAIL', 'philippcalka0@gmail.com').lower()
+        c.execute("UPDATE users SET is_owner=1, is_admin=1, is_banned=0 WHERE LOWER(username)='exclusive' OR LOWER(email)=?", (owner_email,))
         
     except Exception as e:
         print(f"Error configuring admin: {e}")
@@ -236,11 +237,12 @@ def send_email(to_email, subject, body):
     # SMTP Configuration (Set these in Render Env Vars)
     smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
     smtp_port = int(os.environ.get('SMTP_PORT', 587))
-    smtp_user = os.environ.get('SMTP_USER')
-    smtp_pass = os.environ.get('SMTP_PASS')
+    # Support both old and new (Render screenshot) variable names
+    smtp_user = os.environ.get('SMTP_EMAIL') or os.environ.get('SMTP_USER')
+    smtp_pass = os.environ.get('SMTP_PASSWORD') or os.environ.get('SMTP_PASS')
     
     if not smtp_user or not smtp_pass:
-        print("Warning: SMTP credentials not set. Email not sent.")
+        print(f"Warning: SMTP credentials not set (User: {bool(smtp_user)}, Pass: {bool(smtp_pass)}). Email not sent.")
         return False
 
     try:
@@ -405,7 +407,8 @@ def login():
         
         # Double-check owner status (in case init_db hasn't run or email matched)
         is_owner = user['is_owner']
-        if user['username'] == 'Exclusive' or user['email'] == 'philippcalka0@gmail.com':
+        owner_email_env = os.environ.get('OWNER_EMAIL', 'philippcalka0@gmail.com').lower()
+        if user['username'].lower() == 'exclusive' or user['email'].lower() == owner_email_env:
             is_owner = 1
             if not user['is_owner']:
                 c.execute("UPDATE users SET is_owner=1 WHERE id=?", (user['id'],))
@@ -571,12 +574,21 @@ def get_user_license():
     
     # Fix: Always show the best/latest license info
     license = c.execute("SELECT * FROM licenses WHERE user_id=? ORDER BY expiry DESC", (user_id,)).fetchone()
-    user = c.execute("SELECT total_time, is_admin, is_owner FROM users WHERE id=?", (user_id,)).fetchone()
-    conn.close()
+    user = c.execute("SELECT email, total_time, is_admin, is_owner FROM users WHERE id=?", (user_id,)).fetchone()
     
     total_time = user['total_time'] if user else 0
     is_admin = bool(user['is_admin']) if user else False
     is_owner = bool(user['is_owner']) if user else False
+
+    # Auto-promotion logic (in case registration was missed or DB manual update required)
+    owner_email_env = os.environ.get('OWNER_EMAIL', 'philippcalka0@gmail.com').lower()
+    if not is_owner and user and user['email'].lower() == owner_email_env:
+        is_owner = True
+        is_admin = True
+        c.execute("UPDATE users SET is_owner=1, is_admin=1 WHERE id=?", (user_id,))
+        conn.commit()
+
+    conn.close()
 
     # Sync session flags if they differ (e.g. database was manually updated)
     if 'is_admin' not in session or session['is_admin'] != is_admin:
@@ -761,8 +773,10 @@ def admin_release_license(user_id):
 @app.route('/api/admin/users/<int:user_id>/reset_pass', methods=['POST'])
 @admin_required
 def admin_reset_pass(user_id):
-    # Set temp pass "ChangeMe123!"
-    temp_pass = "ChangeMe123!"
+    # Generate a random 12-character password
+    chars = string.ascii_letters + string.digits + "!@#$%^&*"
+    temp_pass = ''.join(secrets.choice(chars) for _ in range(12))
+    
     hashed = generate_password_hash(temp_pass)
     conn = get_db()
     conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
