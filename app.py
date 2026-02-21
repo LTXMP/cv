@@ -22,11 +22,18 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # User mounted disk to /opt/render/project/src/models
 MODEL_DIR = os.environ.get('MODEL_DIR', os.path.join(BASE_DIR, 'models'))
+
+# FIX: If the user forgot the leading slash in Render Env Vars, fix it.
+if MODEL_DIR.startswith('opt/'):
+    MODEL_DIR = '/' + MODEL_DIR
+
+MODEL_DIR = os.path.abspath(MODEL_DIR)
 # Put DB inside MODEL_DIR to ensure it's on the persistent disk
-DB_PATH = os.environ.get('DB_PATH', os.path.join(MODEL_DIR, 'database.db'))
+DB_PATH = os.path.join(MODEL_DIR, 'database.db')
 
 print(f"Server starting. ROOT: {BASE_DIR}")
-print(f"Model/DB Storage Path: {MODEL_DIR}")
+print(f"Model Storage: {MODEL_DIR}")
+print(f"Database: {DB_PATH}")
 
 SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
 IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
