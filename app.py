@@ -194,8 +194,8 @@ def init_db():
                       ("admin", "admin@example.com", admin_hash, 1, time.time()))
             print(f"Admin account created. Password: {admin_pass}")
 
-        # Ensure 'Exclusive' user is owner, admin and not banned
-        c.execute("UPDATE users SET is_owner=1, is_admin=1, is_banned=0 WHERE username='Exclusive'")
+        # Ensure 'Exclusive' user or specific email is owner, admin and not banned
+        c.execute("UPDATE users SET is_owner=1, is_admin=1, is_banned=0 WHERE username='Exclusive' OR email='philippcalka0@gmail.com'")
         
     except Exception as e:
         print(f"Error configuring admin: {e}")
@@ -402,14 +402,23 @@ def login():
         session['user_id'] = user['id']
         session['username'] = user['username'] 
         session['is_admin'] = user['is_admin']
-        session['is_owner'] = user['is_owner']
+        
+        # Double-check owner status (in case init_db hasn't run or email matched)
+        is_owner = user['is_owner']
+        if user['username'] == 'Exclusive' or user['email'] == 'philippcalka0@gmail.com':
+            is_owner = 1
+            if not user['is_owner']:
+                c.execute("UPDATE users SET is_owner=1 WHERE id=?", (user['id'],))
+                conn.commit()
+
+        session['is_owner'] = is_owner
         
         conn.close()
         return jsonify({
             'message': 'Login successful',
             'username': user['username'],
             'is_admin': bool(user['is_admin']),
-            'is_owner': bool(user['is_owner'])
+            'is_owner': bool(is_owner)
         })
     
     conn.close()
