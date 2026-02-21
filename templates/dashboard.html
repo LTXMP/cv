@@ -619,7 +619,7 @@
         }
 
         async function adminResetPass(id) {
-            if (!confirm("Reset user password to 'ChangeMe123!'?")) return;
+            if (!confirm("Reset user password to a random temporary one?")) return;
             const res = await fetch(`${API_URL}/admin/users/${id}/reset_pass`, { method: 'POST' });
             const data = await res.json();
             if (res.ok) { alert(data.message); }
