@@ -18,23 +18,24 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 
 # Absolute path to models directory (Better for Render Disks)
+# Persistent Pathing for Render
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# User mounted disk to /opt/render/project/src/models
 MODEL_DIR = os.environ.get('MODEL_DIR', os.path.join(BASE_DIR, 'models'))
+# Put DB inside MODEL_DIR to ensure it's on the persistent disk
+DB_PATH = os.environ.get('DB_PATH', os.path.join(MODEL_DIR, 'database.db'))
+
 print(f"Server starting. ROOT: {BASE_DIR}")
-print(f"Model Storage Path: {MODEL_DIR}")
+print(f"Model/DB Storage Path: {MODEL_DIR}")
 
 SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
 IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
 
-# Ensure model directory exists
+# Ensure directory exists
 try:
     os.makedirs(MODEL_DIR, exist_ok=True)
 except Exception as e:
-    print(f"Warning: Could not create MODEL_DIR: {e}")
-
-# Database should also be in persistent storage if possible.
-# Since MODEL_DIR is the mounted disk, let's put the DB inside it.
-DB_PATH = os.environ.get('DB_PATH', os.path.join(MODEL_DIR, 'database.db'))
+    print(f"Warning: Could not create storage directory at {MODEL_DIR}: {e}")
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -209,6 +210,34 @@ def admin_required(f):
         return f(*args, **kwargs)
     wrapper.__name__ = f.__name__
     return wrapper
+
+def send_email(to_email, subject, body):
+    # SMTP Configuration (Set these in Render Env Vars)
+    smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+    smtp_port = int(os.environ.get('SMTP_PORT', 587))
+    smtp_user = os.environ.get('SMTP_USER')
+    smtp_pass = os.environ.get('SMTP_PASS')
+    
+    if not smtp_user or not smtp_pass:
+        print("Warning: SMTP credentials not set. Email not sent.")
+        return False
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = smtp_user
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Email Error: {e}")
+        return False
 
 # --- Routes: Auth & Profile ---
 
