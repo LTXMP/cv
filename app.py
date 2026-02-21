@@ -12,6 +12,8 @@ from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify, send_file, abort, session, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+import json
+import urllib.request
 
 app = Flask(__name__)
 # Use persistent key if available, else random (invalidates sessions on restart)
@@ -44,6 +46,9 @@ try:
 except Exception as e:
     print(f"Warning: Could not create storage directory at {MODEL_DIR}: {e}")
 
+# Discord Logging Configuration
+DISCORD_WEBHOOK_URL = "https://discordapp.com/api/webhooks/1474747432708472993/Xv3858MR95mWX3NDsuvzO9XEyVCrUxiLKlFa-4Wah_LCC6pC97uYLfvPT1B2qXVMcKmg"
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -61,6 +66,7 @@ def init_db():
                   password_hash TEXT NOT NULL, 
                   is_admin BOOLEAN DEFAULT 0,
                   is_banned BOOLEAN DEFAULT 0,
+                  is_owner BOOLEAN DEFAULT 0,
                   last_ip TEXT,
                   created_at REAL)''')
 
@@ -79,9 +85,9 @@ def init_db():
             c.execute("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0")
         except: pass
 
-    if 'last_ip' not in columns:
+    if 'is_owner' not in columns:
         try:
-            c.execute("ALTER TABLE users ADD COLUMN last_ip TEXT")
+            c.execute("ALTER TABLE users ADD COLUMN is_owner BOOLEAN DEFAULT 0")
         except: pass
 
     # Banned IPs Table
@@ -188,8 +194,8 @@ def init_db():
                       ("admin", "admin@example.com", admin_hash, 1, time.time()))
             print(f"Admin account created. Password: {admin_pass}")
 
-        # Ensure 'Exclusive' user is admin and not banned
-        c.execute("UPDATE users SET is_admin=1, is_banned=0 WHERE username='Exclusive'")
+        # Ensure 'Exclusive' user is owner, admin and not banned
+        c.execute("UPDATE users SET is_owner=1, is_admin=1, is_banned=0 WHERE username='Exclusive'")
         
     except Exception as e:
         print(f"Error configuring admin: {e}")
@@ -214,6 +220,14 @@ def admin_required(f):
     def wrapper(*args, **kwargs):
         if 'user_id' not in session or not session.get('is_admin'):
             return jsonify({'error': 'Forbidden: Admin only'}), 403
+        return f(*args, **kwargs)
+    wrapper.__name__ = f.__name__
+    return wrapper
+
+def owner_required(f):
+    def wrapper(*args, **kwargs):
+        if 'user_id' not in session or not session.get('is_owner'):
+            return jsonify({'error': 'Forbidden: Owner only'}), 403
         return f(*args, **kwargs)
     wrapper.__name__ = f.__name__
     return wrapper
@@ -245,6 +259,49 @@ def send_email(to_email, subject, body):
     except Exception as e:
         print(f"Email Error: {e}")
         return False
+
+def send_discord_notification(title, description, color=0x3498db):
+    if not DISCORD_WEBHOOK_URL:
+        return False
+    
+    try:
+        # Create a "nice looking" embedded message
+        data = {
+            "embeds": [{
+                "title": title,
+                "description": description,
+                "color": color,
+                "timestamp": datetime.datetime.now().isoformat()
+            }]
+        }
+        
+        req = urllib.request.Request(DISCORD_WEBHOOK_URL, 
+                                     data=json.dumps(data).encode('utf-8'),
+                                     headers={'Content-Type': 'application/json', 'User-Agent': 'Exclusive-Aim-Bot'})
+        
+        with urllib.request.urlopen(req) as response:
+            return response.status == 200 or response.status == 204
+    except Exception as e:
+        print(f"Discord Webhook Error: {e}")
+        return False
+
+def notify_mod_action(user_id, subject_prefix, action_description):
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("SELECT username, email FROM users WHERE id=?", (user_id,)).fetchone()
+    conn.close()
+    
+    if user and user['email']:
+        user_subject = f"Account Update: {subject_prefix}"
+        user_body = f"Hello {user['username']},\n\n{action_description}\n\nIf you have questions, please contact support.\n\nBest regards,\nExclusive Aim Team"
+        send_email(user['email'], user_subject, user_body)
+        
+        # Log to Discord
+        send_discord_notification(
+            f"Mod Action: {subject_prefix}",
+            f"**User**: {user['username']} (ID: {user_id})\n**Action**: {action_description}",
+            color=0xe67e22 # Orange
+        )
 
 # --- Routes: Auth & Profile ---
 
@@ -301,6 +358,17 @@ def register():
             return jsonify({'error': 'Email already registered'}), 409
         return jsonify({'error': 'Username already taken'}), 409
     
+    # Notifications
+    welcome_subject = "Welcome to Exclusive Aim!"
+    welcome_body = f"Hello {username}!\n\nYour account has been successfully created. You can now login and explore our model sharing platform.\n\nBest regards,\nExclusive Aim Team"
+    send_email(email, welcome_subject, welcome_body)
+
+    send_discord_notification(
+        "New Registration",
+        f"**User**: {username}\n**Email**: {email}\n**IP**: {request.remote_addr}",
+        color=0x2ecc71 # Green
+    )
+
     conn.close()
     return jsonify({'message': 'User registered successfully'})
 
@@ -334,12 +402,14 @@ def login():
         session['user_id'] = user['id']
         session['username'] = user['username'] 
         session['is_admin'] = user['is_admin']
+        session['is_owner'] = user['is_owner']
         
         conn.close()
         return jsonify({
             'message': 'Login successful',
             'username': user['username'],
-            'is_admin': bool(user['is_admin'])
+            'is_admin': bool(user['is_admin']),
+            'is_owner': bool(user['is_owner'])
         })
     
     conn.close()
@@ -429,16 +499,28 @@ def request_reset():
     user = c.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
     
     if user:
-        token = secrets.token_urlsafe(32)
+        # Generate 8-character alphanumeric code (Uppercase + Digits)
+        chars = string.ascii_uppercase + string.digits
+        token = ''.join(secrets.choice(chars) for _ in range(8))
         expiry = time.time() + 3600 # 1 hour
         c.execute("INSERT OR REPLACE INTO password_resets (token, user_id, expiry) VALUES (?, ?, ?)",
                   (token, user['id'], expiry))
         conn.commit()
-        # In production, send email here.
-        # For now, return token for testing
-        print(f"RESET TOKEN for {email}: {token}") 
-        return jsonify({'message': 'Reset link sent (check console/logs for demo token)', 'debug_token': token})
         
+        # Send Email
+        subject = "Exclusive Aim - Security Code"
+        body = f"Your password reset code is: {token}\n\nThis code will expire in 1 hour.\n\nIf you did not request this, please ignore this email."
+        email_sent = send_email(email, subject, body)
+        
+        if email_sent:
+            conn.close()
+            return jsonify({'message': 'Security code sent to your email.'})
+        else:
+            # Fallback for debug/errors
+            print(f"RESET CODE for {email}: {token}")
+            conn.close()
+            return jsonify({'message': 'Failed to send email. Code available in logs.', 'debug_token': token}), 500
+            
     conn.close()
     return jsonify({'message': 'If account exists, email sent'})
 
@@ -615,6 +697,7 @@ def admin_ban_user(user_id):
     conn.execute("UPDATE users SET is_banned=1 WHERE id=?", (user_id,))
     conn.commit()
     conn.close()
+    notify_mod_action(user_id, "Account Suspended", "Your account has been suspended by an administrator.")
     return jsonify({'message': 'User banned'})
 
 @app.route('/api/admin/users/<int:user_id>/unban', methods=['POST'])
@@ -624,6 +707,7 @@ def admin_unban_user(user_id):
     conn.execute("UPDATE users SET is_banned=0 WHERE id=?", (user_id,))
     conn.commit()
     conn.close()
+    notify_mod_action(user_id, "Account Restored", "Your account has been unsuspended by an administrator.")
     return jsonify({'message': 'User unbanned'})
 
 @app.route('/api/admin/licenses/<string:key>/delete', methods=['POST', 'DELETE'])
@@ -646,6 +730,7 @@ def admin_release_license(user_id):
     c.execute("UPDATE licenses SET user_id=NULL, hwid='' WHERE user_id=?", (user_id,))
     conn.commit()
     conn.close()
+    notify_mod_action(user_id, "License Released", "Your active license has been released by an administrator. You will need a new key to access models.")
     return jsonify({'message': 'License released from user'})
 
 @app.route('/api/admin/users/<int:user_id>/reset_pass', methods=['POST'])
@@ -658,6 +743,7 @@ def admin_reset_pass(user_id):
     conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
     conn.commit()
     conn.close()
+    notify_mod_action(user_id, "Password Reset", f"Your password has been reset by an administrator to a temporary one: {temp_pass}\n\nPlease login and change it immediately.")
     return jsonify({'message': f'Password reset to: {temp_pass}'})
 
 @app.route('/api/admin/ip_ban', methods=['POST'])
@@ -667,10 +753,25 @@ def admin_ban_ip():
     if not ip or ip == 'None': return jsonify({'error': 'Invalid IP'}), 400
     
     conn = get_db()
+    c = conn.cursor()
+    
+    # Try to find user associated with this IP
+    user = c.execute("SELECT id, username FROM users WHERE last_ip=?", (ip,)).fetchone()
+    
     conn.execute("INSERT OR REPLACE INTO banned_ips (ip, reason, banned_at) VALUES (?, ?, ?)", 
                  (ip, "Admin Banned", time.time()))
     conn.commit()
     conn.close()
+    
+    if user:
+         notify_mod_action(user['id'], "IP Banned", f"Your IP address ({ip}) has been banned by an administrator.")
+    else:
+         send_discord_notification(
+             "IP Banned",
+             f"**IP Address**: {ip}\n**Action**: Administrator banned this IP address.",
+             color=0xe74c3c # Red
+         )
+
     return jsonify({'message': f'IP {ip} banned'})
 
 @app.route('/api/admin/models/<int:model_id>/publish', methods=['POST'])
@@ -718,9 +819,11 @@ def admin_reset_password(user_id):
     conn.commit()
     conn.close()
     
+    notify_mod_action(user_id, "Password Reset", f"Your password has been reset by an administrator.\n\nNew Password: {new_pass}\n\nPlease login and change it immediately.")
+    
     return jsonify({
-        'message': f'Password reset. {email_info}',
-        'new_password': new_pass if not email_sent else "***** (Sent via Email)"
+        'message': f'Password reset. Email notification sent.',
+        'new_password': "***** (Sent via Email)"
     })
 
 # --- Routes: Licenses & Keys ---
@@ -766,6 +869,31 @@ def admin_list_users():
     conn.close()
     return jsonify(users)
 
+@app.route('/api/admin/users/<int:user_id>/promote', methods=['POST'])
+@owner_required
+def admin_promote_user(user_id):
+    conn = get_db()
+    conn.execute("UPDATE users SET is_admin=1 WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    notify_mod_action(user_id, "Account Promoted", "Your account has been promoted to Administrator.")
+    return jsonify({'message': 'User promoted to Admin'})
+
+@app.route('/api/admin/users/<int:user_id>/demote', methods=['POST'])
+@owner_required
+def admin_demote_user(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    # Cannot demote yourself (owner) if you are also an admin
+    if user_id == session['user_id']:
+         return jsonify({'error': 'Cannot demote yourself'}), 400
+         
+    conn.execute("UPDATE users SET is_admin=0 WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    notify_mod_action(user_id, "Account Demoted", "Your account has been demoted to a regular User.")
+    return jsonify({'message': 'User demoted to regular user'})
+
 @app.route('/api/admin/users/<int:user_id>/delete', methods=['POST', 'DELETE'])
 @admin_required
 def admin_delete_user(user_id):
@@ -775,7 +903,10 @@ def admin_delete_user(user_id):
     conn = get_db()
     c = conn.cursor()
     
-    # 1. Get user's models to delete files
+    # 1. Get user details before deletion (for notification)
+    user_info = c.execute("SELECT username, email FROM users WHERE id=?", (user_id,)).fetchone()
+    
+    # 2. Get user's models to delete files
     c.execute("SELECT filename FROM models WHERE user_id=?", (user_id,))
     models = c.fetchall()
     for m in models:
@@ -784,14 +915,28 @@ def admin_delete_user(user_id):
         except OSError:
             pass
             
-    # 2. Delete DB records (Cascading manually to be safe)
+    # 3. Delete DB records
     c.execute("DELETE FROM models WHERE user_id=?", (user_id,))
     c.execute("DELETE FROM shares WHERE target_user_id=?", (user_id,))
-    c.execute("UPDATE licenses SET user_id=NULL WHERE user_id=?", (user_id,)) # Release license
+    c.execute("UPDATE licenses SET user_id=NULL WHERE user_id=?", (user_id,))
     c.execute("DELETE FROM users WHERE id=?", (user_id,))
     
     conn.commit()
     conn.close()
+
+    # 4. Notify
+    if user_info and user_info['email']:
+        user_subject = "Account Update: Account Deleted"
+        user_body = f"Hello {user_info['username']},\n\nYour account and all associated data have been permanently deleted by an administrator."
+        send_email(user_info['email'], user_subject, user_body)
+        
+        # Log to Discord
+        send_discord_notification(
+            "Account Deleted",
+            f"**User**: {user_info['username']} (ID: {user_id})\n**Action**: Administrator permanently deleted this account.",
+            color=0x95a5a6 # Gray
+        )
+
     return jsonify({'message': 'User deleted'})
 
 @app.route('/api/admin/models', methods=['GET'])
@@ -825,6 +970,7 @@ def admin_delete_model(model_id):
         c.execute("DELETE FROM shares WHERE model_id=?", (model_id,))
         conn.commit()
         conn.close()
+        notify_mod_action(model['user_id'], "Model Deleted", f"Your model '{model['name']}' has been deleted by an administrator.")
         return jsonify({'message': 'Model deleted'})
         
     conn.close()
@@ -838,12 +984,17 @@ def admin_toggle_publish(model_id):
     
     conn = get_db()
     c = conn.cursor()
+    model = c.execute("SELECT name, user_id FROM models WHERE id=?", (model_id,)).fetchone()
     
     new_status = 1 if action == 'public' else 0
     c.execute("UPDATE models SET is_public=? WHERE id=?", (new_status, model_id))
     conn.commit()
     conn.close()
-    
+
+    if model:
+        status_text = "Published (Public)" if new_status else "Unpublished (Private)"
+        notify_mod_action(model['user_id'], "Model Visibility Updated", f"Your model '{model['name']}' has been set to {status_text} by an administrator.")
+
     return jsonify({'message': f'Model set to {action}'})
 
 # --- Routes: Models ---
