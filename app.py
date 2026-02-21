@@ -493,6 +493,7 @@ def client_auth():
         'message': 'Authorized', 
         'expiry': license['expiry'],
         'duration': license['duration'],
+        'is_owner': bool(user['is_owner']),
         'm_key': SECRET_KEY.decode('utf-8'),
         'm_iv': IV.decode('utf-8')
     })
@@ -570,21 +571,36 @@ def get_user_license():
     
     # Fix: Always show the best/latest license info
     license = c.execute("SELECT * FROM licenses WHERE user_id=? ORDER BY expiry DESC", (user_id,)).fetchone()
-    user = c.execute("SELECT total_time FROM users WHERE id=?", (user_id,)).fetchone()
+    user = c.execute("SELECT total_time, is_admin, is_owner FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
     
     total_time = user['total_time'] if user else 0
+    is_admin = bool(user['is_admin']) if user else False
+    is_owner = bool(user['is_owner']) if user else False
+
+    # Sync session flags if they differ (e.g. database was manually updated)
+    if 'is_admin' not in session or session['is_admin'] != is_admin:
+        session['is_admin'] = is_admin
+    if 'is_owner' not in session or session['is_owner'] != is_owner:
+        session['is_owner'] = is_owner
     
+    res_data = {
+        'total_time': total_time,
+        'is_admin': is_admin,
+        'is_owner': is_owner
+    }
+
     if license:
-        return jsonify({
+        res_data.update({
             'status': 'Active',
             'type': license['duration'],
             'expiry': time.strftime('%Y-%m-%d', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never',
             'hwid_bound': True if (license['hwid'] and license['hwid'] != "") else False,
-            'total_time': total_time
         })
     else:
-        return jsonify({'status': 'Inactive', 'total_time': total_time})
+        res_data.update({'status': 'Inactive'})
+
+    return jsonify(res_data)
 
 @app.route('/api/user/claim_key', methods=['POST'])
 @login_required
