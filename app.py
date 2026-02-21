@@ -626,6 +626,28 @@ def admin_unban_user(user_id):
     conn.close()
     return jsonify({'message': 'User unbanned'})
 
+@app.route('/api/admin/licenses/<string:key>/delete', methods=['POST', 'DELETE'])
+@admin_required
+def admin_delete_license(key):
+    conn = get_db()
+    c = conn.cursor()
+    # Only delete if unclaimed or explicit admin action
+    c.execute("DELETE FROM licenses WHERE key=?", (key,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'License key deleted'})
+
+@app.route('/api/admin/users/<int:user_id>/release_license', methods=['POST'])
+@admin_required
+def admin_release_license(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    # Unlink license from user and clear HWID
+    c.execute("UPDATE licenses SET user_id=NULL, hwid='' WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'License released from user'})
+
 @app.route('/api/admin/users/<int:user_id>/reset_pass', methods=['POST'])
 @admin_required
 def admin_reset_pass(user_id):
