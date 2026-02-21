@@ -937,6 +937,20 @@
                     return;
                 }
 
+                // --- Role Sync ---
+                const oldAdmin = localStorage.getItem('isAdmin') === 'true';
+                const oldOwner = localStorage.getItem('isOwner') === 'true';
+                const newAdmin = !!data.is_admin;
+                const newOwner = !!data.is_owner;
+
+                if (oldAdmin !== newAdmin || oldOwner !== newOwner) {
+                    console.log("[Account] Role shift detected. Syncing UI...");
+                    localStorage.setItem('isAdmin', newAdmin);
+                    localStorage.setItem('isOwner', newOwner);
+                    const u = localStorage.getItem('username');
+                    showDashboard(u, newAdmin, newOwner);
+                }
+
                 const statusEl = document.getElementById('status-license');
                 const expiryEl = document.getElementById('status-expiry');
 
