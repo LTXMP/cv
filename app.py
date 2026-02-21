@@ -13,39 +13,6 @@ from flask import Flask, request, jsonify, send_file, abort, session, render_tem
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
-# --- Helper to send email ---
-def send_email(to_email, subject, body):
-    smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
-    smtp_port = int(os.environ.get('SMTP_PORT', 587))
-    smtp_user = os.environ.get('SMTP_USER') or os.environ.get('SMTP_EMAIL')
-    smtp_pass = os.environ.get('SMTP_PASS') or os.environ.get('SMTP_PASSWORD')
-    
-    if not smtp_user or not smtp_pass:
-        print(f"SMTP Config Missing. MOCK EMAIL to {to_email}: {subject}\n{body}")
-        # Try to use a log file for "sent" emails in development
-        try:
-            with open("sent_emails.log", "a") as f:
-                f.write(f"--- EMAIL TO {to_email} ---\nSubject: {subject}\n{body}\n-----------------------\n")
-        except: pass
-        return True # Return True in dev so app doesn't break
-        
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = smtp_user
-        msg['To'] = to_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.send_message(msg)
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        return False
-
 app = Flask(__name__)
 # Use persistent key if available, else random (invalidates sessions on restart)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
@@ -97,11 +64,6 @@ def init_db():
         try:
             c.execute("ALTER TABLE users ADD COLUMN email TEXT")
             c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
-        except: pass
-
-    if 'is_helper' not in columns:
-        try:
-            c.execute("ALTER TABLE users ADD COLUMN is_helper BOOLEAN DEFAULT 0")
         except: pass
             
     if 'is_banned' not in columns:
@@ -181,20 +143,14 @@ def init_db():
                   expiry_date REAL,
                   FOREIGN KEY(model_id) REFERENCES models(id),
                   FOREIGN KEY(target_user_id) REFERENCES users(id))''')
-
-    # Migration: Check for last_hwid_reset and total_time in users
+    # Migration: Check for total_time in users
     c.execute("PRAGMA table_info(users)")
     user_cols = [info[1] for info in c.fetchall()]
-    if 'last_hwid_reset' not in user_cols:
-        try:
-            c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
-        except: pass
-        
     if 'total_time' not in user_cols:
         try:
             print("DB Migration: Adding total_time column...")
             c.execute("ALTER TABLE users ADD COLUMN total_time REAL DEFAULT 0")
-            conn.commit()
+            conn.commit() # Immediate commit after structural change
         except Exception as e: 
             print(f"Col Migration Warning: {e}")
     
@@ -206,16 +162,11 @@ def init_db():
             u_id = row['user_id']
             dur = str(row['duration'])
             dur_sec = 315360000 if dur == 'LIFETIME' else (float(dur) if dur.replace('.','').isdigit() else 0)
+            # Update if 0 or NULL
             c.execute("UPDATE users SET total_time = ? WHERE id = ? AND (total_time IS NULL OR total_time = 0)", (dur_sec, u_id))
         conn.commit()
     except Exception as e:
         print(f"Backfill Error: {e}")
-
-    # User Config Table (JSON storage for device settings)
-    c.execute('''CREATE TABLE IF NOT EXISTS user_configs 
-                 (user_id INTEGER PRIMARY KEY, 
-                  config_json TEXT,
-                  FOREIGN KEY(user_id) REFERENCES users(id))''')
 
     # Create default admin if not exists
     try:
@@ -255,16 +206,6 @@ def admin_required(f):
     def wrapper(*args, **kwargs):
         if 'user_id' not in session or not session.get('is_admin'):
             return jsonify({'error': 'Forbidden: Admin only'}), 403
-        return f(*args, **kwargs)
-    wrapper.__name__ = f.__name__
-    return wrapper
-
-def staff_required(f):
-    def wrapper(*args, **kwargs):
-        if 'user_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-        if not session.get('is_admin') and not session.get('is_helper'):
-            return jsonify({'error': 'Forbidden: Staff only'}), 403
         return f(*args, **kwargs)
     wrapper.__name__ = f.__name__
     return wrapper
@@ -358,23 +299,16 @@ def login():
         session['username'] = user['username'] 
         session['is_admin'] = user['is_admin']
         
-        # Safe access for is_helper
-        is_helper = 0
-        try:
-            is_helper = user['is_helper']
-        except:
-            is_helper = 0
-            
-        session['is_helper'] = is_helper
-        
         conn.close()
         return jsonify({
             'message': 'Login successful',
             'username': user['username'],
-            'is_admin': bool(user['is_admin']),
-            'is_helper': bool(is_helper)
+            'is_admin': bool(user['is_admin'])
         })
     
+    conn.close()
+    return jsonify({'error': 'Invalid credentials'}), 401
+
     conn.close()
     return jsonify({'error': 'Invalid credentials'}), 401
 
@@ -416,7 +350,6 @@ def client_auth():
         if expiry < current_time:
             is_expired = True
     elif isinstance(expiry, str) and expiry != 'LIFETIME':
-        # Fallback for stored numbers as strings
         try:
             if float(expiry) < current_time:
                 is_expired = True
@@ -444,10 +377,10 @@ def client_auth():
         'authorized': True, 
         'message': 'Authorized', 
         'expiry': license['expiry'],
-        'duration': license['duration']
+        'duration': license['duration'],
+        'm_key': SECRET_KEY.decode('utf-8'),
+        'm_iv': IV.decode('utf-8')
     })
-
-@app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
     return jsonify({'message': 'Logged out'})
@@ -548,11 +481,28 @@ def claim_key():
         conn.close()
         return jsonify({'error': 'Key already claimed'}), 409
         
+    # Renewal Logic: Accumulate total_time and delete old licenses
+    duration_str = str(license_row['duration'])
+    duration_seconds = 0
+    if duration_str == 'LIFETIME':
+        duration_seconds = 315360000 # 10 years
+    else:
+        try:
+            duration_seconds = float(duration_str)
+        except: pass
+
+    # Update User Total Time
+    c.execute("UPDATE users SET total_time = IFNULL(total_time, 0) + ? WHERE id = ?", (duration_seconds, user_id))
+    
+    # Remove old licenses (Permanent fix for duplication)
+    c.execute("DELETE FROM licenses WHERE user_id = ?", (user_id,))
+    
+    # Claim new one
     c.execute("UPDATE licenses SET user_id=? WHERE key=?", (user_id, key))
     conn.commit()
     conn.close()
     
-    return jsonify({'message': 'Key claimed successfully'})
+    return jsonify({'message': 'License renewed successfully'})
 
 @app.route('/api/user/update', methods=['POST'])
 @login_required
@@ -593,10 +543,11 @@ def reset_hwid():
     conn = get_db()
     c = conn.cursor()
     
-    user = c.execute("SELECT last_hwid_reset FROM users WHERE id=?", (user_id,)).fetchone()
+    user = c.execute("SELECT last_hwid_reset, is_admin FROM users WHERE id=?", (user_id,)).fetchone()
     last_reset = user['last_hwid_reset'] or 0
+    is_admin = bool(user['is_admin'])
     
-    if time.time() - last_reset < 3600: # 1 hour
+    if not is_admin and (time.time() - last_reset < 3600): # 1 hour cooldown for users
         conn.close()
         return jsonify({'error': 'Rate limit: Once per hour'}), 429
         
@@ -642,55 +593,14 @@ def admin_unban_user(user_id):
 @app.route('/api/admin/users/<int:user_id>/reset_pass', methods=['POST'])
 @admin_required
 def admin_reset_pass(user_id):
-    # Determine the password:
-    # 1. Random 8 chars (User requested specific length)
-    chars = string.ascii_letters + string.digits
-    new_pass = ''.join(secrets.choice(chars) for _ in range(8))
-    
-    hashed = generate_password_hash(new_pass)
+    # Set temp pass "ChangeMe123!"
+    temp_pass = "ChangeMe123!"
+    hashed = generate_password_hash(temp_pass)
     conn = get_db()
-    c = conn.cursor()
-    c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
-    
-    # Send Email
-    user = c.execute("SELECT email, username FROM users WHERE id=?", (user_id,)).fetchone()
-    email_msg = ""
-    if user and user['email']:
-        subject = "Exclusive Aim - Admin Reset"
-        body = f"Hello {user['username']},\n\nAn administrator has reset your password.\n\nNew Password: {new_pass}\n\nPlease login and change it immediately."
-        sent = send_email(user['email'], subject, body)
-        email_msg = " (Email Sent)" if sent else " (Email FAILED)"
-    else:
-        email_msg = " (No Email on file)"
-        
+    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
     conn.commit()
     conn.close()
-    return jsonify({'message': f'Password reset to: {new_pass}{email_msg}'})
-
-@app.route('/api/admin/users/<int:user_id>/role', methods=['POST'])
-@admin_required
-def admin_set_role(user_id):
-    role = request.json.get('role') # 'admin', 'helper', 'user'
-    if not role: return jsonify({'error': 'Missing role'}), 400
-    if user_id == session['user_id']: return jsonify({'error': 'Cannot change own role'}), 400
-    
-    is_admin = 1 if role == 'admin' else 0
-    is_helper = 1 if role == 'helper' else 0
-    
-    conn = get_db()
-    conn.execute("UPDATE users SET is_admin=?, is_helper=? WHERE id=?", (is_admin, is_helper, user_id))
-    conn.commit()
-    conn.close()
-    return jsonify({'message': f'Role updated to {role}'})
-
-@app.route('/api/admin/users/<int:user_id>/cancel_sub', methods=['POST'])
-@admin_required
-def admin_cancel_sub_old(user_id):
-    conn = get_db()
-    conn.execute("UPDATE licenses SET user_id=NULL WHERE user_id=?", (user_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({'message': 'Subscription cancelled (License unlinked)'})
+    return jsonify({'message': f'Password reset to: {temp_pass}'})
 
 @app.route('/api/admin/ip_ban', methods=['POST'])
 @admin_required
@@ -755,10 +665,12 @@ def admin_reset_password(user_id):
         'new_password': new_pass if not email_sent else "***** (Sent via Email)"
     })
 
+# --- Routes: Licenses & Keys ---
 
+# Redundant claim_key removed (Consolidated at line 432)
 
 @app.route('/api/admin/generate_license', methods=['POST'])
-@staff_required
+@admin_required
 def generate_license():
     data = request.json
     duration = data.get('duration', 'LIFETIME')
@@ -776,6 +688,25 @@ def generate_license():
     
     return jsonify({'key': key, 'duration': duration})
 
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def admin_list_users():
+    search = request.args.get('search', '').strip()
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    if search:
+        # Search closest to the query, limit to 20 for better visibility
+        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
+                  (f"%{search}%", f"%{search}%"))
+    else:
+        # 5 newest registrations by default
+        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users ORDER BY id DESC LIMIT 5")
+        
+    users = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify(users)
 
 @app.route('/api/admin/users/<int:user_id>/delete', methods=['POST', 'DELETE'])
 @admin_required
@@ -804,25 +735,6 @@ def admin_delete_user(user_id):
     conn.commit()
     conn.close()
     return jsonify({'message': 'User deleted'})
-
-@app.route('/api/admin/users', methods=['GET'])
-@admin_required
-def admin_list_users():
-    search = request.args.get('search', '').strip()
-    conn = get_db()
-    c = conn.cursor()
-    
-    if search:
-        # Search closest to the query, limit to 20 for better visibility
-        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
-                  (f"%{search}%", f"%{search}%"))
-    else:
-        # Default: 10 newest registrations
-        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users ORDER BY id DESC LIMIT 10")
-        
-    users = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return jsonify(users)
 
 @app.route('/api/admin/models', methods=['GET'])
 @admin_required
@@ -867,33 +779,29 @@ from Crypto.Util.Padding import pad
 
 @app.route('/api/models', methods=['GET'])
 @login_required
-def list_models():
+def get_models():
+    """Get models owned by or shared with the current user"""
     user_id = session['user_id']
-    conn = get_db()
-    c = conn.cursor()
+    c = get_db().cursor()
     
-    # Get Own Models
-    c.execute("SELECT * FROM models WHERE user_id=?", (user_id,))
+    # Get user's own models
+    c.execute('SELECT id, name, filename, model_size, image_size FROM models WHERE user_id = ?', (user_id,))
     own_models = [dict(row) for row in c.fetchall()]
     
-    # Get Shared Models (check expiry)
-    current_time = time.time()
-    # Get shared models with owner username
-    c.execute('''
-        SELECT m.id, m.name, m.filename, m.model_size, m.image_size, m.unique_id, u.username as owner_username
-        FROM models m 
-        JOIN shares s ON m.id = s.model_id 
-        JOIN users u ON m.user_id = u.id
-        WHERE s.target_user_id=? AND (s.expiry_date IS NULL OR s.expiry_date > ?)
-    ''', (user_id, current_time))
+    # Get shared models
+    c.execute('''SELECT m.id, m.name, m.filename, m.model_size, m.image_size 
+                 FROM models m 
+                 JOIN shares s ON m.id = s.model_id 
+                 WHERE s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?)''', 
+              (user_id, time.time()))
     shared_models = [dict(row) for row in c.fetchall()]
     
-    conn.close()
-    return jsonify({'own': own_models, 'shared': shared_models})
+    return jsonify(own_models + shared_models)
 
 @app.route('/api/models/list', methods=['GET'])
 def list_all_models():
     """List all available models (for C++ client to fetch remotely)"""
+    # Check if user is authenticated via header
     email = request.headers.get('X-User-Email')
     password = request.headers.get('X-User-Password')
     
@@ -930,57 +838,55 @@ def list_all_models():
             'id': row['id'],
             'name': row['name'],
             'filename': row['filename'],
-            'model_size': row['model_size'],
+            'size': row['model_size'],
             'image_size': row['image_size'],
             'uploaded_at': row['uploaded_at'],
             'is_shared': bool(row['is_shared'])
         })
+    
     return jsonify(models)
 
 @app.route('/api/models/<int:model_id>/download', methods=['GET'])
 def download_model_by_id(model_id):
-    """Download a specific model by ID (for C++ client)"""
+    """Download a specific model by ID (for C++ client using email/password auth)"""
     email = request.headers.get('X-User-Email')
     password = request.headers.get('X-User-Password')
     
     if not email or not password:
-        return jsonify({'error': 'Unauthorized'}), 401
-        
+        return jsonify({'error': 'Authentication required'}), 401
+    
     conn = get_db()
     c = conn.cursor()
     c.execute('SELECT id, password_hash, is_admin FROM users WHERE email = ?', (email,))
     user = c.fetchone()
     
     if not user or not check_password_hash(user['password_hash'], password):
+        conn.close()
         return jsonify({'error': 'Invalid credentials'}), 401
-        
+    
     user_id = user['id']
     is_admin = user['is_admin']
     
-    # Check access permission
-    query = '''
-        SELECT filename FROM models m 
-        LEFT JOIN shares s ON s.model_id = m.id 
-        WHERE m.id = ? AND (
-            m.is_public = 1 OR 
-            m.user_id = ? OR 
-            ? = 1 OR
-            (s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?))
-        )
-    '''
-    c.execute(query, (model_id, user_id, is_admin, user_id, time.time()))
-    model = c.fetchone()
+    # Check model access
+    if is_admin:
+        c.execute('SELECT filename FROM models WHERE id = ?', (model_id,))
+    else:
+        c.execute('''SELECT m.filename FROM models m
+                     LEFT JOIN model_shares s ON m.id = s.model_id
+                     WHERE m.id = ? AND (m.user_id = ? OR s.user_id = ? OR m.is_shared = 1)''',
+                  (model_id, user_id, user_id))
     
-    if not model:
-        conn.close()
-        return jsonify({'error': 'Access denied'}), 403
-        
-    path = os.path.join(MODEL_DIR, model['filename'])
+    model = c.fetchone()
     conn.close()
     
-    if os.path.exists(path):
-        return send_file(path, as_attachment=True)
-    return jsonify({'error': 'File not found'}), 404
+    if not model:
+        return jsonify({'error': 'Model not found or access denied'}), 404
+    
+    path = os.path.join(MODEL_DIR, model['filename'])
+    if not os.path.exists(path):
+        return jsonify({'error': 'Model file missing on server'}), 404
+    
+    return send_file(path, as_attachment=True)
 
 @app.route('/api/models/upload', methods=['POST'])
 @login_required
@@ -1153,92 +1059,6 @@ def share_model(model_id):
     conn.commit()
     conn.close()
     return jsonify({'message': f'Shared with {target_username}'})
-
-@app.route('/api/models/<int:model_id>/shares', methods=['GET'])
-@login_required
-def get_model_shares(model_id):
-    """List all users this model is currently shared with"""
-    conn = get_db()
-    c = conn.cursor()
-    
-    # Verify ownership or Admin
-    if not session.get('is_admin'):
-        model = c.execute("SELECT 1 FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
-        if not model:
-            conn.close()
-            return jsonify({'error': 'Forbidden'}), 403
-            
-    c.execute('''
-        SELECT s.id, u.username, s.expiry_date 
-        FROM shares s
-        JOIN users u ON s.target_user_id = u.id
-        WHERE s.model_id = ?
-    ''', (model_id,))
-    shares = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return jsonify(shares)
-
-@app.route('/api/shares/<int:share_id>/revoke', methods=['POST', 'DELETE'])
-@login_required
-def revoke_share(share_id):
-    """Revoke a specific model share"""
-    conn = get_db()
-    c = conn.cursor()
-    
-    # Check if user owns the model that is shared
-    c.execute('''
-        SELECT m.user_id FROM models m
-        JOIN shares s ON m.id = s.model_id
-        WHERE s.id = ?
-    ''', (share_id,))
-    row = c.fetchone()
-    
-    if not row or (row['user_id'] != session['user_id'] and not session.get('is_admin')):
-        conn.close()
-        return jsonify({'error': 'Forbidden'}), 403
-        
-    c.execute("DELETE FROM shares WHERE id = ?", (share_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({'message': 'Share revoked'})
-
-@app.route('/api/models/verify_access/<int:model_id>', methods=['GET'])
-def verify_model_access(model_id):
-    """Client-side guard: Check if user still has access to a cached model"""
-    email = request.headers.get('X-User-Email')
-    password = request.headers.get('X-User-Password')
-    
-    if not email or not password:
-        return jsonify({'authorized': False, 'error': 'Auth Required'}), 401
-        
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('SELECT id, password_hash, is_admin FROM users WHERE email = ?', (email,))
-    user = c.fetchone()
-    
-    if not user or not check_password_hash(user['password_hash'], password):
-        conn.close()
-        return jsonify({'authorized': False, 'error': 'Invalid Credentials'}), 401
-        
-    user_id = user['id']
-    is_admin = user['is_admin']
-    
-    # Check permission logic (Admin/Owner/Shared/Public)
-    query = '''
-        SELECT 1 FROM models m 
-        LEFT JOIN shares s ON s.model_id = m.id 
-        WHERE m.id = ? AND (
-            m.is_public = 1 OR 
-            m.user_id = ? OR 
-            ? = 1 OR
-            (s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?))
-        )
-    '''
-    c.execute(query, (model_id, user_id, is_admin, user_id, time.time()))
-    allowed = c.fetchone() is not None
-    conn.close()
-    
-    return jsonify({'authorized': allowed, 'model_id': model_id})
 
 
 
