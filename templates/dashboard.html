@@ -505,6 +505,9 @@
                 tr.innerHTML = `
                     <td style="padding:10px; font-family:monospace; color:#2ecc71;">${l.key}</td>
                     <td style="padding:10px;">${l.duration}</td>
+                    <td style="padding:10px; text-align:right;">
+                        <button class="btn danger" style="padding:5px 10px; font-size:0.75em; width:auto;" onclick="adminDeleteLicense('${l.key}')">Delete</button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -575,14 +578,16 @@
                         <td style="padding:10px; color:#f1c40f;">${timeStr}</td>
                         <td style="padding:10px;">${banStatus}</td>
                         <td style="padding:10px;">${u.is_admin ? 'ADMIN' : 'User'}</td>
-                        <td style="padding:10px; display:flex; gap:5px; flex-wrap:wrap;">
+                        <td style="padding:10px;">
                             ${!u.is_admin ? `
-                                <button class="btn secondary" style="padding:5px; font-size:0.75em;" onclick="adminResetPass(${u.id})">Reset PW</button>
-                                ${u.is_banned ?
-                                `<button class="btn primary" style="padding:5px; font-size:0.75em;" onclick="adminUnbanUser(${u.id})">Unban</button>` :
-                                `<button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanUser(${u.id})">Ban</button>`}
-                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanIP('${u.last_ip}')">Ban IP</button>
-                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminDeleteUser(${u.id}, '${u.username}')">X</button>
+                                <select class="btn secondary" style="width:auto; padding:5px; font-size:0.85em; background:#333;" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
+                                    <option value="" disabled selected>Actions...</option>
+                                    <option value="reset_pass">Reset PW</option>
+                                    <option value="${u.is_banned ? 'unban' : 'ban'}">${u.is_banned ? 'Unban User' : 'Ban User'}</option>
+                                    <option value="ban_ip">Ban IP (${u.last_ip || 'N/A'})</option>
+                                    <option value="release">Release License</option>
+                                    <option value="delete" style="color:#e74c3c;">Delete User</option>
+                                </select>
                             ` : '-'}
                         </td>
                     `;
@@ -654,10 +659,10 @@
                              ${m.is_public ? '<span style="color:#2ecc71">Public</span>' : '<span style="color:#e74c3c">Private</span>'}
                         </td>
                         <td style="padding:10px; display:flex; gap:5px;">
-                            <button class="btn secondary" style="padding:5px; font-size:0.75em;" onclick="adminToggleModel(${m.id}, ${m.is_public})">
+                            <button class="btn secondary" style="padding:5px; font-size:0.75em; width:auto;" onclick="adminToggleModel(${m.id}, ${m.is_public})">
                                 ${m.is_public ? 'Unpublish' : 'Publish'}
                             </button>
-                            <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminDeleteModel(${m.id})">Delete</button>
+                            <button class="btn danger" style="padding:5px; font-size:0.75em; width:auto;" onclick="adminDeleteModel(${m.id})">Delete</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -686,6 +691,44 @@
             } else {
                 showNotification('Failed to delete model', 'error');
             }
+        }
+
+        async function adminDeleteLicense(key) {
+            if (!confirm(`Delete license key: ${key}?`)) return;
+            const res = await fetch(`${API_URL}/admin/licenses/${key}/delete`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('License Key Deleted', 'success');
+                loadAdminLicenses();
+            } else {
+                showNotification('Failed to delete license', 'error');
+            }
+        }
+
+        async function adminReleaseLicense(userId) {
+            if (!confirm("Release license from this user? They will need a new key to access models.")) return;
+            const res = await fetch(`${API_URL}/admin/users/${userId}/release_license`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('License released', 'success');
+                loadAdminUsers();
+            } else {
+                showNotification('Failed to release license', 'error');
+            }
+        }
+
+        // --- Action Dispatchers ---
+
+        function handleUserAction(userId, action, username, ip) {
+            if (!action) return;
+            if (action === 'reset_pass') adminResetPass(userId);
+            else if (action === 'ban') adminBanUser(userId);
+            else if (action === 'unban') adminUnbanUser(userId);
+            else if (action === 'ban_ip') adminBanIP(ip);
+            else if (action === 'release') adminReleaseLicense(userId);
+            else if (action === 'delete') adminDeleteUser(userId, username);
+
+            // Reset dropdown
+            const selects = document.querySelectorAll('select');
+            selects.forEach(s => s.selectedIndex = 0);
         }
 
         // Generate License Wrapper to refresh list
