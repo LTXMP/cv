@@ -808,6 +808,22 @@ def admin_delete_model(model_id):
     conn.close()
     return jsonify({'error': 'Model not found'}), 404
 
+@app.route('/api/admin/models/<int:model_id>/publish', methods=['POST'])
+@admin_required
+def admin_toggle_publish(model_id):
+    data = request.json
+    action = data.get('action') # 'public' or 'private'
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    new_status = 1 if action == 'public' else 0
+    c.execute("UPDATE models SET is_public=? WHERE id=?", (new_status, model_id))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': f'Model set to {action}'})
+
 # --- Routes: Models ---
 
 from Crypto.Cipher import AES
@@ -1061,6 +1077,25 @@ def delete_model(model_id):
     
     conn.close()
     return jsonify({'error': 'Model not found or permission denied'}), 404
+
+@app.route('/api/models/<int:model_id>/toggle_public', methods=['POST'])
+@login_required
+def toggle_model_public(model_id):
+    conn = get_db()
+    c = conn.cursor()
+    model = c.execute("SELECT is_public FROM models WHERE id=? AND user_id=?", (model_id, session['user_id'])).fetchone()
+    
+    if not model:
+        conn.close()
+        return jsonify({'error': 'Model not found or permission denied'}), 404
+        
+    new_status = 0 if model['is_public'] else 1
+    c.execute("UPDATE models SET is_public=? WHERE id=?", (new_status, model_id))
+    conn.commit()
+    conn.close()
+    
+    status_text = "Public" if new_status else "Private"
+    return jsonify({'message': f'Model is now {status_text}', 'is_public': bool(new_status)})
 
 @app.route('/api/models/<int:model_id>/share', methods=['POST'])
 @login_required
