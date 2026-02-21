@@ -204,7 +204,7 @@
         <header class="nav">
             <div>
                 <h1 style="color:white; margin:0;">EXCLUSIVE<span style="color:var(--primary)">AIM</span></h1>
-                <p style="font-size:0.7em; color:var(--text-dim); margin:0;">v1.1.3 (Production Sync)</p>
+                <p style="font-size:0.7em; color:var(--text-dim); margin:0;">v1.1.2 (Search fixed)</p>
             </div>
             <div id="userInfo" style="display:none">
                 <span id="usernameDisplay" style="color:var(--text-dim);">User</span>
@@ -305,6 +305,8 @@
                         </p>
 
                         <h4>Hardware ID (HWID)</h4>
+                        <p><strong>Status:</strong> <span id="status-hwid"
+                                style="color:var(--text-dim);">Checking...</span></p>
                         <p style="font-size:0.9em; color:var(--text-dim);">Reset this to use your license on a new
                             PC. (Limit: Once per hour)</p>
                         <button class="btn secondary" onclick="resetHWID()" id="btn-reset-hwid">Reset HWID</button>
@@ -335,7 +337,7 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div>
                             <label>Model Name</label>
-                            <input type="text" id="upload-name" placeholder="E.g. Titan v1">
+                            <input type="text" id="upload-name" placeholder="E.g. Exclusive v1">
                         </div>
                         <div>
                             <label>Model File (.onnx)</label>
@@ -414,7 +416,7 @@
                     </div>
                 </div>
 
-                <div class="card" id="admin-users-card">
+                <div class="card">
                     <h3>User Management</h3>
                     <div style="margin-bottom: 15px;">
                         <input type="text" id="admin-user-search" placeholder="Search by username or email..."
@@ -428,9 +430,8 @@
                             <thead>
                                 <tr style="border-bottom:1px solid #333;">
                                     <th style="padding:10px;">ID</th>
-                                    <th style="padding:10px;">User (Hover for Info)</th>
+                                    <th style="padding:10px;">User</th>
                                     <th style="padding:10px;">Total Time</th>
-                                    <th style="padding:10px;">Subscription</th>
                                     <th style="padding:10px;">Status</th>
                                     <th style="padding:10px;">Role</th>
                                     <th style="padding:10px;">Actions</th>
@@ -443,7 +444,7 @@
                     </div>
                 </div>
 
-                <div class="card" id="admin-models-card">
+                <div class="card">
                     <h3>System Models (All)</h3>
                     <div style="overflow-x:auto;">
                         <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
@@ -501,15 +502,9 @@
             list.forEach(l => {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #333';
-
-                // Format Duration
-                let durDisplay = l.duration;
-                if (l.duration === '2592000') durDisplay = '30 Days';
-                if (l.duration === '86400') durDisplay = '1 Day';
-
                 tr.innerHTML = `
                     <td style="padding:10px; font-family:monospace; color:#2ecc71;">${l.key}</td>
-                    <td style="padding:10px;">${durDisplay}</td>
+                    <td style="padding:10px;">${l.duration}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -555,7 +550,7 @@
                 tbody.innerHTML = '';
 
                 if (!Array.isArray(users) || users.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="padding:20px; text-align:center; color:var(--text-dim);">No users found.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--text-dim);">No users found.</td></tr>';
                     return;
                 }
 
@@ -565,42 +560,6 @@
 
                     const banStatus = u.is_banned ? '<span class="tag" style="background:#e74c3c">BANNED</span>' : '<span class="tag" style="background:#2ecc71">Active</span>';
                     const tooltip = `Email: ${u.email}\nLast IP: ${u.last_ip || 'None'}\nCreated: ${new Date(u.created_at * 1000).toLocaleDateString()}`;
-
-                    // Format Subscription
-                    let subStatus = '<span style="color:#777">None</span>';
-                    if (u.duration) {
-                        const isExpired = u.expiry < (Date.now() / 1000);
-                        const color = isExpired ? '#e74c3c' : '#f1c40f'; // Red if expired, Gold if active
-                        const text = isExpired ? 'Expired' : u.duration;
-                        subStatus = `<span style="color:${color}; font-weight:bold;">${text}</span>`;
-                    }
-
-                    // Format Role
-                    let roleDisplay = 'User';
-                    if (u.is_admin) roleDisplay = '<span style="color:#e056fd">ADMIN</span>';
-                    else if (u.is_helper) roleDisplay = '<span style="color:#f1c40f">HELPER</span>';
-
-                    // Actions Dropdown
-                    let actionsHtml = '-';
-                    // Prevent modifying admins or self (handled by backend mostly, but UI check good too)
-                    if (!u.is_admin) {
-                        actionsHtml = `
-                            <div style="display:flex; gap:5px;">
-                                <select id="action-select-${u.id}" style="padding:5px; background:#222; color:white; border:1px solid #444; border-radius:4px;">
-                                    <option value="">Select Action...</option>
-                                    <option value="reset_pass">Reset Password</option>
-                                    ${u.is_banned ? '<option value="unban">Unban User</option>' : '<option value="ban">Ban User</option>'}
-                                    <option value="cancel_sub">Cancel Subscription</option>
-                                    <option value="ban_ip">Ban IP</option>
-                                    <option value="delete">Delete User</option>
-                                    <option value="divider" disabled>---------</option>
-                                    ${u.is_helper ? '<option value="demote_user">Demote to User</option>' : '<option value="promote_helper">Promote to Helper</option>'}
-                                    <option value="promote_admin">Promote to Admin</option>
-                                </select>
-                                <button class="btn secondary" style="padding:5px 10px;" onclick="executeAdminAction(${u.id}, '${u.username}', '${u.last_ip}')">Go</button>
-                            </div>
-                        `;
-                    }
 
                     // Format Total Time (seconds to days/hours)
                     const totalSeconds = u.total_time || 0;
@@ -614,86 +573,23 @@
                             <span style="border-bottom:1px dotted #777; cursor:help;">${u.username}</span>
                         </td>
                         <td style="padding:10px; color:#f1c40f;">${timeStr}</td>
-                         <td style="padding:10px;">${subStatus}</td>
                         <td style="padding:10px;">${banStatus}</td>
-                        <td style="padding:10px;">${roleDisplay}</td>
-                        <td style="padding:10px;">${actionsHtml}</td>
+                        <td style="padding:10px;">${u.is_admin ? 'ADMIN' : 'User'}</td>
+                        <td style="padding:10px; display:flex; gap:5px; flex-wrap:wrap;">
+                            ${!u.is_admin ? `
+                                <button class="btn secondary" style="padding:5px; font-size:0.75em;" onclick="adminResetPass(${u.id})">Reset PW</button>
+                                ${u.is_banned ?
+                                `<button class="btn primary" style="padding:5px; font-size:0.75em;" onclick="adminUnbanUser(${u.id})">Unban</button>` :
+                                `<button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanUser(${u.id})">Ban</button>`}
+                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminBanIP('${u.last_ip}')">Ban IP</button>
+                                <button class="btn danger" style="padding:5px; font-size:0.75em;" onclick="adminDeleteUser(${u.id}, '${u.username}')">X</button>
+                            ` : '-'}
+                        </td>
                     `;
                     tbody.appendChild(tr);
                 });
             } catch (e) {
                 console.error("Failed to load users", e);
-            }
-        }
-
-        async function executeAdminAction(id, username, ip) {
-            const select = document.getElementById(`action-select-${id}`);
-            const action = select.value;
-            if (!action) return;
-
-            if (action === 'reset_pass') {
-                if (!confirm(`Reset password for ${username}? A random password will be generated and emailed.`)) return;
-                const res = await fetch(`${API_URL}/admin/users/${id}/reset_pass`, { method: 'POST' });
-                const data = await res.json();
-                alert(data.message);
-            }
-            else if (action === 'ban') {
-                if (!confirm(`Ban user ${username}?`)) return;
-                await fetch(`${API_URL}/admin/users/${id}/ban`, { method: 'POST' });
-                loadAdminUsers();
-            }
-            else if (action === 'unban') {
-                if (!confirm(`Unban user ${username}?`)) return;
-                await fetch(`${API_URL}/admin/users/${id}/unban`, { method: 'POST' });
-                loadAdminUsers();
-            }
-            else if (action === 'cancel_sub') {
-                if (!confirm(`Cancel subscription for ${username}? They will lose access immediately.`)) return;
-                const res = await fetch(`${API_URL}/admin/users/${id}/cancel_sub`, { method: 'POST' });
-                const data = await res.json();
-                if (res.ok) alert(data.message);
-                loadAdminUsers();
-            }
-            else if (action === 'ban_ip') {
-                if (!confirm(`Ban IP ${ip}?`)) return;
-                const res = await fetch(`${API_URL}/admin/ip_ban`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ip })
-                });
-                if (res.ok) showNotification("IP Banned", "success");
-            }
-            else if (action === 'delete') {
-                if (!confirm(`PERMANENTLY DELETE ${username}?`)) return;
-                const res = await fetch(`${API_URL}/admin/users/${id}/delete`, { method: 'POST' });
-                if (res.ok) { showNotification("User Deleted", "success"); loadAdminUsers(); }
-            }
-            else if (action === 'promote_helper') {
-                if (!confirm(`Promote ${username} to Helper?`)) return;
-                await fetch(`${API_URL}/admin/users/${id}/role`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: 'helper' })
-                });
-                loadAdminUsers();
-            }
-            else if (action === 'promote_admin') {
-                if (!confirm(`Promote ${username} to ADMIN? They will have full access.`)) return;
-                await fetch(`${API_URL}/admin/users/${id}/role`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: 'admin' })
-                });
-                loadAdminUsers();
-            }
-            else if (action === 'demote_user') {
-                if (!confirm(`Demote ${username} to regular User?`)) return;
-                await fetch(`${API_URL}/admin/users/${id}/role`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: 'user' })
-                });
-                loadAdminUsers();
             }
         }
 
@@ -771,8 +667,6 @@
             }
         }
 
-
-
         async function adminToggleModel(id, current) {
             const action = current ? 'private' : 'public';
             const res = await fetch(`${API_URL}/admin/models/${id}/publish`, {
@@ -839,7 +733,6 @@
 
                     localStorage.setItem('username', data.username);
                     localStorage.setItem('isAdmin', data.is_admin);
-                    localStorage.setItem('isHelper', data.is_helper);
 
                     alert(`Login Success! Saving User: ${data.username}\nReloading now...`);
                     window.location.reload();
@@ -912,26 +805,16 @@
             document.getElementById('register-section').classList.remove('hidden');
         }
 
-        function showDashboard(username, isAdmin, isHelper) {
+        function showDashboard(username, isAdmin) {
             hideAll();
             document.getElementById('dashboard-wrapper').style.display = 'flex';
 
             document.getElementById('userInfo').style.display = 'block';
             document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? " [ADMIN]" : "") + (isHelper && !isAdmin ? " [HELPER]" : "");
+            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? " [ADMIN]" : "");
 
-            if (isAdmin || isHelper) {
+            if (isAdmin) {
                 document.getElementById('nav-admin').style.display = 'block';
-                if (isHelper) document.getElementById('nav-admin').style.color = '#f1c40f'; // Gold for Helper
-            }
-
-            // Helper UI Hiding Logic
-            if (isHelper && !isAdmin) {
-                // Wait for page load or apply immediately if elements exist (they do)
-                const usersCard = document.getElementById('admin-users-card');
-                const modelsCard = document.getElementById('admin-models-card');
-                if (usersCard) usersCard.style.display = 'none';
-                if (modelsCard) modelsCard.style.display = 'none';
             }
 
             // Initial load
@@ -964,13 +847,13 @@
         async function loadAccountData() {
             try {
                 const res = await fetch(`${API_URL}/user/license`);
+                const data = await res.json();
+                console.log("[Account] Data received:", data);
+
                 if (res.status === 401) {
-                    // Session expired
                     logout();
                     return;
                 }
-
-                const data = await res.json();
 
                 const statusEl = document.getElementById('status-license');
                 const expiryEl = document.getElementById('status-expiry');
@@ -1005,8 +888,9 @@
                     const totalSeconds = data.total_time || 0;
                     const days = Math.floor(totalSeconds / 86400);
                     const hours = Math.floor((totalSeconds % 86400) / 3600);
-                    const timeStr = days > 3650 ? "LIFETIME" : `${days}d ${hours}h`;
-                    document.getElementById('status-total-time').innerText = timeStr;
+                    document.getElementById('status-total-time').innerText = `${days}d ${hours}h`;
+
+                    document.getElementById('status-hwid').innerText = "N/A";
                 }
             } catch (e) {
                 console.error("Failed to load license:", e);
@@ -1071,8 +955,9 @@
 
             if (res.ok) {
                 showNotification('HWID Reset Successful', 'success');
+                loadAccountData(); // Refresh UI
             } else {
-                showNotification(data.error, 'error');
+                showNotification(data.error || 'Reset Failed', 'error');
             }
         }
 
@@ -1109,28 +994,18 @@
                     card.innerHTML = `
                     ${thumbHtml}
                     <div style="flex-grow: 1;">
-                        <h3 style="margin: 0;">${m.name} <span style="font-size:0.8em; color:var(--primary);">#${m.unique_id}</span></h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="margin: 0;">${m.name} <span style="font-size:0.8em; color:var(--primary);">#${m.unique_id}</span></h3>
+                            ${m.is_public ? '<span style="color:#2ecc71; font-size:0.8em;">Public</span>' : '<span style="color:#e74c3c; font-size:0.8em;">Private</span>'}
+                        </div>
                         <p style="font-size: 0.9em; color: var(--text-dim); margin: 5px 0;">
                             Size: ${m.model_size} | Img: ${m.image_size}
                         </p>
                         <div class="row" style="margin-top:10px; gap:10px;">
-                            <button class="btn secondary" onclick="toggleShareUI(${m.id})">Manage Access</button>
+                            <button class="btn secondary" onclick="togglePublic(${m.id})">${m.is_public ? 'Unpublish' : 'Publish'}</button>
+                            <button class="btn secondary" onclick="openShareModal(${m.id})">Share</button>
                             <button class="btn secondary" onclick="replaceModel(${m.id})">Replace File</button>
                             <button class="btn danger" onclick="deleteModel(${m.id})">Delete</button>
-                        </div>
-                        <div id="share-ui-${m.id}" class="card hidden" style="margin-top: 15px; background: #111; border: 1px solid #333;">
-                            <h4>Shared Users</h4>
-                            <div id="share-list-${m.id}" style="font-size: 0.9em; margin-bottom: 15px;">
-                                <!-- Shared users list -->
-                            </div>
-                            <div style="border-top: 1px solid #333; padding-top: 10px;">
-                                <label style="font-size: 0.8em; color: var(--text-dim);">Share with User:</label>
-                                <div class="row" style="margin-top: 5px;">
-                                    <input type="text" id="share-username-${m.id}" placeholder="Username" style="flex: 1;">
-                                    <input type="number" id="share-days-${m.id}" placeholder="Days (Opt)" style="width: 80px;">
-                                    <button class="btn primary" style="width: auto; padding: 0 15px;" onclick="executeShare(${m.id})">Grant</button>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 `;
@@ -1159,6 +1034,17 @@
 
             if ((!data.own || data.own.length === 0) && (!data.shared || data.shared.length === 0)) {
                 list.innerHTML = '<p>No models found. Upload one to get started!</p>';
+            }
+        }
+
+        async function togglePublic(id) {
+            const res = await fetch(`${API_URL}/models/${id}/toggle_public`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.message, 'success');
+                loadModels();
+            } else {
+                showNotification(data.error, 'error');
             }
         }
 
@@ -1242,58 +1128,29 @@
 
         // --- Sharing Logic ---
 
-        // --- Sharing UI Logic ---
+        function openShareModal(modelId) {
+            // Simplified "Modal" using prompts for now to save UI complexity
+            // In a full implementation, build a proper overlay div
 
-        async function toggleShareUI(modelId) {
-            const ui = document.getElementById(`share-ui-${modelId}`);
-            if (ui.classList.contains('hidden')) {
-                ui.classList.remove('hidden');
-                loadModelShares(modelId);
-            } else {
-                ui.classList.add('hidden');
-            }
-        }
+            // 1. Search User
+            const username = prompt("Enter username to share with:");
+            if (!username) return;
 
-        async function loadModelShares(modelId) {
-            const list = document.getElementById(`share-list-${modelId}`);
-            list.innerHTML = '<p style="color:var(--text-dim);">Loading shares...</p>';
-
-            try {
-                const res = await fetch(`${API_URL}/models/${modelId}/shares`);
-                const shares = await res.json();
-
-                if (shares.length === 0) {
-                    list.innerHTML = '<p style="color:var(--text-dim); font-style: italic;">Not shared with anyone yet.</p>';
-                    return;
-                }
-
-                list.innerHTML = '';
-                shares.forEach(s => {
-                    const expiry = s.expiry_date ? new Date(s.expiry_date * 1000).toLocaleDateString() : 'Permanent';
-                    const div = document.createElement('div');
-                    div.style = "display: flex; justify-content: space-between; align-items: center; background: #222; padding: 8px; border-radius: 4px; margin-bottom: 5px;";
-                    div.innerHTML = `
-                        <span><strong>${s.username}</strong> <span style="font-size:0.8em; color:var(--text-dim);">(${expiry})</span></span>
-                        <button class="btn danger" style="width: auto; padding: 2px 8px; font-size: 0.8em;" onclick="revokeShare(${modelId}, ${s.id})">Revoke</button>
-                    `;
-                    list.appendChild(div);
-                });
-            } catch (e) {
-                list.innerHTML = '<p style="color:#e74c3c;">Failed to load shares.</p>';
-            }
-        }
-
-        async function executeShare(modelId) {
-            const username = document.getElementById(`share-username-${modelId}`).value.trim();
-            const daysInput = document.getElementById(`share-days-${modelId}`).value;
-
-            if (!username) return showNotification("Enter a username", "error");
-
+            // 2. Select Duration
+            const durationStr = prompt("Enter duration in days (leave empty for Permanent):");
             let expiry = null;
-            if (daysInput) {
-                expiry = (Date.now() / 1000) + (parseFloat(daysInput) * 86400);
+            if (durationStr) {
+                const days = parseFloat(durationStr);
+                if (!isNaN(days)) {
+                    // Current Time + Days * Seconds in Day
+                    expiry = (Date.now() / 1000) + (days * 86400);
+                }
             }
 
+            shareModel(modelId, username, expiry);
+        }
+
+        async function shareModel(modelId, username, expiry) {
             const res = await fetch(`${API_URL}/models/${modelId}/share`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1303,22 +1160,8 @@
 
             if (res.ok) {
                 showNotification(data.message, 'success');
-                document.getElementById(`share-username-${modelId}`).value = '';
-                document.getElementById(`share-days-${modelId}`).value = '';
-                loadModelShares(modelId);
             } else {
                 showNotification(data.error, 'error');
-            }
-        }
-
-        async function revokeShare(modelId, shareId) {
-            if (!confirm("Revoke access for this user?")) return;
-            const res = await fetch(`${API_URL}/shares/${shareId}/revoke`, { method: 'POST' });
-            if (res.ok) {
-                showNotification('Access Revoked', 'success');
-                loadModelShares(modelId);
-            } else {
-                showNotification('Revoke Failed', 'error');
             }
         }
 
@@ -1348,8 +1191,7 @@
                 if (u && u !== "undefined" && u !== "null") {
                     console.log("Found user, showing dashboard...");
                     try {
-                        const isHelper = localStorage.getItem('isHelper');
-                        showDashboard(u, admin === 'true', isHelper === 'true');
+                        showDashboard(u, admin === 'true');
                     } catch (e) {
                         alert("CRITICAL ERROR in showDashboard: " + e);
                         console.error(e);
