@@ -821,18 +821,22 @@ def get_models():
     c = get_db().cursor()
     
     # Get user's own models
-    c.execute('SELECT id, name, filename, model_size, image_size FROM models WHERE user_id = ?', (user_id,))
+    c.execute('SELECT id, name, filename, model_size, image_size, thumbnail_path, unique_id FROM models WHERE user_id = ?', (user_id,))
     own_models = [dict(row) for row in c.fetchall()]
     
     # Get shared models
-    c.execute('''SELECT m.id, m.name, m.filename, m.model_size, m.image_size 
+    c.execute('''SELECT m.id, m.name, m.filename, m.model_size, m.image_size, m.thumbnail_path, m.unique_id, u.username as owner_username
                  FROM models m 
                  JOIN shares s ON m.id = s.model_id 
+                 JOIN users u ON m.user_id = u.id
                  WHERE s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?)''', 
               (user_id, time.time()))
     shared_models = [dict(row) for row in c.fetchall()]
     
-    return jsonify(own_models + shared_models)
+    return jsonify({
+        'own': own_models,
+        'shared': shared_models
+    })
 
 @app.route('/api/models/list', methods=['GET'])
 def list_all_models():
