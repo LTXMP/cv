@@ -480,8 +480,21 @@ def login():
 
         # Check Email Verification
         if 'is_verified' in user.keys() and not user['is_verified']: # Default to True if column missing
+            # Auto-send a new verification link
+            c.execute("DELETE FROM email_verifications WHERE user_id=?", (user['id'],))
+            token = secrets.token_urlsafe(32)
+            expiry = time.time() + (24 * 3600)
+            c.execute("INSERT INTO email_verifications (token, user_id, expiry) VALUES (?, ?, ?)", (token, user['id'], expiry))
+            conn.commit()
+
+            base_url = request.url_root.rstrip('/')
+            verify_link = f"{base_url}/api/auth/verify?token={token}"
+            subject = "Exclusive Aim - Verify your Email Address"
+            body = f"Hello {user['username']},\n\nYou recently tried to log in, but your account isn't verified yet.\n\nPlease click the link below to verify your email address:\n\n<strong><a href='{verify_link}' style='color:#00BFFF; word-break: break-all;'>{verify_link}</a></strong>\n\nThis link will expire in 24 hours.\n\nBest regards,\nThe Exclusive Aim Team"
+            send_email(user['email'], subject, body)
+
             conn.close()
-            return jsonify({'error': 'Please verify your email address to log in.', 'unverified': True}), 403
+            return jsonify({'error': 'Your account is not verified. A new verification link has been sent to your email.', 'unverified': True}), 403
 
         # Update Last IP
         c.execute("UPDATE users SET last_ip=? WHERE id=?", (client_ip, user['id']))
@@ -534,8 +547,21 @@ def client_auth():
         return jsonify({'authorized': False, 'message': 'Account suspended'}), 403
 
     if 'is_verified' in user.keys() and not user['is_verified']:
+        # Auto-send a new verification link
+        c.execute("DELETE FROM email_verifications WHERE user_id=?", (user['id'],))
+        token = secrets.token_urlsafe(32)
+        expiry = time.time() + (24 * 3600)
+        c.execute("INSERT INTO email_verifications (token, user_id, expiry) VALUES (?, ?, ?)", (token, user['id'], expiry))
+        conn.commit()
+
+        base_url = request.url_root.rstrip('/')
+        verify_link = f"{base_url}/api/auth/verify?token={token}"
+        subject = "Exclusive Aim - Verify your Email Address"
+        body = f"Hello {user['username']},\n\nYou recently tried to log in, but your account isn't verified yet.\n\nPlease click the link below to verify your email address:\n\n<strong><a href='{verify_link}' style='color:#00BFFF; word-break: break-all;'>{verify_link}</a></strong>\n\nThis link will expire in 24 hours.\n\nBest regards,\nThe Exclusive Aim Team"
+        send_email(user['email'], subject, body)
+
         conn.close()
-        return jsonify({'authorized': False, 'message': 'Please verify your email address on the dashboard to log in.'}), 403
+        return jsonify({'authorized': False, 'message': 'Account not verified. A new verification link has been sent to your email.'}), 403
 
     # 2. Check License
     conn.execute("UPDATE users SET last_ip=? WHERE id=?", (request.remote_addr, user['id']))
