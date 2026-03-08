@@ -67,6 +67,7 @@ def init_db():
                   is_admin BOOLEAN DEFAULT 0,
                   is_banned BOOLEAN DEFAULT 0,
                   is_owner BOOLEAN DEFAULT 0,
+                  is_verified BOOLEAN DEFAULT 0,
                   last_ip TEXT,
                   created_at REAL)''')
 
@@ -90,11 +91,27 @@ def init_db():
             c.execute("ALTER TABLE users ADD COLUMN is_owner BOOLEAN DEFAULT 0")
         except: pass
 
+    if 'is_verified' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT 0")
+            # Backfill: verify all existing users to prevent lockouts
+            c.execute("UPDATE users SET is_verified = 1")
+            conn.commit()
+        except Exception as e:
+            print(f"DB Migration Error (is_verified): {e}")
+
     # Banned IPs Table
     c.execute('''CREATE TABLE IF NOT EXISTS banned_ips 
                  (ip TEXT PRIMARY KEY, 
                   reason TEXT,
                   banned_at REAL)''')
+
+    # Email Verifications Table
+    c.execute('''CREATE TABLE IF NOT EXISTS email_verifications 
+                 (token TEXT PRIMARY KEY, 
+                  user_id INTEGER, 
+                  expiry REAL,
+                  FOREIGN KEY(user_id) REFERENCES users(id))''')
 
     # Password Resets Table
     c.execute('''CREATE TABLE IF NOT EXISTS password_resets 
@@ -246,11 +263,61 @@ def send_email(to_email, subject, body):
         return False
 
     try:
-        msg = MIMEMultipart()
+        msg = MIMEMultipart('related')
         msg['From'] = smtp_user
         msg['To'] = to_email
         msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
+        
+        msg_alternative = MIMEMultipart('alternative')
+        msg.attach(msg_alternative)
+        
+        # Attach plain text
+        msg_alternative.attach(MIMEText(body, 'plain'))
+        
+        # Create HTML version
+        html_body = body.replace('\n', '<br>')
+        html = """
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d0d0d; color: #ffffff; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #121212; border-radius: 8px; border: 1px solid #1f1f1f; }
+                .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #00BFFF; margin-bottom: 30px; }
+                .content { font-size: 16px; line-height: 1.6; color: #e0e0e0; }
+                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #1f1f1f; text-align: center; font-size: 12px; color: #888888; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <img src="cid:logo" alt="Exclusive Aim" style="max-width: 250px; height: auto;">
+                </div>
+                <div class="content">
+                    {html_body}
+                </div>
+                <div class="footer">
+                    <p>Exclusive Aim &copy; {year}. All rights reserved.</p>
+                    <p>This is an automated message, please do not reply directly to this email.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.replace('{html_body}', html_body).replace('{year}', str(datetime.datetime.now().year))
+        
+        msg_alternative.attach(MIMEText(html, 'html'))
+        
+        # Attach logo
+        try:
+            logo_path = os.path.join(BASE_DIR, 'static', 'email_logo.png')
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as img:
+                    from email.mime.image import MIMEImage
+                    mime_img = MIMEImage(img.read())
+                    mime_img.add_header('Content-ID', '<logo>')
+                    mime_img.add_header('Content-Disposition', 'inline')
+                    msg.attach(mime_img)
+        except Exception as e:
+            print(f"Warning: Could not attach logo: {e}")
 
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
@@ -294,8 +361,8 @@ def notify_mod_action(user_id, subject_prefix, action_description):
     conn.close()
     
     if user and user['email']:
-        user_subject = f"Account Update: {subject_prefix}"
-        user_body = f"Hello {user['username']},\n\n{action_description}\n\nIf you have questions, please contact support.\n\nBest regards,\nExclusive Aim Team"
+        user_subject = f"Exclusive Aim - Account Update: {subject_prefix}"
+        user_body = f"Hello {user['username']},\n\nWe wanted to let you know about a recent update to your Exclusive Aim account:\n\n<strong>{action_description}</strong>\n\nIf you have any questions or believe this was a mistake, our support team is always here to help.\n\nBest regards,\nThe Exclusive Aim Team"
         send_email(user['email'], user_subject, user_body)
         
         # Log to Discord
@@ -351,8 +418,10 @@ def register():
     conn = get_db()
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO users (username, email, password_hash, created_at, is_banned, last_ip, last_hwid_reset) VALUES (?, ?, ?, ?, 0, ?, 0)",
+        # Default is_verified=0
+        c.execute("INSERT INTO users (username, email, password_hash, created_at, is_banned, last_ip, last_hwid_reset, is_verified) VALUES (?, ?, ?, ?, 0, ?, 0, 0)",
                   (username, email, hashed_pw, time.time(), request.remote_addr))
+        user_id = c.lastrowid
         conn.commit()
     except sqlite3.IntegrityError as e:
         conn.close()
@@ -360,9 +429,21 @@ def register():
             return jsonify({'error': 'Email already registered'}), 409
         return jsonify({'error': 'Username already taken'}), 409
     
+    # Generate Verification Token
+    token = secrets.token_urlsafe(32)
+    expiry = time.time() + (24 * 3600) # 24 hours
+    c.execute("INSERT INTO email_verifications (token, user_id, expiry) VALUES (?, ?, ?)", (token, user_id, expiry))
+    conn.commit()
+
+    # Get the base URL from request, handling Render domains correctly
+    base_url = request.url_root.rstrip('/')
+    # If dev host (127.0.0.1 or localhost), use it, else let client decide (often Render frontends handle URL). 
+    # Hardcoding typical structure:
+    verify_link = f"{base_url}/api/auth/verify?token={token}"
+
     # Notifications
-    welcome_subject = "Welcome to Exclusive Aim!"
-    welcome_body = f"Hello {username}!\n\nYour account has been successfully created. You can now login and explore our model sharing platform.\n\nBest regards,\nExclusive Aim Team"
+    welcome_subject = "Exclusive Aim - Verify your Email Address"
+    welcome_body = f"Hello {username},\n\nWelcome to Exclusive Aim! Your account has been successfully created.\n\nPlease click the link below to verify your email address and activate your account:\n\n<strong><a href='{verify_link}' style='color:#00BFFF; word-break: break-all;'>{verify_link}</a></strong>\n\nThis link will expire in 24 hours.\n\nBest regards,\nThe Exclusive Aim Team"
     send_email(email, welcome_subject, welcome_body)
 
     send_discord_notification(
@@ -372,7 +453,7 @@ def register():
     )
 
     conn.close()
-    return jsonify({'message': 'User registered successfully'})
+    return jsonify({'message': 'Registration successful. Please check your email to verify your account.'})
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -396,6 +477,11 @@ def login():
         if user['is_banned']:
             conn.close()
             return jsonify({'error': 'Account suspended.'}), 403
+
+        # Check Email Verification
+        if not user.get('is_verified', 1): # Default to 1 for backwards compat if DB column missing temporarily
+            conn.close()
+            return jsonify({'error': 'Please verify your email address to log in.', 'unverified': True}), 403
 
         # Update Last IP
         c.execute("UPDATE users SET last_ip=? WHERE id=?", (client_ip, user['id']))
@@ -427,9 +513,6 @@ def login():
     conn.close()
     return jsonify({'error': 'Invalid credentials'}), 401
 
-    conn.close()
-    return jsonify({'error': 'Invalid credentials'}), 401
-
 @app.route('/api/client/auth', methods=['POST'])
 def client_auth():
     data = request.json
@@ -449,6 +532,10 @@ def client_auth():
     if user['is_banned']:
         conn.close()
         return jsonify({'authorized': False, 'message': 'Account suspended'}), 403
+
+    if not user.get('is_verified', 1):
+        conn.close()
+        return jsonify({'authorized': False, 'message': 'Please verify your email address on the dashboard to log in.'}), 403
 
     # 2. Check License
     conn.execute("UPDATE users SET last_ip=? WHERE id=?", (request.remote_addr, user['id']))
@@ -500,6 +587,8 @@ def client_auth():
         'm_key': SECRET_KEY.decode('utf-8'),
         'm_iv': IV.decode('utf-8')
     })
+
+@app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
     return jsonify({'message': 'Logged out'})
@@ -521,8 +610,8 @@ def request_reset():
         conn.commit()
         
         # Send Email
-        subject = "Exclusive Aim - Security Code"
-        body = f"Your password reset code is: {token}\n\nThis code will expire in 1 hour.\n\nIf you did not request this, please ignore this email."
+        subject = "Exclusive Aim - Security Code Request"
+        body = f"Hello,\n\nWe received a request for a security code for your Exclusive Aim account.\n\nYour secure code is: <strong><span style='font-size: 20px; color: #00BFFF; letter-spacing: 2px;'>{token}</span></strong>\n\nThis code will expire in 1 hour. If you did not request this code, you can safely ignore this email; your account remains secure.\n\nBest regards,\nThe Exclusive Aim Team"
         email_sent = send_email(email, subject, body)
         
         if email_sent:
@@ -536,6 +625,75 @@ def request_reset():
             
     conn.close()
     return jsonify({'message': 'If account exists, email sent'})
+
+@app.route('/api/auth/verify', methods=['GET'])
+def verify_email():
+    token = request.args.get('token')
+    if not token:
+        return jsonify({'error': 'Missing token'}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    verify_row = c.execute("SELECT * FROM email_verifications WHERE token=?", (token,)).fetchone()
+    
+    if not verify_row:
+        conn.close()
+        return render_template('dashboard.html') # Let dashboard handle error display (e.g. invalid token) or create a simple HTML response
+        # Alternative simple HTML response (since this is typically visited via browser link):
+        # return "<h1>Invalid or Expired Link</h1><p>Please request a new verification link.</p>", 400
+
+    if verify_row['expiry'] < time.time():
+        c.execute("DELETE FROM email_verifications WHERE token=?", (token,))
+        conn.commit()
+        conn.close()
+        return "<h1>Link Expired</h1><p>Please request a new verification link from the login page.</p>", 400
+
+    # Success
+    c.execute("UPDATE users SET is_verified=1 WHERE id=?", (verify_row['user_id'],))
+    c.execute("DELETE FROM email_verifications WHERE token=?", (token,))
+    conn.commit()
+    conn.close()
+
+    # In production, redirect to login page with a success query param
+    return render_template('dashboard.html') # Assuming React handles the fresh state
+
+@app.route('/api/auth/resend_verification', methods=['POST'])
+def resend_verification():
+    email = request.json.get('email')
+    if not email:
+        return jsonify({'error': 'Missing email'}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("SELECT id, username, is_verified FROM users WHERE email=?", (email,)).fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({'message': 'If an account exists, a new link has been sent.'}) # Don't leak user existence
+
+    if user['is_verified']:
+        conn.close()
+        return jsonify({'error': 'Account is already verified.'}), 400
+
+    # Clear old tokens
+    c.execute("DELETE FROM email_verifications WHERE user_id=?", (user['id'],))
+
+    # Gen new token
+    token = secrets.token_urlsafe(32)
+    expiry = time.time() + (24 * 3600)
+    c.execute("INSERT INTO email_verifications (token, user_id, expiry) VALUES (?, ?, ?)", (token, user['id'], expiry))
+    conn.commit()
+    conn.close()
+
+    base_url = request.url_root.rstrip('/')
+    verify_link = f"{base_url}/api/auth/verify?token={token}"
+
+    subject = "Exclusive Aim - Verify your Email Address"
+    body = f"Hello {user['username']},\n\nWe received a request to resend your email verification link.\n\nPlease click the link below to verify your email address and activate your account:\n\n<strong><a href='{verify_link}' style='color:#00BFFF; word-break: break-all;'>{verify_link}</a></strong>\n\nThis link will expire in 24 hours.\n\nBest regards,\nThe Exclusive Aim Team"
+    
+    send_email(email, subject, body)
+
+    return jsonify({'message': 'Verification link sent successfully.'})
 
 @app.route('/api/auth/reset_password', methods=['POST'])
 def reset_password():
@@ -655,7 +813,23 @@ def claim_key():
     # Claim new one
     c.execute("UPDATE licenses SET user_id=? WHERE key=?", (user_id, key))
     conn.commit()
+
+    # Send confirmation email
+    user_row = c.execute("SELECT username, email FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
+
+    if user_row and user_row['email']:
+        expiry_str = time.strftime('%Y-%m-%d', time.localtime(license_row['expiry'])) if license_row['expiry'] < 9999999999 else 'Never'
+        send_email(
+            user_row['email'],
+            "Exclusive Aim - License Successfully Activated",
+            f"Hello {user_row['username']},\n\nFantastic news! Your license key has been successfully claimed and activated on your account.\n\n<strong>Subscription Details:</strong>\n&bull; Duration: {license_row['duration']}\n&bull; Expiry Date: {expiry_str}\n\nYou now have full access to our premium features. Thank you for choosing Exclusive Aim!\n\nBest regards,\nThe Exclusive Aim Team"
+        )
+        send_discord_notification(
+            "License Claimed",
+            f"**User**: {user_row['username']} (ID: {user_id})\n**Key**: {key}\n**Duration**: {license_row['duration']}",
+            color=0x2ecc71
+        )
     
     return jsonify({'message': 'License renewed successfully'})
 
@@ -708,8 +882,17 @@ def reset_hwid():
         
     c.execute("UPDATE licenses SET hwid='' WHERE user_id=?", (user_id,))
     c.execute("UPDATE users SET last_hwid_reset=? WHERE id=?", (time.time(), user_id))
+    user_row = c.execute("SELECT username, email FROM users WHERE id=?", (user_id,)).fetchone()
     conn.commit()
     conn.close()
+
+    # Security notification
+    if user_row and user_row['email']:
+        send_email(
+            user_row['email'],
+            "Exclusive Aim - Hardware Security Update",
+            f"Hello {user_row['username']},\n\nJust a quick security notice: the Hardware ID (HWID) binding for your Exclusive Aim license has been successfully reset.\n\nYour license is now unbound and will automatically bind to the new device you use upon your next login. \n\nIf you did not authorize this reset, please change your password and contact our support team immediately.\n\nBest regards,\nThe Exclusive Aim Team"
+        )
     return jsonify({'message': 'HWID Reset'})
 
 # --- Routes: Admin Management ---
@@ -770,20 +953,7 @@ def admin_release_license(user_id):
     notify_mod_action(user_id, "License Released", "Your active license has been released by an administrator. You will need a new key to access models.")
     return jsonify({'message': 'License released from user'})
 
-@app.route('/api/admin/users/<int:user_id>/reset_pass', methods=['POST'])
-@admin_required
-def admin_reset_pass(user_id):
-    # Generate a random 12-character password
-    chars = string.ascii_letters + string.digits + "!@#$%^&*"
-    temp_pass = ''.join(secrets.choice(chars) for _ in range(12))
-    
-    hashed = generate_password_hash(temp_pass)
-    conn = get_db()
-    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
-    conn.commit()
-    conn.close()
-    notify_mod_action(user_id, "Password Reset", f"Your password has been reset by an administrator to a temporary one: {temp_pass}\n\nPlease login and change it immediately.")
-    return jsonify({'message': f'Password reset to: {temp_pass}'})
+# admin_reset_pass removed — use /api/admin/users/<id>/reset_password (below) instead
 
 @app.route('/api/admin/ip_ban', methods=['POST'])
 @admin_required
@@ -848,8 +1018,8 @@ def admin_reset_password(user_id):
     email_sent = False
     if user_email_row and user_email_row['email']:
         to_email = user_email_row['email']
-        subject = "Exclusive Aim - Password Reset"
-        body = f"Your password has been reset by an administrator.\n\nNew Password: {new_pass}\n\nPlease login and change it immediately."
+        subject = "Exclusive Aim - Administrative Password Reset"
+        body = f"Hello,\n\nYour Exclusive Aim account password has been securely reset by an administrator.\n\nYour new temporary password is: <strong><span style='color: #00BFFF;'>{new_pass}</span></strong>\n\nPlease log in using this temporary password and update it to a new, secure password of your choice immediately.\n\nBest regards,\nThe Exclusive Aim Team"
         email_sent = send_email(to_email, subject, body)
         email_info = f"Email sent to {to_email}" if email_sent else f"Email FAILED (Check SMTP config). New pass: {new_pass}"
     else:
