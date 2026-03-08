@@ -626,6 +626,39 @@ def request_reset():
     conn.close()
     return jsonify({'message': 'If account exists, email sent'})
 
+def render_verification_page(title, message, is_success):
+    color = "#00BFFF" if is_success else "#e74c3c"
+    icon = '&#10004;' if is_success else '&#10006;'
+    
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Exclusive Aim - {title}</title>
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d0d0d; color: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column; }}
+            .container {{ background-color: #121212; padding: 40px; border-radius: 12px; border: 1px solid #1f1f1f; text-align: center; max-width: 450px; box-shadow: 0 8px 30px rgba(0,0,0,0.8); }}
+            .icon-circle {{ width: 60px; height: 60px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.05); border: 2px solid {color}; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px; font-size: 28px; color: {color}; }}
+            h2 {{ margin-top: 0; font-weight: 600; font-size: 24px; color: #ffffff; }}
+            p {{ color: #a0a0a0; margin-bottom: 30px; line-height: 1.6; font-size: 15px; }}
+            .btn {{ display: inline-block; background-color: #00BFFF; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; transition: all 0.2s ease; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }}
+            .btn:hover {{ background-color: #0099cc; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 191, 255, 0.3); }}
+            .logo {{ max-width: 180px; margin-bottom: 30px; opacity: 0.8; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="icon-circle">{icon}</div>
+            <h2>{title}</h2>
+            <p>{message}</p>
+            <a href="/" class="btn">Return to Dashboard</a>
+        </div>
+    </body>
+    </html>
+    """
+
 @app.route('/api/auth/verify', methods=['GET'])
 def verify_email():
     token = request.args.get('token')
@@ -638,24 +671,31 @@ def verify_email():
     
     if not verify_row:
         conn.close()
-        return render_template('dashboard.html') # Let dashboard handle error display (e.g. invalid token) or create a simple HTML response
-        # Alternative simple HTML response (since this is typically visited via browser link):
-        # return "<h1>Invalid or Expired Link</h1><p>Please request a new verification link.</p>", 400
+        return render_verification_page("Invalid Link", "This verification link is invalid or has already been used.", False)
 
     if verify_row['expiry'] < time.time():
         c.execute("DELETE FROM email_verifications WHERE token=?", (token,))
         conn.commit()
         conn.close()
-        return "<h1>Link Expired</h1><p>Please request a new verification link from the login page.</p>", 400
+        return render_verification_page("Link Expired", "This verification link has expired. Please log in to request a new one.", False)
 
     # Success
+    user = c.execute("SELECT username, email FROM users WHERE id=?", (verify_row['user_id'],)).fetchone()
     c.execute("UPDATE users SET is_verified=1 WHERE id=?", (verify_row['user_id'],))
     c.execute("DELETE FROM email_verifications WHERE token=?", (token,))
     conn.commit()
     conn.close()
 
-    # In production, redirect to login page with a success query param
-    return render_template('dashboard.html') # Assuming React handles the fresh state
+    # Discord Notification
+    if user:
+        send_discord_notification(
+            "User Verified",
+            f"**User**: {user['username']}\n**Email**: {user['email']}\nAccount successfully verified.",
+            color=0x2ecc71 # Green
+        )
+
+    # Success Page
+    return render_verification_page("Email Verified", "Your email has been successfully verified! You can now access your dashboard.", True)
 
 @app.route('/api/auth/resend_verification', methods=['POST'])
 def resend_verification():
