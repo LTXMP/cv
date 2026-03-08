@@ -797,7 +797,17 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
-                const data = await res.json();
+
+                let data = {};
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    data = await res.json();
+                } else {
+                    const text = await res.text();
+                    console.error("Non-JSON response from server:", text);
+                    showNotification("Server error or unexpected response format.", "error");
+                    return;
+                }
 
                 if (res.ok) {
                     console.log("Login OK, saving token and reloading...");
@@ -811,13 +821,25 @@
                     localStorage.setItem('isAdmin', data.is_admin);
                     localStorage.setItem('isOwner', data.is_owner);
 
-                    alert(`Login Success! Saving User: ${data.username}\nReloading now...`);
                     window.location.reload();
                 } else {
-                    showNotification(data.error || 'Login Failed', 'error');
+                    if (data.unverified) {
+                        const resend = confirm(data.error + "\n\nWould you like us to resend the verification email?");
+                        if (resend) {
+                            const resendRes = await fetch(`${API_URL}/auth/resend_verification`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email })
+                            });
+                            const resendData = await resendRes.json();
+                            showNotification(resendData.message || resendData.error, resendRes.ok ? "success" : "error");
+                        }
+                    } else {
+                        showNotification(data.error || 'Login Failed', 'error');
+                    }
                 }
             } catch (e) {
-                alert("Login Critical Error: " + e);
+                showNotification("Network Error: Could not reach login server.", "error");
                 console.error(e);
             }
         }
