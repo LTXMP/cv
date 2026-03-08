@@ -1376,9 +1376,9 @@ def download_model_by_id(model_id):
         c.execute('SELECT filename FROM models WHERE id = ?', (model_id,))
     else:
         c.execute('''SELECT m.filename FROM models m
-                     LEFT JOIN model_shares s ON m.id = s.model_id
-                     WHERE m.id = ? AND (m.user_id = ? OR s.user_id = ? OR m.is_shared = 1)''',
-                  (model_id, user_id, user_id))
+                     LEFT JOIN shares s ON m.id = s.model_id
+                     WHERE m.id = ? AND (m.user_id = ? OR (s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?)) OR m.is_public = 1)''',
+                  (model_id, user_id, user_id, time.time()))
     
     model = c.fetchone()
     conn.close()
