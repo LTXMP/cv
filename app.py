@@ -876,8 +876,9 @@ def claim_key():
     # Remove old licenses (Permanent fix for duplication)
     c.execute("DELETE FROM licenses WHERE user_id = ?", (user_id,))
     
-    # Claim new one
-    c.execute("UPDATE licenses SET user_id=? WHERE key=?", (user_id, key))
+    # Claim new one and start the expiry timer NOW
+    new_expiry = time.time() + duration_seconds
+    c.execute("UPDATE licenses SET user_id=?, expiry=? WHERE key=?", (user_id, new_expiry, key))
     conn.commit()
 
     # Send confirmation email
@@ -885,7 +886,7 @@ def claim_key():
     conn.close()
 
     if user_row and user_row['email']:
-        expiry_str = time.strftime('%Y-%m-%d', time.localtime(license_row['expiry'])) if license_row['expiry'] < 9999999999 else 'Never'
+        expiry_str = time.strftime('%Y-%m-%d', time.localtime(new_expiry)) if new_expiry < 9999999999 else 'Never'
         send_email(
             user_row['email'],
             "Exclusive Aim - License Successfully Activated",
