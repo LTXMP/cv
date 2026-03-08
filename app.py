@@ -479,7 +479,7 @@ def login():
             return jsonify({'error': 'Account suspended.'}), 403
 
         # Check Email Verification
-        if not user.get('is_verified', 1): # Default to 1 for backwards compat if DB column missing temporarily
+        if 'is_verified' in user.keys() and not user['is_verified']: # Default to True if column missing
             conn.close()
             return jsonify({'error': 'Please verify your email address to log in.', 'unverified': True}), 403
 
@@ -533,7 +533,7 @@ def client_auth():
         conn.close()
         return jsonify({'authorized': False, 'message': 'Account suspended'}), 403
 
-    if not user.get('is_verified', 1):
+    if 'is_verified' in user.keys() and not user['is_verified']:
         conn.close()
         return jsonify({'authorized': False, 'message': 'Please verify your email address on the dashboard to log in.'}), 403
 
