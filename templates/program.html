@@ -45,8 +45,8 @@
         }
         .logo { font-size: 24px; font-weight: 800; color: #fff; text-decoration: none; }
         .logo span { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
-        .nav-links { display: flex; gap: 25px; align-items: center; }
-        .nav-links a { color: var(--text-dim); text-decoration: none; font-weight: 600; font-size: 14px; transition: 0.3s; }
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-links a { text-decoration: none; color: var(--text-dim); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
         .nav-links a:hover { color: var(--primary); }
         .nav-links a.active { color: var(--primary); }
 
@@ -118,18 +118,46 @@
             .nav-links { gap: 15px; }
             .feature-list { grid-template-columns: 1fr; }
         }
+        
+        /* Modern Mobile Fixes */
+        @media (max-width: 768px) {
+            nav {
+                padding: 12px 5% !important;
+                padding-top: calc(12px + env(safe-area-inset-top)) !important;
+            }
+            .logo { font-size: 20px !important; }
+            .mobile-hide { display: none !important; }
+            .mobile-show { display: block !important; }
+            .nav-auth-mobile { display: flex !important; gap: 10px; }
+        }
+        .nav-auth-mobile { display: none; }
+        .cta-btn {
+            background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
+        }
+        .cta-btn:hover {
+            transform: translateY(-2px); box-shadow: 0 6px 20px var(--primary-glow); color: #000;
+        }
     </style>
-</head>
-<body>
+
     <div class="bg-glow"></div>
 
     <nav>
         <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
-        <div class="nav-links">
-            <a href="/">Home</a>
+        
+        <!-- Desktop Links -->
+        <div class="nav-links mobile-hide">
+            <a href="/#features">Features</a>
+            <a href="/#tech">Technology</a>
+            <a href="/#pricing">Pricing</a>
             <a href="/program" class="active">Program</a>
             <a href="/reseller">Reseller</a>
-            <a href="/dashboard">Dashboard</a>
+            <a href="/dashboard" class="mobile-hide">Dashboard</a>
+            <a href="/dashboard?action=register" class="cta-btn">Join Now</a>
+        </div>
+
+        <!-- Mobile Quick Actions -->
+        <div class="nav-auth-mobile">
+            <a href="/dashboard" class="cta-btn" style="padding: 8px 15px; font-size: 13px;">Login</a>
         </div>
     </nav>
 

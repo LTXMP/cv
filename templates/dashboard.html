@@ -362,6 +362,8 @@
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
                 <button class="nav-item" onclick="showPage('admin')" id="nav-admin"
                     style="display:none; color:var(--accent);">Admin Panel</button>
+                <button class="nav-item" onclick="showPage('reseller')" id="nav-reseller"
+                    style="display:none; color:var(--warning);">Reseller Panel</button>
                 <div style="flex-grow:1"></div>
                 <button class="nav-item" onclick="location.href='/'" style="opacity: 0.7; font-size: 0.85em; margin-bottom: 10px;">&larr; Back to Website</button>
                 <button class="nav-item" onclick="logout()" style="color: var(--error);">Logout</button>
@@ -600,6 +602,72 @@
                             </tbody>
                         </table>
                     </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 24px;">
+                    <h3 style="margin-bottom: 20px; color: var(--warning);">Reseller Management</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                        <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                            <h4 style="margin-bottom: 10px; color: var(--primary);">Allocate Licenses</h4>
+                            <label style="font-size: 13px; color: var(--text-dim);">Reseller ID</label>
+                            <input type="number" id="gen-reseller-id" placeholder="ID">
+                            
+                            <label style="font-size: 13px; color: var(--text-dim);">Duration</label>
+                            <select id="gen-reseller-duration">
+                                <option value="2592000">30 Days</option>
+                                <option value="604800">7 Days</option>
+                                <option value="86400">1 Day</option>
+                                <option value="LIFETIME">Lifetime</option>
+                            </select>
+                            
+                            <label style="font-size: 13px; color: var(--text-dim);">Amount (Quantity)</label>
+                            <input type="number" id="gen-reseller-amount" value="1" min="1">
+                            
+                            <button onclick="adminGenerateResellerLicenses()" style="background: var(--warning); color: #111; margin-top: 15px;">Generate</button>
+                        </div>
+                        <div>
+                            <h4 style="margin-bottom: 15px;">Current Resellers</h4>
+                            <div style="max-height: 250px; overflow-y: auto;">
+                                <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                                    <tbody id="admin-resellers-list">
+                                        <!-- Populated via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Tab: Reseller Panel -->
+            <div id="page-reseller" class="page hidden">
+                <h1 style="margin-bottom: 30px; display:flex; align-items:center; gap: 10px;">
+                    Reseller Panel 
+                    <span style="font-size: 12px; color: var(--warning); border: 1px solid var(--warning); padding: 2px 6px; border-radius: 4px;">AUTHORIZED</span>
+                </h1>
+                <p style="color: var(--text-dim); margin-bottom: 20px;">Manage and distribute your allocated license keys.</p>
+
+                <div class="card">
+                    <h3 style="margin-bottom: 20px; color: var(--primary);">My Assigned Keys</h3>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--glass-border);">
+                                    <th style="padding:12px;">Key</th>
+                                    <th style="padding:12px;">Duration</th>
+                                    <th style="padding:12px;">Assigned To</th>
+                                    <th style="padding:12px;">Status</th>
+                                    <th style="padding:12px;">Time / Expiry</th>
+                                    <th style="padding:12px; text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reseller-licenses-list">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -619,6 +687,7 @@
             loadAdminUsers();
             loadAdminModels();
             loadAdminLicenses();
+            loadAdminResellers();
             loadSettings();
         }
 
@@ -711,6 +780,8 @@
                     const timeStr = days > 3650 ? "LIFETIME" : `${days}d ${hours}h`;
 
                     const isOwner = localStorage.getItem('isOwner') === 'true';
+                    const isResellerFlag = u.is_reseller ? '<br><span style="color:var(--warning); font-size: 11px;">RESELLER</span>' : '';
+                    
                     tr.innerHTML = `
                         <td style="padding:12px;">${u.id}</td>
                         <td style="padding:12px;" title="${tooltip}">
@@ -718,7 +789,7 @@
                         </td>
                         <td style="padding:12px; color:var(--primary); font-weight:600;">${timeStr}</td>
                         <td style="padding:12px; font-size: 13px;">${banStatus}</td>
-                        <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}</td>
+                        <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}${isResellerFlag}</td>
                         <td style="padding:12px; text-align: right;">
                             ${(isOwner || !u.is_admin) ? `
                                 <select style="width:140px; padding:6px; font-size:12px; margin:0; background: var(--glass); border-color: var(--glass-border);" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
@@ -728,6 +799,7 @@
                                     <option value="ban_ip">Ban IP</option>
                                     <option value="release">Release Key</option>
                                     ${isOwner ? `<option value="${u.is_admin ? 'demote' : 'promote'}">${u.is_admin ? 'Demote' : 'Promote'}</option>` : ''}
+                                    ${isOwner || localStorage.getItem('isAdmin') === 'true' ? `<option value="${u.is_reseller ? 'revoke_reseller' : 'make_reseller'}">${u.is_reseller ? 'Revoke Reseller' : 'Make Reseller'}</option>` : ''}
                                     <option value="delete" style="color:var(--error);">Delete User</option>
                                 </select>
                             ` : '<span style="color:var(--text-dim); font-size:12px;">Protected</span>'}
@@ -968,6 +1040,7 @@
             else if (action === 'promote') adminPromoteUser(userId);
             else if (action === 'demote') adminDemoteUser(userId);
             else if (action === 'delete') adminDeleteUser(userId, username);
+            else if (action === 'make_reseller' || action === 'revoke_reseller') adminToggleReseller(userId);
 
             // Reset dropdown
             const selects = document.querySelectorAll('select');
@@ -1030,6 +1103,7 @@
                     localStorage.setItem('username', data.username);
                     localStorage.setItem('isAdmin', data.is_admin);
                     localStorage.setItem('isOwner', data.is_owner);
+                    localStorage.setItem('isReseller', data.is_reseller);
 
                     window.location.reload();
                 } else {
@@ -1115,12 +1189,12 @@
             document.getElementById('register-section').classList.remove('hidden');
         }
 
-        function showDashboard(username, isAdmin, isOwner) {
+        function showDashboard(username, isAdmin, isOwner, isReseller) {
             hideAll();
             document.getElementById('dashboard-wrapper').style.display = 'flex';
 
             document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? (isOwner ? " [OWNER]" : " [ADMIN]") : "");
+            document.getElementById('usernameDisplay').innerText = username + (isAdmin ? (isOwner ? " [OWNER]" : " [ADMIN]") : (isReseller ? " [RESELLER]" : ""));
 
             if (isAdmin) {
                 document.getElementById('nav-admin').style.display = 'block';
@@ -1129,6 +1203,10 @@
                 } else {
                     document.getElementById('nav-admin').innerText = "Admin Panel";
                 }
+            }
+
+            if (isReseller || isOwner) {
+                document.getElementById('nav-reseller').style.display = 'block';
             }
 
             // Initial load
@@ -1156,6 +1234,9 @@
             if (pageId === 'admin') {
                 loadAdminData();
             }
+            if (pageId === 'reseller') {
+                loadResellerData();
+            }
         }
 
         async function loadAccountData() {
@@ -1174,13 +1255,17 @@
                 const oldOwner = localStorage.getItem('isOwner') === 'true';
                 const newAdmin = !!data.is_admin;
                 const newOwner = !!data.is_owner;
+                // Since user/license might not return is_reseller yet, we keep old reseller state unless it comes back.
+                const oldReseller = localStorage.getItem('isReseller') === 'true';
+                const newReseller = ('is_reseller' in data) ? !!data.is_reseller : oldReseller;
 
-                if (oldAdmin !== newAdmin || oldOwner !== newOwner) {
+                if (oldAdmin !== newAdmin || oldOwner !== newOwner || oldReseller !== newReseller) {
                     console.log("[Account] Role shift detected. Syncing UI...");
                     localStorage.setItem('isAdmin', newAdmin);
                     localStorage.setItem('isOwner', newOwner);
+                    localStorage.setItem('isReseller', newReseller);
                     const u = localStorage.getItem('username');
-                    showDashboard(u, newAdmin, newOwner);
+                    showDashboard(u, newAdmin, newOwner, newReseller);
                 }
 
                 const statusEl = document.getElementById('status-license');
@@ -1605,6 +1690,190 @@
             }
         }
 
+        // --- Admin Reseller Management ---
+        async function loadAdminResellers() {
+            try {
+                const res = await fetch(`${API_URL}/admin/resellers`);
+                const resellers = await res.json();
+                const tbody = document.getElementById('admin-resellers-list');
+                tbody.innerHTML = '';
+                if (!Array.isArray(resellers) || resellers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="padding:10px; color:var(--text-dim);">No active resellers found.</td></tr>';
+                    return;
+                }
+                resellers.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid var(--glass-border)';
+                    tr.innerHTML = `
+                        <td style="padding:10px;">${r.id}</td>
+                        <td style="padding:10px;">${r.username}</td>
+                        <td style="padding:10px; text-align:right;">
+                            <button class="danger" style="padding:4px 10px; font-size:11px; margin:0; width:auto;" onclick="adminToggleReseller(${r.id})">Revoke</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error('Failed to load resellers', e);
+            }
+        }
+
+        async function adminGenerateResellerLicenses() {
+            const reseller_id = document.getElementById('gen-reseller-id').value;
+            const duration = document.getElementById('gen-reseller-duration').value;
+            const amount = document.getElementById('gen-reseller-amount').value;
+
+            if (!reseller_id) { showNotification('Please enter a Reseller ID', 'error'); return; }
+
+            try {
+                const res = await fetch(`${API_URL}/admin/generate_reseller_license`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reseller_id, duration, amount })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(`Generated ${data.keys.length} keys!`, 'success');
+                    loadAdminLicenses();
+                } else {
+                    showNotification(data.error || 'Generation Failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Network Error', 'error');
+            }
+        }
+
+        async function adminToggleReseller(userId) {
+            if (!confirm("Toggle Reseller status for this user?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${userId}/reseller`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('Reseller status updated', 'success');
+                loadAdminUsers(document.getElementById('admin-user-search').value);
+                loadAdminResellers();
+            } else {
+                const data = await res.json();
+                showNotification(data.error || 'Failed to update', 'error');
+            }
+        }
+
+        // --- Reseller Dashboard Functions ---
+        async function loadResellerData() {
+            try {
+                const res = await fetch(`${API_URL}/reseller/licenses`);
+                if (!res.ok) {
+                    showNotification('Failed to fetch reseller licenses', 'error');
+                    return;
+                }
+                const licenses = await res.json();
+                renderResellerLicenses(licenses);
+            } catch (e) {
+                console.error("Failed to load reseller data", e);
+            }
+        }
+
+        function renderResellerLicenses(list) {
+            const tbody = document.getElementById('reseller-licenses-list');
+            tbody.innerHTML = '';
+            
+            if (!list || list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--text-dim);">No keys allocated yet.</td></tr>';
+                return;
+            }
+
+            list.forEach(l => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--glass-border)';
+                
+                const isClaimed = !!l.claimed_by;
+                const claimedText = isClaimed ? `<span style="color:var(--primary); font-weight:bold;">${l.claimed_by}</span>` : '<span style="color:var(--text-dim);">Unclaimed</span>';
+                
+                let statusText = "";
+                let statusStyle = "";
+                if (!isClaimed) {
+                    statusText = "Available";
+                    statusStyle = "color: var(--success);";
+                } else if (l.is_paused) {
+                    statusText = "Paused";
+                    statusStyle = "color: var(--warning);";
+                } else {
+                    // Check expiry
+                    const now = Date.now() / 1000;
+                    if (l.duration === 'LIFETIME' || l.expiry > now) {
+                        statusText = "Active";
+                        statusStyle = "color: var(--success);";
+                    } else {
+                        statusText = "Expired";
+                        statusStyle = "color: var(--error);";
+                    }
+                }
+
+                // Sub-calc for expiry visual
+                let timeStr = "-";
+                if (isClaimed) {
+                    if (l.duration === 'LIFETIME') {
+                        timeStr = "Lifetime";
+                    } else if (l.is_paused) {
+                        const days = Math.floor(l.pause_time_left / 86400);
+                        const hours = Math.floor((l.pause_time_left % 86400) / 3600);
+                        timeStr = `${days}d ${hours}h left (Frozen)`;
+                    } else {
+                        const date = new Date(l.expiry * 1000);
+                        timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    }
+                }
+
+                const actions = `
+                    <select style="width:110px; padding:6px; font-size:12px; margin:0;" onchange="handleResellerAction('${l.key}', this.value); this.selectedIndex=0;">
+                        <option value="" disabled selected>Manage...</option>
+                        ${isClaimed ? `
+                            <option value="revoke">Revoke License</option>
+                            <option value="${l.is_paused ? 'resume' : 'pause'}">${l.is_paused ? 'Resume Sub' : 'Pause Sub'}</option>
+                        ` : ''}
+                    </select>
+                `;
+
+                tr.innerHTML = `
+                    <td style="padding:12px; font-family:monospace;">
+                        ${l.key} <button class="secondary" style="padding: 2px 6px; font-size: 10px; margin-left: 5px; width: auto;" onclick="navigator.clipboard.writeText('${l.key}'); showNotification('Copied', 'success')">Copy</button>
+                    </td>
+                    <td style="padding:12px;">${l.duration === 'LIFETIME' ? 'Lifetime' : (l.duration / 86400).toFixed(0) + 'd'}</td>
+                    <td style="padding:12px;">${claimedText}</td>
+                    <td style="padding:12px; font-weight:600; ${statusStyle}">${statusText}</td>
+                    <td style="padding:12px; font-size: 12px; color: var(--text-dim);">${timeStr}</td>
+                    <td style="padding:12px; text-align: right;">${actions}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function handleResellerAction(key, action) {
+            if (!action) return;
+            if (action === 'revoke') resellerRevokeLicense(key);
+            else if (action === 'pause') resellerPauseLicense(key);
+            else if (action === 'resume') resellerResumeLicense(key);
+        }
+
+        async function resellerRevokeLicense(key) {
+            if (!confirm("Revoke this license? The user will lose access and the key will become unclaimed again.")) return;
+            const res = await fetch(`${API_URL}/reseller/licenses/${key}/revoke`, { method: 'POST' });
+            if (res.ok) { showNotification("License Revoked", "success"); loadResellerData(); }
+            else { showNotification("Failed to revoke", "error"); }
+        }
+
+        async function resellerPauseLicense(key) {
+            if (!confirm("Pause subscription? The user will not be able to use the app until resumed.")) return;
+            const res = await fetch(`${API_URL}/reseller/licenses/${key}/pause`, { method: 'POST' });
+            if (res.ok) { showNotification("Subscription Paused", "success"); loadResellerData(); }
+            else { const d = await res.json(); showNotification(d.error || "Failed to pause", "error"); }
+        }
+
+        async function resellerResumeLicense(key) {
+            if (!confirm("Resume subscription?")) return;
+            const res = await fetch(`${API_URL}/reseller/licenses/${key}/resume`, { method: 'POST' });
+            if (res.ok) { showNotification("Subscription Resumed", "success"); loadResellerData(); }
+            else { const d = await res.json(); showNotification(d.error || "Failed to resume", "error"); }
+        }
+
         // --- Notifications ---
 
         function showNotification(msg, type = 'info') {
@@ -1626,13 +1895,14 @@
                 const u = localStorage.getItem('username');
                 const admin = localStorage.getItem('isAdmin');
                 const owner = localStorage.getItem('isOwner');
+                const reseller = localStorage.getItem('isReseller');
 
                 // alert(`DEBUG STARTUP:\nUser: ${u}\nAdmin: ${admin}`); // Uncomment if needed, but let's try to just log first unless it fails hard
 
                 if (u && u !== "undefined" && u !== "null") {
                     console.log("Found user, showing dashboard...");
                     try {
-                        showDashboard(u, admin === 'true', owner === 'true');
+                        showDashboard(u, admin === 'true', owner === 'true', reseller === 'true');
                     } catch (e) {
                         alert("CRITICAL ERROR in showDashboard: " + e);
                         console.error(e);
