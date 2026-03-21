@@ -641,7 +641,7 @@ def login():
         session['is_owner'] = is_owner
         
         # Backward compatibility for is_reseller column if missing
-        is_reseller = user.get('is_reseller', 0) if 'is_reseller' in user.keys() else 0
+        is_reseller = user['is_reseller'] if 'is_reseller' in user.keys() else 0
         session['is_reseller'] = is_reseller
 
         conn.close()
