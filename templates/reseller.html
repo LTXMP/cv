@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reseller & Rebranding - Exclusive Aim</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00BFFF;
+            --primary-glow: rgba(0, 191, 255, 0.4);
+            --accent: #7000FF;
+            --bg: #050505;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-dim: #a0a0a0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        .bg-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: 
+                radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.08), transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(112, 0, 255, 0.08), transparent 40%);
+        }
+
+        nav {
+            position: sticky; top: 0; width: 100%; padding: 20px 8%;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(5, 5, 5, 0.8); backdrop-filter: blur(12px);
+            z-index: 1000; border-bottom: 1px solid var(--glass-border);
+        }
+
+        .logo {
+            font-size: 24px; font-weight: 800; color: #fff; text-decoration: none;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .logo span { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
+
+        .container { max-width: 1000px; margin: 80px auto; padding: 0 20px; text-align: center; }
+
+        h1 { font-size: 3rem; margin-bottom: 20px; background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p { font-size: 1.2rem; color: var(--text-dim); margin-bottom: 40px; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 60px; }
+
+        .card {
+            background: var(--glass); border: 1px solid var(--glass-border); border-radius: 24px;
+            padding: 40px; text-align: left; transition: 0.4s; position: relative; overflow: hidden;
+        }
+        .card:hover { border-color: var(--primary); transform: translateY(-10px); background: rgba(255,255,255,0.05); }
+        .card h3 { font-size: 1.8rem; margin-bottom: 15px; color: var(--primary); }
+        .card p { font-size: 1rem; margin-bottom: 0; }
+        .card .badge { position: absolute; top: 20px; right: 20px; background: var(--accent); color: #fff; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+
+        .cta-box {
+            margin-top: 80px; padding: 60px; border-radius: 32px;
+            background: linear-gradient(135deg, rgba(0, 191, 255, 0.05) 0%, rgba(112, 0, 255, 0.05) 100%);
+            border: 1px solid var(--glass-border);
+        }
+        .cta-box h2 { font-size: 2.2rem; margin-bottom: 20px; }
+        .btn {
+            display: inline-block; padding: 16px 40px; background: var(--primary); color: #000;
+            text-decoration: none; border-radius: 12px; font-weight: 800; font-size: 1.1rem;
+            box-shadow: 0 8px 25px var(--primary-glow); transition: 0.3s;
+        }
+        .btn:hover { transform: scale(1.05); box-shadow: 0 12px 35px var(--primary-glow); }
+
+        footer { padding: 60px 8%; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; margin-top: 100px; }
+        .footer-logo { font-size: 20px; font-weight: 800; color: #fff; }
+        .footer-logo span { color: var(--primary); }
+        .footer-links a { margin-left: 20px; color: var(--text-dim); text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    
+    <nav>
+        <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
+        <div style="display: flex; gap: 20px;">
+            <a href="/" style="color: var(--text-dim); text-decoration: none; font-weight: 600;">Home</a>
+            <a href="/dashboard" style="color: var(--primary); text-decoration: none; font-weight: 600;">Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Reseller & Rebranding</h1>
+        <p>Unlock high-volume opportunities and establish your own brand with the world's most advanced computer vision technology.</p>
+
+        <div class="grid">
+            <div class="card">
+                <div class="badge">Volume</div>
+                <h3>Official Reseller</h3>
+                <p>Purchase licenses in bulk at significant discounts. Perfect for community owners, discord server admins, and regional distributors. Gain access to our reseller dashboard for easy key management.</p>
+            </div>
+
+            <div class="card">
+                <div class="badge">Enterprise</div>
+                <h3>Full Rebranding</h3>
+                <p>Launch your own software powered by the Titan engine. Custom UI, unique branding, and private builds tailored to your requirements. Maintain 100% ownership of your customer relationship.</p>
+            </div>
+        </div>
+
+        <div class="cta-box">
+            <h2>Custom Pricing & Elite Support</h2>
+            <p>Our partnership rates are tailored to your volume and specific needs. Whether you need 50 keys or a complete white-label solution, we provide the infrastructure to help you succeed.</p>
+            <div style="margin-top: 30px;">
+                <a href="https://discord.gg/jpRXXw3keR" target="_blank" class="btn">Join Discord to Apply</a>
+            </div>
+            <p style="margin-top: 20px; font-size: 0.9rem; opacity: 0.6;">* Please open a support ticket and mention "Partnership Inquiry".</p>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-logo">EXCLUSIVE<span>AIM</span></div>
+        <div class="footer-links">
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/refund">Refund</a>
+        </div>
+    </footer>
+</body>
+</html>
