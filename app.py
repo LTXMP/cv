@@ -1595,6 +1595,33 @@ def share_model(model_id):
     conn.close()
     return jsonify({'message': f'Shared with {target_username}'})
 
+@app.route('/api/models/<int:model_id>/shared_users', methods=['GET'])
+@login_required
+def get_shared_users(model_id):
+    c = get_db().cursor()
+    user_id = session['user_id']
+    is_admin = session.get('is_admin')
+
+    # Verify authorization (Owner or Admin)
+    c.execute("SELECT user_id FROM models WHERE id=?", (model_id,))
+    model = c.fetchone()
+    if not model:
+        return jsonify({'error': 'Model not found'}), 404
+    
+    if model['user_id'] != user_id and not is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Fetch shared users, filtering out Admins or Owner
+    query = '''
+        SELECT u.username 
+        FROM shares s
+        JOIN users u ON s.target_user_id = u.id
+        WHERE s.model_id = ? AND u.is_admin = 0 AND u.is_owner = 0
+    '''
+    c.execute(query, (model_id,))
+    users = [row['username'] for row in c.fetchall()]
+    return jsonify(users)
+
 
 
 # --- Routes: Client / Verification ---
