@@ -86,51 +86,24 @@
         }
 
         .nav-links {
-            display: flex;
-            gap: 30px;
-            align-items: center;
+            display: flex; gap: 30px; align-items: center;
         }
 
         .nav-links a {
-            text-decoration: none;
-            color: var(--text-dim);
-            font-weight: 600;
-            font-size: 14px;
-            transition: 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .nav-links a:hover {
-            color: var(--primary);
+            text-decoration: none; color: var(--text-dim); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
         }
 
         .cta-btn {
-            background: var(--primary);
-            color: #000;
-            padding: 10px 24px;
-            border-radius: 8px;
-            font-weight: 700;
-            text-decoration: none;
-            transition: 0.3s;
-            box-shadow: 0 4px 15px var(--primary-glow);
-        }
-
-        .cta-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px var(--primary-glow);
+            background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
         }
 
         .login-outline {
-            border: 1px solid var(--primary);
-            color: var(--primary) !important;
-            padding: 8px 20px;
-            border-radius: 8px;
+            border: 1px solid var(--primary); color: var(--primary) !important; padding: 8px 20px; border-radius: 8px;
         }
 
         /* --- Hero Section --- */
         .hero {
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -146,6 +119,7 @@
             margin-bottom: 20px;
             background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -171,10 +145,10 @@
             mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
         }
 
-        /* --- Stats/Features Grid --- */
-        .section {
-            padding: 100px 10%;
-        }
+        /* --- Sections --- */
+        .section { padding: 100px 10%; }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .section-header h2 { font-size: 48px; margin-bottom: 10px; }
 
         .grid {
             display: grid;
@@ -188,8 +162,6 @@
             padding: 40px;
             border-radius: 20px;
             transition: 0.4s;
-            position: relative;
-            overflow: hidden;
         }
 
         .feature-box:hover {
@@ -198,152 +170,27 @@
             transform: translateY(-5px);
         }
 
-        .feature-box i {
-            font-size: 32px;
-            color: var(--primary);
-            margin-bottom: 20px;
-            display: block;
-        }
-
-        .feature-box h3 {
-            font-size: 24px;
-            margin-bottom: 15px;
-        }
-
-        .feature-box p {
-            color: var(--text-dim);
-        }
-
-        /* --- Pricing Section --- */
-        .pricing-section {
-            background: #080808;
-            padding: 100px 10%;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 60px;
-        }
-
-        .section-header h2 {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-
-        .pricing-grid {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 30px;
-        }
-
+        /* --- Pricing --- */
+        .pricing-section { background: #080808; padding: 100px 10%; }
+        .pricing-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; }
         .price-card {
             background: var(--bg-card);
             border: 1px solid var(--glass-border);
             padding: 50px 40px;
             border-radius: 24px;
-            width: 350px;
+            width: 320px;
             text-align: center;
             transition: 0.4s;
-            position: relative;
         }
+        .price-card.featured { border-color: var(--primary); transform: scale(1.05); }
+        .price-card .price { font-size: 56px; font-weight: 800; margin-bottom: 30px; }
+        .price-list { list-style: none; text-align: left; margin-bottom: 40px; color: var(--text-dim); }
+        .price-list li { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+        .price-list li::before { content: '✓'; color: var(--primary); }
+        .price-card .btn { width: 100%; display: block; padding: 15px; background: var(--glass); border: 1px solid var(--glass-border); color: #fff; text-decoration: none; border-radius: 12px; }
+        .price-card.featured .btn { background: var(--primary); color: #000; border: none; }
 
-        .price-card.featured {
-            border-color: var(--primary);
-            transform: scale(1.05);
-            box-shadow: 0 0 30px rgba(0, 191, 255, 0.1);
-        }
-
-        .price-card h4 {
-            font-size: 18px;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 20px;
-        }
-
-        .price-card .price {
-            font-size: 56px;
-            font-weight: 800;
-            margin-bottom: 30px;
-        }
-
-        .price-card .price span {
-            font-size: 20px;
-            color: var(--text-dim);
-        }
-
-        .price-list {
-            list-style: none;
-            text-align: left;
-            margin-bottom: 40px;
-        }
-
-        .price-list li {
-            margin-bottom: 15px;
-            color: var(--text-dim);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .price-list li::before {
-            content: '✓';
-            color: var(--primary);
-            font-weight: 900;
-        }
-
-        .price-card .btn {
-            width: 100%;
-            display: block;
-            padding: 15px;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            color: #fff;
-            text-decoration: none;
-            border-radius: 12px;
-            font-weight: 700;
-            transition: 0.3s;
-        }
-
-        .price-card.featured .btn {
-            background: var(--primary);
-            color: #000;
-            border: none;
-        }
-
-        /* --- Footer --- */
-        footer {
-            padding: 60px 10%;
-            border-top: 1px solid var(--glass-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #030303;
-        }
-
-        .footer-logo {
-            font-size: 20px;
-            font-weight: 800;
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 20px;
-        }
-
-        .footer-links a {
-            color: var(--text-dim);
-            text-decoration: none;
-            font-size: 14px;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .nav-links { display: none; }
-            .hero h1 { font-size: 40px; }
-            .pricing-grid { flex-direction: column; align-items: center; }
-        }
+        footer { padding: 60px 10%; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; background: #030303; }
 
     </style>
 </head>
@@ -362,11 +209,13 @@
     </nav>
 
     <section class="hero">
-        <h1>Unleash the Power of <span>AI Precision</span></h1>
-        <p>Exclusive Aim is the world's most advanced C++ powered computer vision engine. undetectable, incredibly fast, and built for the elite.</p>
-        <div class="hero-actions">
-            <a href="#pricing" class="cta-btn">View Plans</a>
-            <a href="#features" class="cta-btn" style="background: var(--glass); border: 1px solid var(--glass-border); color: #fff;">Learn More</a>
+        <div style="margin-top: 80px;">
+            <h1>Unleash the Power of <span>AI Precision</span></h1>
+            <p>Exclusive Aim is the world's most advanced C++ powered computer vision engine. undetectable, incredibly fast, and built for the elite.</p>
+            <div class="hero-actions" style="justify-content: center;">
+                <a href="#pricing" class="cta-btn">View Plans</a>
+                <a href="#features" class="cta-btn" style="background: var(--glass); border: 1px solid var(--glass-border); color: #fff;">Learn More</a>
+            </div>
         </div>
         <img src="/static/hero.png" alt="Tech Preview" class="main-hero-img">
     </section>
@@ -433,33 +282,47 @@
         <div class="pricing-grid">
             <div class="price-card">
                 <h4>Pro Daily</h4>
-                <div class="price">$5<span>/day</span></div>
+                <div class="price">4€<span>/day</span></div>
                 <ul class="price-list">
                     <li>All Premium Models</li>
                     <li>24/7 Support</li>
-                    <li>High-Speed Access</li>
+                </ul>
+                <a href="/dashboard?action=register" class="btn">Get Started</a>
+            </div>
+            <div class="price-card">
+                <h4>Pro Weekly</h4>
+                <div class="price">10€<span>/week</span></div>
+                <ul class="price-list">
+                    <li>Extended Access</li>
+                    <li>All Premium Models</li>
                 </ul>
                 <a href="/dashboard?action=register" class="btn">Get Started</a>
             </div>
             <div class="price-card featured">
                 <h4>Elite Monthly</h4>
-                <div class="price">$45<span>/mo</span></div>
+                <div class="price">15€<span>/mo</span></div>
                 <ul class="price-list">
                     <li>Full Feature Set</li>
-                    <li>Priority Model Downloads</li>
-                    <li>Exclusive Discord Access</li>
-                    <li>Best for Competitors</li>
+                    <li>Priority Downloads</li>
+                    <li>Best Value</li>
                 </ul>
                 <a href="/dashboard?action=register" class="btn">Select Elite</a>
             </div>
             <div class="price-card">
-                <h4>Lifetime</h4>
-                <div class="price">$250<span>/once</span></div>
+                <h4>Elite Yearly</h4>
+                <div class="price">100€<span>/yr</span></div>
                 <ul class="price-list">
-                    <li>Never Pay Again</li>
-                    <li>Legacy Supporter Status</li>
-                    <li>Beta Access to Features</li>
-                    <li>Unlimited Licenses</li>
+                    <li>VIP Access</li>
+                    <li>All Future Content</li>
+                </ul>
+                <a href="/dashboard?action=register" class="btn">Join Elite</a>
+            </div>
+            <div class="price-card">
+                <h4>Lifetime</h4>
+                <div class="price">150€<span>/once</span></div>
+                <ul class="price-list">
+                    <li>Permanent License</li>
+                    <li>Legacy Supporter</li>
                 </ul>
                 <a href="/dashboard?action=register" class="btn">Go Lifetime</a>
             </div>
@@ -469,11 +332,10 @@
     <footer>
         <div class="footer-logo">EXCLUSIVE<span>AIM</span></div>
         <div class="footer-links">
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
-            <a href="#">Discord</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
+            <a href="https://discord.gg/jpRXXw3keR" target="_blank">Discord Support</a>
         </div>
     </footer>
-
 </body>
 </html>
