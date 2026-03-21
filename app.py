@@ -58,6 +58,20 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
+    # Global Settings Table
+    c.execute('''CREATE TABLE IF NOT EXISTS global_settings 
+                 (key TEXT PRIMARY KEY, 
+                  value TEXT)''')
+    
+    # Initialize free trial setting if not exists
+    c.execute("INSERT OR IGNORE INTO global_settings (key, value) VALUES ('free_trial_enabled', '0')")
+
+    # Trial Claims Table (Anti-Abuse)
+    c.execute('''CREATE TABLE IF NOT EXISTS trial_claims 
+                 (ip TEXT PRIMARY KEY, 
+                  user_id INTEGER, 
+                  claimed_at REAL)''')
+
     # Users Table - Updated Schema with Email, Ban, IP
     c.execute('''CREATE TABLE IF NOT EXISTS users 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -407,6 +421,30 @@ def terms():
 def privacy():
     return render_template('privacy.html')
 
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT value FROM global_settings WHERE key='free_trial_enabled'").fetchone()
+    conn.close()
+    enabled = row['value'] == '1' if row else False
+    return jsonify({'free_trial_enabled': enabled})
+
+@app.route('/api/admin/settings', methods=['POST'])
+@admin_required
+def admin_update_settings():
+    data = request.json
+    key = data.get('key')
+    value = data.get('value')
+    if key not in ['free_trial_enabled']:
+        return jsonify({'error': 'Invalid setting'}), 400
+    
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", (key, str(value)))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Setting updated'})
+
 @app.route('/health')
 def health_check():
     return jsonify({'status': 'ok', 'timestamp': time.time()})
@@ -447,10 +485,29 @@ def register():
     conn = get_db()
     c = conn.cursor()
     try:
+        # Check if Free Trial is enabled
+        trial_row = c.execute("SELECT value FROM global_settings WHERE key='free_trial_enabled'").fetchone()
+        trial_enabled = trial_row['value'] == '1' if trial_row else False
+        
+        # Anti-Abuse: Check IP
+        client_ip = request.remote_addr
+        already_claimed = c.execute("SELECT 1 FROM trial_claims WHERE ip=?", (client_ip,)).fetchone()
+        
         # Default is_verified=0
-        c.execute("INSERT INTO users (username, email, password_hash, created_at, is_banned, last_ip, last_hwid_reset, is_verified) VALUES (?, ?, ?, ?, 0, ?, 0, 0)",
-                  (username, email, hashed_pw, time.time(), request.remote_addr))
+        c.execute("INSERT INTO users (username, email, password_hash, created_at, is_banned, last_ip, last_hwid_reset, is_verified, total_time) VALUES (?, ?, ?, ?, 0, ?, 0, 0, ?)",
+                  (username, email, hashed_pw, time.time(), client_ip, 0 if not trial_enabled or already_claimed else 604800))
         user_id = c.lastrowid
+        
+        # Grant Trial License if eligible
+        if trial_enabled and not already_claimed:
+            # Duration: 7 days
+            trial_key = f"TRIAL-{secrets.token_hex(8).upper()}"
+            expiry = time.time() + 604800
+            c.execute("INSERT INTO licenses (key, user_id, hwid, duration, expiry) VALUES (?, ?, ?, ?, ?)",
+                      (trial_key, user_id, "", "7.0", expiry))
+            c.execute("INSERT INTO trial_claims (ip, user_id, claimed_at) VALUES (?, ?, ?)",
+                      (client_ip, user_id, time.time()))
+            
         conn.commit()
     except sqlite3.IntegrityError as e:
         conn.close()
