@@ -1994,7 +1994,7 @@ def admin_toggle_reseller(user_id):
         conn.close()
         return jsonify({'error': 'Database migration pending, please wait'}), 500
 
-    is_reseller = user.get('is_reseller', 0) if 'is_reseller' in user.keys() else 0
+    is_reseller = user['is_reseller'] if 'is_reseller' in user.keys() else 0
     new_status = 1 if not is_reseller else 0
     c.execute("UPDATE users SET is_reseller=? WHERE id=?", (new_status, user_id))
     conn.commit()
