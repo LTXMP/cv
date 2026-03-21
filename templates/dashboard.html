@@ -1054,14 +1054,28 @@
                     statusEl.className = "status-invalid";
                     statusEl.style.color = "#e74c3c";
                     expiryEl.innerText = "-";
+                    expiryEl.classList.remove('live-countdown');
 
+                    const totalEl = document.getElementById('status-total-time');
                     const totalSeconds = data.total_time || 0;
-                    const days = Math.floor(totalSeconds / 86400);
-                    const hours = Math.floor((totalSeconds % 86400) / 3600);
-                    document.getElementById('status-total-time').innerText = `${days}d ${hours}h`;
+                    if (totalSeconds > 0) {
+                        const d = Math.floor(totalSeconds / 86400);
+                        const h = Math.floor((totalSeconds % 86400) / 3600);
+                        const m = Math.floor((totalSeconds % 3600) / 60);
+                        // Show it with the same structure as active ones but without live countdown
+                        let pts = [];
+                        if (d > 0) pts.push(`${d}d`);
+                        if (h > 0) pts.push(`${h}h`);
+                        if (m > 0 || pts.length === 0) pts.push(`${m}m`);
+                        totalEl.innerText = pts.join(' ');
+                    } else {
+                        totalEl.innerText = "-";
+                    }
+                    totalEl.classList.remove('live-countdown');
 
                     document.getElementById('status-hwid').innerText = "N/A";
                 }
+                updateAllCountdowns();
             } catch (e) {
                 console.error("Failed to load license:", e);
                 document.getElementById('status-license').innerText = "Error Loading";
@@ -1554,6 +1568,7 @@
         }
 
         // Start interval
+        updateAllCountdowns(); // Initial call
         setInterval(updateAllCountdowns, 60000); // Every minute
         
     </script>
