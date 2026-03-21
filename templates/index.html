@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exclusive Aim | The Ultimate AI-Powered Gaming Advantage</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #050505;
+            --bg-card: #0d0d0d;
+            --primary: #00BFFF;
+            --primary-glow: rgba(0, 191, 255, 0.4);
+            --accent: #7000FF;
+            --text-main: #ffffff;
+            --text-dim: #a0a0a0;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --nav-bg: rgba(5, 5, 5, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        /* --- Background Effects --- */
+        .bg-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.08), transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(112, 0, 255, 0.08), transparent 40%);
+        }
+
+        /* --- Navigation --- */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 8%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--nav-bg);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo span {
+            color: var(--primary);
+            text-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-dim);
+            font-weight: 600;
+            font-size: 14px;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .cta-btn {
+            background: var(--primary);
+            color: #000;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--primary-glow);
+        }
+
+        .login-outline {
+            border: 1px solid var(--primary);
+            color: var(--primary) !important;
+            padding: 8px 20px;
+            border-radius: 8px;
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 10%;
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: clamp(40px, 8vw, 90px);
+            max-width: 1000px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: clamp(16px, 2vw, 20px);
+            color: var(--text-dim);
+            max-width: 700px;
+            margin-bottom: 40px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 20px;
+        }
+
+        .main-hero-img {
+            margin-top: 60px;
+            width: 80%;
+            max-width: 1000px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+        }
+
+        /* --- Stats/Features Grid --- */
+        .section {
+            padding: 100px 10%;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-box {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 40px;
+            border-radius: 20px;
+            transition: 0.4s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-box:hover {
+            border-color: var(--primary);
+            background: rgba(0, 191, 255, 0.02);
+            transform: translateY(-5px);
+        }
+
+        .feature-box i {
+            font-size: 32px;
+            color: var(--primary);
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .feature-box h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .feature-box p {
+            color: var(--text-dim);
+        }
+
+        /* --- Pricing Section --- */
+        .pricing-section {
+            background: #080808;
+            padding: 100px 10%;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-header h2 {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .pricing-grid {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+
+        .price-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            padding: 50px 40px;
+            border-radius: 24px;
+            width: 350px;
+            text-align: center;
+            transition: 0.4s;
+            position: relative;
+        }
+
+        .price-card.featured {
+            border-color: var(--primary);
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 191, 255, 0.1);
+        }
+
+        .price-card h4 {
+            font-size: 18px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .price-card .price {
+            font-size: 56px;
+            font-weight: 800;
+            margin-bottom: 30px;
+        }
+
+        .price-card .price span {
+            font-size: 20px;
+            color: var(--text-dim);
+        }
+
+        .price-list {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 40px;
+        }
+
+        .price-list li {
+            margin-bottom: 15px;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .price-list li::before {
+            content: '✓';
+            color: var(--primary);
+            font-weight: 900;
+        }
+
+        .price-card .btn {
+            width: 100%;
+            display: block;
+            padding: 15px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            transition: 0.3s;
+        }
+
+        .price-card.featured .btn {
+            background: var(--primary);
+            color: #000;
+            border: none;
+        }
+
+        /* --- Footer --- */
+        footer {
+            padding: 60px 10%;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #030303;
+        }
+
+        .footer-logo {
+            font-size: 20px;
+            font-weight: 800;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero h1 { font-size: 40px; }
+            .pricing-grid { flex-direction: column; align-items: center; }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+
+    <nav>
+        <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#tech">Technology</a>
+            <a href="#pricing">Pricing</a>
+            <a href="/dashboard" class="login-outline">Login</a>
+            <a href="/dashboard?action=register" class="cta-btn">Join Now</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>Unleash the Power of <span>AI Precision</span></h1>
+        <p>Exclusive Aim is the world's most advanced C++ powered computer vision engine. undetectable, incredibly fast, and built for the elite.</p>
+        <div class="hero-actions">
+            <a href="#pricing" class="cta-btn">View Plans</a>
+            <a href="#features" class="cta-btn" style="background: var(--glass); border: 1px solid var(--glass-border); color: #fff;">Learn More</a>
+        </div>
+        <img src="/static/hero.png" alt="Tech Preview" class="main-hero-img">
+    </section>
+
+    <section class="section" id="features">
+        <div class="section-header">
+            <h2>Ultimate Features</h2>
+            <p>Engineered for performance and invisibility.</p>
+        </div>
+        <div class="grid">
+            <div class="feature-box">
+                <h3>Neural Target Detection</h3>
+                <p>Advanced YoloV8 architecture optimized in high-performance C++ for sub-5ms inference times.</p>
+            </div>
+            <div class="feature-box">
+                <h3>Titan Two Integration</h3>
+                <p>Native communication with Titan Two hardware for 1:1 mouse translation and perfect stealth.</p>
+            </div>
+            <div class="feature-box">
+                <h3>Humanized Movement</h3>
+                <p>Our proprietary movement algorithm mimics professional player control with natural micro-adjustments.</p>
+            </div>
+            <div class="feature-box">
+                <h3>Fully Undetectable</h3>
+                <p>External execution and sophisticated spoofing techniques keep you safe from kernel-level anti-cheats.</p>
+            </div>
+            <div class="feature-box">
+                <h3>High FPS Capture</h3>
+                <p>Optimized DirectShow and Desktop Duplication capture engines for 144Hz+ display support.</p>
+            </div>
+            <div class="feature-box">
+                <h3>24/7 Cloud Sync</h3>
+                <p>Save your specialized models and configurations securely in our encrypted cloud backend.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="tech" style="background: #030303;">
+        <div class="section-header">
+            <h2>Modern Technology Stack</h2>
+            <p>Built with efficiency and speed at the core.</p>
+        </div>
+        <div class="grid">
+            <div class="feature-box">
+                <h3>Core C++ Engine</h3>
+                <p>Zero-compromise performance utilizing SIMD optimizations and multi-threaded processing.</p>
+            </div>
+            <div class="feature-box">
+                <h3>Python API</h3>
+                <p>A flexible backend for account management and model distribution, secured with Flask and SQLite.</p>
+            </div>
+            <div class="feature-box">
+                <h3>Encrypted Distribution</h3>
+                <p>Models are served through a high-speed CDN with individual encryption keys per user session.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="pricing-section" id="pricing">
+        <div class="section-header">
+            <h2>Pricing Plans</h2>
+            <p>Choose the level of dominance you need.</p>
+        </div>
+        <div class="pricing-grid">
+            <div class="price-card">
+                <h4>Pro Daily</h4>
+                <div class="price">$5<span>/day</span></div>
+                <ul class="price-list">
+                    <li>All Premium Models</li>
+                    <li>24/7 Support</li>
+                    <li>High-Speed Access</li>
+                </ul>
+                <a href="/dashboard?action=register" class="btn">Get Started</a>
+            </div>
+            <div class="price-card featured">
+                <h4>Elite Monthly</h4>
+                <div class="price">$45<span>/mo</span></div>
+                <ul class="price-list">
+                    <li>Full Feature Set</li>
+                    <li>Priority Model Downloads</li>
+                    <li>Exclusive Discord Access</li>
+                    <li>Best for Competitors</li>
+                </ul>
+                <a href="/dashboard?action=register" class="btn">Select Elite</a>
+            </div>
+            <div class="price-card">
+                <h4>Lifetime</h4>
+                <div class="price">$250<span>/once</span></div>
+                <ul class="price-list">
+                    <li>Never Pay Again</li>
+                    <li>Legacy Supporter Status</li>
+                    <li>Beta Access to Features</li>
+                    <li>Unlimited Licenses</li>
+                </ul>
+                <a href="/dashboard?action=register" class="btn">Go Lifetime</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-logo">EXCLUSIVE<span>AIM</span></div>
+        <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">Discord</a>
+        </div>
+    </footer>
+
+</body>
+</html>

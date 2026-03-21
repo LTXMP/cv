@@ -322,13 +322,14 @@
             <div class="sidebar">
                 <div
                     style="text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333;">
-                    <h3 style="margin:0; color:var(--primary)">EA <span style="color:white">DASH</span></h3>
+                    <a href="/" style="text-decoration:none;"><h3 style="margin:0; color:var(--primary)">EA <span style="color:white">DASH</span></h3></a>
                 </div>
                 <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
                 <button class="nav-item" onclick="showPage('admin')" id="nav-admin"
                     style="display:none; color:#e056fd;">Admin Panel</button>
                 <div style="flex-grow:1"></div>
+                <button class="nav-item" onclick="location.href='/'" style="opacity: 0.7; font-size: 0.85em; margin-bottom: 10px;">&larr; Back to Website</button>
                 <button class="nav-item" onclick="logout()">Logout</button>
             </div>
 
@@ -905,7 +906,7 @@
         }
 
         async function logout() {
-            // Clear credentials IMMEDIATELY so we don't get stuck loop
+            // Clear credentials IMMEDIATELY
             localStorage.removeItem('username');
             localStorage.removeItem('isAdmin');
             localStorage.removeItem('isOwner');
@@ -916,8 +917,8 @@
                 console.error("Logout fetch failed", e);
             }
 
-            // Force reload to clear memory state
-            window.location.reload();
+            // Redirect to landing page
+            window.location.href = "/";
         }
 
         // ...
@@ -1472,11 +1473,15 @@
                     showLogin();
                 }
 
-                // Check for Reset Token
+                // Check for Reset Token or Actions
                 const urlParams = new URLSearchParams(window.location.search);
                 const resetToken = urlParams.get('reset_token');
                 if (resetToken) {
                     showResetPerform(resetToken);
+                }
+                const action = urlParams.get('action');
+                if (action === 'register') {
+                    showRegister();
                 }
             } catch (err) {
                 alert("CRITICAL STARTUP ERROR: " + err);
