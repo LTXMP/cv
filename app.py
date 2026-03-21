@@ -166,6 +166,12 @@ def init_db():
             c.execute("ALTER TABLE licenses ADD COLUMN pause_time_left REAL DEFAULT 0")
         except: pass
 
+    if 'revoke_pending' not in lic_columns:
+        try:
+            c.execute("ALTER TABLE licenses ADD COLUMN revoke_pending BOOLEAN DEFAULT 0")
+        except: pass
+
+
     # Models Table - Updated Schema
     c.execute('''CREATE TABLE IF NOT EXISTS models 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -2050,6 +2056,56 @@ def admin_generate_reseller_license():
     
     return jsonify({'success': True, 'keys': keys})
 
+@app.route('/api/admin/pending_revocations', methods=['GET'])
+@admin_required
+def admin_list_pending_revocations():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(licenses)")
+    cols = [r['name'] for r in c.fetchall()]
+    if 'revoke_pending' not in cols:
+        conn.close()
+        return jsonify([])
+        
+    query = '''
+        SELECT l.key, l.duration, l.hwid, u.username as claimed_by, r.username as reseller_name
+        FROM licenses l
+        LEFT JOIN users u ON l.user_id = u.id
+        LEFT JOIN users r ON l.reseller_id = r.id
+        WHERE l.revoke_pending = 1
+    '''
+    revocations = [dict(row) for row in c.execute(query).fetchall()]
+    conn.close()
+    return jsonify(revocations)
+
+@app.route('/api/admin/licenses/<key>/confirm_revoke', methods=['POST'])
+@admin_required
+def admin_confirm_revoke(key):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE licenses SET user_id=NULL, hwid=NULL, expiry=NULL, is_paused=0, pause_time_left=0, revoke_pending=0 WHERE key=?", (key,))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': 'License revoked permanently.'})
+
+@app.route('/api/admin/licenses/<key>/reject_revoke', methods=['POST'])
+@admin_required
+def admin_reject_revoke(key):
+    conn = get_db()
+    c = conn.cursor()
+    lic = c.execute("SELECT * FROM licenses WHERE key=?", (key,)).fetchone()
+    if lic:
+        c.execute("UPDATE licenses SET revoke_pending=0 WHERE key=?", (key,))
+        if lic['is_paused']:
+            if lic['duration'] != 'LIFETIME' and lic['pause_time_left'] > 0:
+                new_expiry = time.time() + lic['pause_time_left']
+                c.execute("UPDATE licenses SET is_paused=0, pause_time_left=0, expiry=? WHERE key=?", (new_expiry, key))
+            else:
+                c.execute("UPDATE licenses SET is_paused=0, pause_time_left=0 WHERE key=?", (key,))
+        conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': 'Revocation rejected and license resumed.'})
+
 # --- Reseller Endpoints ---
 
 @app.route('/api/reseller/licenses', methods=['GET'])
@@ -2058,9 +2114,12 @@ def reseller_list_licenses():
     reseller_id = session['user_id']
     conn = get_db()
     c = conn.cursor()
-    
-    query = '''
-        SELECT l.key, l.duration, l.expiry, l.hwid, l.is_paused, l.pause_time_left, u.username as claimed_by
+    c.execute("PRAGMA table_info(licenses)")
+    cols = [col[1] for col in c.fetchall()]
+    revoke_col = ", l.revoke_pending" if 'revoke_pending' in cols else ""
+
+    query = f'''
+        SELECT l.key, l.duration, l.expiry, l.hwid, l.is_paused, l.pause_time_left{revoke_col}, u.username as claimed_by
         FROM licenses l
         LEFT JOIN users u ON l.user_id = u.id
         WHERE l.reseller_id = ?
@@ -2087,11 +2146,29 @@ def reseller_revoke_license(key):
         conn.close()
         return jsonify({'error': 'Not found or not authorized'}), 404
         
-    c.execute("UPDATE licenses SET user_id=NULL, hwid=NULL, expiry=NULL, is_paused=0, pause_time_left=0 WHERE key=?", (key,))
+    if not license_row['user_id']:
+        conn.close()
+        return jsonify({'error': 'License is already unclaimed'}), 400
+
+    revoke_pending = license_row['revoke_pending'] if 'revoke_pending' in license_row.keys() else 0
+    if revoke_pending:
+        conn.close()
+        return jsonify({'error': 'Revocation already pending admin approval'}), 400
+
+    # Pause Logic
+    if license_row['is_paused']:
+        c.execute("UPDATE licenses SET revoke_pending=1 WHERE key=?", (key,))
+    else:
+        if license_row['duration'] == 'LIFETIME':
+            c.execute("UPDATE licenses SET revoke_pending=1, is_paused=1 WHERE key=?", (key,))
+        elif license_row['expiry']:
+            remaining = license_row['expiry'] - time.time()
+            remaining = max(0, remaining)
+            c.execute("UPDATE licenses SET revoke_pending=1, is_paused=1, pause_time_left=? WHERE key=?", (remaining, key))
+            
     conn.commit()
     conn.close()
-    return jsonify({'success': True, 'message': 'License revoked from user and reset to Unclaimed.'})
-
+    return jsonify({'success': True, 'message': 'License paused and pending Administrator approval for revocation.'})
 @app.route('/api/reseller/licenses/<key>/pause', methods=['POST'])
 @reseller_required
 def reseller_pause_license(key):
