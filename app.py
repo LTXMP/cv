@@ -399,6 +399,14 @@ def index():
 def dashboard():
     return render_template('dashboard.html')
 
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
 @app.route('/health')
 def health_check():
     return jsonify({'status': 'ok', 'timestamp': time.time()})
