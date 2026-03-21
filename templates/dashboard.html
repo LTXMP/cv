@@ -207,13 +207,34 @@
         }
 
         .user-chip {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             background: var(--primary);
             color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            margin: 2px;
-            font-size: 0.9em;
+            padding: 4px 10px;
+            border-radius: 16px;
+            margin: 4px;
+            font-size: 0.85em;
+            gap: 8px;
+        }
+
+        .revoke-btn {
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .revoke-btn:hover {
+            color: #ff4757;
+        }
+
+        .expiry-info {
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+            margin-left: 4px;
         }
     </style>
 </head>
@@ -1321,9 +1342,33 @@
                 if (users.length === 0) {
                     container.innerHTML = '<span style="color:var(--text-dim)">No users shared</span>';
                 } else {
-                    container.innerHTML = '<div style="margin-bottom:5px; color:var(--text-dim);">Shared with:</div>';
+                    container.innerHTML = '<div style="margin-bottom:8px; color:var(--text-dim); font-size:0.9em;">Shared with:</div><div style="display:flex; flex-wrap:wrap;"></div>';
+                    const wrapper = container.querySelector('div:last-child');
+                    
                     users.forEach(u => {
-                        container.innerHTML += `<span class="user-chip">${u}</span> `;
+                        let expiryText = "";
+                        if (u.expiry) {
+                            const now = Date.now() / 1000;
+                            const diff = u.expiry - now;
+                            if (diff <= 0) {
+                                expiryText = "(Expired)";
+                            } else {
+                                const days = Math.floor(diff / 86400);
+                                const hours = Math.floor((diff % 86400) / 3600);
+                                if (days > 0) expiryText = `(${days}d ${hours}h left)`;
+                                else expiryText = `(${hours}h left)`;
+                            }
+                        } else {
+                            expiryText = "(Lifetime)";
+                        }
+
+                        const chip = document.createElement('span');
+                        chip.className = 'user-chip';
+                        chip.innerHTML = `
+                            <span>${u.username} <span class="expiry-info">${expiryText}</span></span>
+                            <span class="revoke-btn" onclick="revokeAccess(${modelId}, '${u.username}', this)" title="Revoke Access">&times;</span>
+                        `;
+                        wrapper.appendChild(chip);
                     });
                 }
                 
@@ -1332,6 +1377,37 @@
             } catch (e) {
                 console.error("Failed to load shared users", e);
                 showNotification("Failed to load users", "error");
+            }
+        }
+
+        async function revokeAccess(modelId, username, el) {
+            if (!confirm(`Revoke access for ${username}?`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/models/${modelId}/revoke_share`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+
+                if (res.ok) {
+                    showNotification(`Access revoked for ${username}`, "success");
+                    // Remove the chip
+                    el.closest('.user-chip').remove();
+                    
+                    // If no chips left, show the "No users shared" message
+                    const container = document.getElementById(`shared-users-${modelId}`);
+                    const wrapper = container.querySelector('div:last-child');
+                    if (wrapper && wrapper.children.length === 0) {
+                        container.innerHTML = '<span style="color:var(--text-dim)">No users shared</span>';
+                    }
+                } else {
+                    const data = await res.json();
+                    showNotification(data.error || "Failed to revoke access", "error");
+                }
+            } catch (e) {
+                console.error("Revoke Error:", e);
+                showNotification("Network error", "error");
             }
         }
 
