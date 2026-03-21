@@ -838,7 +838,8 @@ def get_user_license():
     res_data = {
         'total_time': total_time,
         'is_admin': is_admin,
-        'is_owner': is_owner
+        'is_owner': is_owner,
+        'created_at': user['created_at']
     }
 
     if license:
