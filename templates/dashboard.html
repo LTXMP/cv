@@ -1017,7 +1017,7 @@
                 const expiryEl = document.getElementById('status-expiry');
 
                 if (data.status === 'Active') {
-                    statusEl.innerText = `${data.status} (${data.type})`;
+                    statusEl.innerText = data.status; // Removed (${data.type})
                     statusEl.className = "status-active";
                     statusEl.style.color = "#2ecc71";
                     
@@ -1031,14 +1031,15 @@
                         expiryEl.classList.remove('live-countdown');
                     }
 
-                    // Total Time Display (Remaining)
-                    if (expTs && expTs < 9999999999) {
-                        const totalEl = document.getElementById('status-total-time');
-                        totalEl.setAttribute('data-expiry', expTs);
-                        totalEl.classList.add('live-countdown');
-                    } else if (data.type === 'Lifetime' || data.type === 'LIFETIME') {
-                        document.getElementById('status-total-time').innerText = "LIFETIME";
-                        document.getElementById('status-total-time').classList.remove('live-countdown');
+                    // Total Time Display (Count UP Tenure)
+                    const totalEl = document.getElementById('status-total-time');
+                    if (data.created_at) {
+                        totalEl.setAttribute('data-start', data.created_at);
+                        totalEl.classList.add('live-countup');
+                        totalEl.classList.remove('live-countdown');
+                    } else {
+                        totalEl.innerText = "-";
+                        totalEl.classList.remove('live-countup');
                     }
 
                     const hwidEl = document.getElementById('status-hwid');
@@ -1538,12 +1539,14 @@
 
         // --- Live Updates ---
         
-        function formatTimeRemaining(seconds) {
-            if (seconds <= 0) return "Expired";
+        function formatTimeRemaining(seconds, isCountup = false) {
+            if (!isCountup && seconds <= 0) return "Expired";
+            if (isCountup && seconds < 0) return "0m";
             
-            const days = Math.floor(seconds / 86400);
-            const hours = Math.floor((seconds % 86400) / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
+            const absSec = Math.abs(seconds);
+            const days = Math.floor(absSec / 86400);
+            const hours = Math.floor((absSec % 86400) / 3600);
+            const minutes = Math.floor((absSec % 3600) / 60);
             
             let parts = [];
             if (days > 0) parts.push(`${days}d`);
@@ -1555,15 +1558,23 @@
 
         function updateAllCountdowns() {
             const now = Date.now() / 1000;
+            
+            // Countdowns (Expiry)
             document.querySelectorAll('.live-countdown').forEach(el => {
                 const expiry = parseFloat(el.getAttribute('data-expiry'));
                 const prefix = el.getAttribute('data-prefix') || "";
                 const suffix = el.getAttribute('data-suffix') || "";
-                
                 if (isNaN(expiry)) return;
-                
                 const remaining = expiry - now;
                 el.innerText = prefix + formatTimeRemaining(remaining) + suffix;
+            });
+
+            // Countups (Tenure/Total Time)
+            document.querySelectorAll('.live-countup').forEach(el => {
+                const start = parseFloat(el.getAttribute('data-start'));
+                if (isNaN(start)) return;
+                const elapsed = now - start;
+                el.innerText = formatTimeRemaining(elapsed, true); 
             });
         }
 
