@@ -114,6 +114,11 @@ def init_db():
         except Exception as e:
             print(f"DB Migration Error (is_verified): {e}")
 
+    if 'is_reseller' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN is_reseller BOOLEAN DEFAULT 0")
+        except: pass
+
     # Banned IPs Table
     c.execute('''CREATE TABLE IF NOT EXISTS banned_ips 
                  (ip TEXT PRIMARY KEY, 
@@ -142,6 +147,24 @@ def init_db():
                   duration TEXT, 
                   expiry REAL,
                   FOREIGN KEY(user_id) REFERENCES users(id))''')
+
+    c.execute("PRAGMA table_info(licenses)")
+    lic_columns = [info[1] for info in c.fetchall()]
+
+    if 'reseller_id' not in lic_columns:
+        try:
+            c.execute("ALTER TABLE licenses ADD COLUMN reseller_id INTEGER")
+        except: pass
+
+    if 'is_paused' not in lic_columns:
+        try:
+            c.execute("ALTER TABLE licenses ADD COLUMN is_paused BOOLEAN DEFAULT 0")
+        except: pass
+
+    if 'pause_time_left' not in lic_columns:
+        try:
+            c.execute("ALTER TABLE licenses ADD COLUMN pause_time_left REAL DEFAULT 0")
+        except: pass
 
     # Models Table - Updated Schema
     c.execute('''CREATE TABLE IF NOT EXISTS models 
@@ -257,6 +280,18 @@ def owner_required(f):
     def wrapper(*args, **kwargs):
         if 'user_id' not in session or not session.get('is_owner'):
             return jsonify({'error': 'Forbidden: Owner only'}), 403
+        return f(*args, **kwargs)
+    wrapper.__name__ = f.__name__
+    return wrapper
+
+def reseller_required(f):
+    def wrapper(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        is_reseller = session.get('is_reseller', 0)
+        is_owner = session.get('is_owner', 0)
+        if not is_reseller and not is_owner:
+            return jsonify({'error': 'Forbidden: Reseller or Owner only'}), 403
         return f(*args, **kwargs)
     wrapper.__name__ = f.__name__
     return wrapper
@@ -605,12 +640,17 @@ def login():
 
         session['is_owner'] = is_owner
         
+        # Backward compatibility for is_reseller column if missing
+        is_reseller = user.get('is_reseller', 0) if 'is_reseller' in user.keys() else 0
+        session['is_reseller'] = is_reseller
+
         conn.close()
         return jsonify({
             'message': 'Login successful',
             'username': user['username'],
             'is_admin': bool(user['is_admin']),
-            'is_owner': bool(is_owner)
+            'is_owner': bool(is_owner),
+            'is_reseller': bool(is_reseller)
         })
     
     conn.close()
@@ -680,6 +720,12 @@ def client_auth():
     if is_expired:
          conn.close()
          return jsonify({'authorized': False, 'message': 'Subscription expired.'}), 403
+
+    # Check paused state
+    is_paused = license.get('is_paused', 0) if 'is_paused' in license.keys() else 0
+    if is_paused:
+        conn.close()
+        return jsonify({'authorized': False, 'message': 'Subscription is paused. Contact your reseller.'}), 403
 
     # 3. HWID Check/Bind
     stored_hwid = license['hwid']
@@ -1308,13 +1354,19 @@ def admin_list_users():
     conn = get_db()
     c = conn.cursor()
     
+    c.execute("PRAGMA table_info(users)")
+    cols = [r['name'] for r in c.fetchall()]
+    select_cols = "id, username, email, is_admin, is_owner, is_banned, last_ip, created_at"
+    if 'is_reseller' in cols:
+        select_cols += ", is_reseller"
+
     if search:
         # Search closest to the query, limit to 20 for better visibility
-        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
+        c.execute(f"SELECT {select_cols} FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
                   (f"%{search}%", f"%{search}%"))
     else:
         # 5 newest registrations by default
-        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at FROM users ORDER BY id DESC LIMIT 5")
+        c.execute(f"SELECT {select_cols} FROM users ORDER BY id DESC LIMIT 5")
         
     users = [dict(row) for row in c.fetchall()]
     conn.close()
@@ -1917,6 +1969,190 @@ def get_model():
         return send_file(default_path, as_attachment=True)
         
     return "Model not found or access denied", 404
+
+# --- Reseller Management (Admin) ---
+
+@app.route('/api/admin/users/<int:user_id>/reseller', methods=['POST'])
+@admin_required
+def admin_toggle_reseller(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    # Ensure not owner
+    user = c.execute("SELECT is_owner, is_reseller FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+        
+    if user['is_owner']:
+        conn.close()
+        return jsonify({'error': 'Cannot change owner status'}), 403
+        
+    # Check if is_reseller column exists (safety fallback)
+    c.execute("PRAGMA table_info(users)")
+    cols = [r['name'] for r in c.fetchall()]
+    if 'is_reseller' not in cols:
+        conn.close()
+        return jsonify({'error': 'Database migration pending, please wait'}), 500
+
+    is_reseller = user.get('is_reseller', 0) if 'is_reseller' in user.keys() else 0
+    new_status = 1 if not is_reseller else 0
+    c.execute("UPDATE users SET is_reseller=? WHERE id=?", (new_status, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': f"Reseller status {'granted' if new_status else 'revoked'}."})
+
+@app.route('/api/admin/resellers', methods=['GET'])
+@admin_required
+def admin_list_resellers():
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute("PRAGMA table_info(users)")
+    cols = [r['name'] for r in c.fetchall()]
+    if 'is_reseller' not in cols:
+        conn.close()
+        return jsonify([])
+
+    users = c.execute("SELECT id, username, email FROM users WHERE is_reseller=1").fetchall()
+    conn.close()
+    return jsonify([dict(u) for u in users])
+
+@app.route('/api/admin/generate_reseller_license', methods=['POST'])
+@admin_required
+def admin_generate_reseller_license():
+    data = request.json
+    reseller_id = data.get('reseller_id')
+    duration = data.get('duration') # e.g., '30', '7', '1', 'LIFETIME'
+    amount = int(data.get('amount', 1))
+    
+    if not duration or not reseller_id:
+        return jsonify({'error': 'Missing data'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    reseller = c.execute("SELECT id FROM users WHERE id=? AND is_reseller=1", (reseller_id,)).fetchone()
+    if not reseller:
+        conn.close()
+        return jsonify({'error': 'Invalid reseller ID'}), 400
+
+    keys = []
+    for _ in range(amount):
+        # Generate format: XXXX-XXXX-XXXX-XXXX
+        parts = [''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(4)) for _ in range(4)]
+        key = '-'.join(parts)
+        c.execute("INSERT INTO licenses (key, duration, reseller_id) VALUES (?, ?, ?)", 
+                  (key, duration, reseller_id))
+        keys.append(key)
+        
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'keys': keys})
+
+# --- Reseller Endpoints ---
+
+@app.route('/api/reseller/licenses', methods=['GET'])
+@reseller_required
+def reseller_list_licenses():
+    reseller_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    query = '''
+        SELECT l.key, l.duration, l.expiry, l.hwid, l.is_paused, l.pause_time_left, u.username as claimed_by
+        FROM licenses l
+        LEFT JOIN users u ON l.user_id = u.id
+        WHERE l.reseller_id = ?
+        ORDER BY l.key ASC
+    '''
+    try:
+        licenses = c.execute(query, (reseller_id,)).fetchall()
+        conn.close()
+        return jsonify([dict(row) for row in licenses])
+    except Exception as e:
+        conn.close()
+        print(f"Reseller get licenses error: {e}")
+        return jsonify({'error': 'Database error'}), 500
+
+@app.route('/api/reseller/licenses/<key>/revoke', methods=['POST'])
+@reseller_required
+def reseller_revoke_license(key):
+    reseller_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    license_row = c.execute("SELECT * FROM licenses WHERE key=? AND reseller_id=?", (key, reseller_id)).fetchone()
+    if not license_row:
+        conn.close()
+        return jsonify({'error': 'Not found or not authorized'}), 404
+        
+    c.execute("UPDATE licenses SET user_id=NULL, hwid=NULL, expiry=NULL, is_paused=0, pause_time_left=0 WHERE key=?", (key,))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': 'License revoked from user and reset to Unclaimed.'})
+
+@app.route('/api/reseller/licenses/<key>/pause', methods=['POST'])
+@reseller_required
+def reseller_pause_license(key):
+    reseller_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    license_row = c.execute("SELECT * FROM licenses WHERE key=? AND reseller_id=?", (key, reseller_id)).fetchone()
+    if not license_row:
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+        
+    if not license_row['user_id'] or not license_row['expiry']:
+        conn.close()
+        return jsonify({'error': 'Cannot pause an unclaimed license'}), 400
+        
+    if license_row['is_paused']:
+        conn.close()
+        return jsonify({'error': 'Already paused'}), 400
+        
+    if license_row['duration'] == 'LIFETIME':
+        conn.close()
+        return jsonify({'error': 'Cannot pause LIFETIME licenses'}), 400
+
+    current_time = time.time()
+    expiry = license_row['expiry']
+    
+    # Calculate time left
+    time_left = expiry - current_time if expiry > current_time else 0
+    if time_left <= 0:
+        conn.close()
+        return jsonify({'error': 'License is already expired'}), 400
+        
+    c.execute("UPDATE licenses SET is_paused=1, pause_time_left=? WHERE key=?", (time_left, key))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': 'Subscription paused.'})
+
+@app.route('/api/reseller/licenses/<key>/resume', methods=['POST'])
+@reseller_required
+def reseller_resume_license(key):
+    reseller_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    license_row = c.execute("SELECT * FROM licenses WHERE key=? AND reseller_id=?", (key, reseller_id)).fetchone()
+    if not license_row:
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+        
+    if not license_row['is_paused']:
+        conn.close()
+        return jsonify({'error': 'Subscription is not paused'}), 400
+        
+    time_left = license_row['pause_time_left']
+    new_expiry = time.time() + time_left
+    
+    c.execute("UPDATE licenses SET is_paused=0, pause_time_left=0, expiry=? WHERE key=?", (new_expiry, key))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': 'Subscription resumed.'})
 
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
