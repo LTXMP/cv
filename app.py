@@ -827,8 +827,19 @@ def get_user_license():
     }
 
     if license:
+        is_expired = False
+        curr = time.time()
+        if isinstance(license['expiry'], (int, float)):
+            if license['expiry'] < curr:
+                is_expired = True
+        elif isinstance(license['expiry'], str) and license['expiry'] != 'LIFETIME':
+            try:
+                if float(license['expiry']) < curr:
+                    is_expired = True
+            except: pass
+
         res_data.update({
-            'status': 'Active',
+            'status': 'Expired' if is_expired else 'Active',
             'type': license['duration'],
             'expiry': time.strftime('%Y-%m-%d', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never',
             'hwid_bound': True if (license['hwid'] and license['hwid'] != "") else False,
