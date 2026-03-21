@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Program Features - Exclusive Aim</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00BFFF;
+            --primary-glow: rgba(0, 191, 255, 0.4);
+            --accent: #7000FF;
+            --bg: #050505;
+            --bg-card: rgba(13, 13, 13, 0.7);
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-dim: #a0a0a0;
+            --success: #2ecc71;
+            --warning: #FFC107;
+            --error: #ff4757;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            line-height: 1.7;
+        }
+
+        .bg-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: 
+                radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.06), transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(112, 0, 255, 0.06), transparent 40%);
+        }
+
+        nav {
+            position: sticky; top: 0; width: 100%; padding: 20px 8%;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(12px);
+            z-index: 1000; border-bottom: 1px solid var(--glass-border);
+        }
+        .logo { font-size: 24px; font-weight: 800; color: #fff; text-decoration: none; }
+        .logo span { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
+        .nav-links { display: flex; gap: 25px; align-items: center; }
+        .nav-links a { color: var(--text-dim); text-decoration: none; font-weight: 600; font-size: 14px; transition: 0.3s; }
+        .nav-links a:hover { color: var(--primary); }
+        .nav-links a.active { color: var(--primary); }
+
+        .hero-mini { text-align: center; padding: 80px 10% 60px; }
+        .hero-mini h1 {
+            font-size: clamp(36px, 6vw, 64px); font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+        }
+        .hero-mini p { font-size: 1.15rem; color: var(--text-dim); max-width: 650px; margin: 0 auto; }
+
+        .toc {
+            display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;
+            padding: 0 10% 60px; max-width: 1000px; margin: 0 auto;
+        }
+        .toc a {
+            padding: 10px 20px; border-radius: 10px; text-decoration: none;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            color: var(--text-dim); font-weight: 600; font-size: 13px; transition: 0.3s;
+        }
+        .toc a:hover { border-color: var(--primary); color: var(--primary); }
+
+        .feature-section { padding: 80px 8%; max-width: 1200px; margin: 0 auto; }
+
+        .feature-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .feature-header .icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; flex-shrink: 0;
+        }
+        .feature-header h2 { font-size: 2rem; font-weight: 800; }
+
+        .feature-desc { color: var(--text-dim); font-size: 1.05rem; max-width: 800px; margin-bottom: 30px; }
+
+        .feature-list {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 14px; margin-bottom: 35px;
+        }
+        .feature-list-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 16px 20px; border-radius: 12px;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            transition: 0.3s;
+        }
+        .feature-list-item:hover { border-color: var(--primary); transform: translateY(-2px); }
+        .feature-list-item .bullet {
+            color: var(--primary); font-size: 18px; margin-top: 1px; flex-shrink: 0;
+        }
+        .feature-list-item p { color: var(--text-dim); font-size: 14px; line-height: 1.5; }
+
+        .feature-screenshot {
+            width: 100%; border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            margin-top: 10px;
+        }
+
+        .divider { height: 1px; background: var(--glass-border); max-width: 1200px; margin: 0 auto; }
+
+        footer { padding: 60px 8%; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
+        .footer-logo { font-size: 20px; font-weight: 800; color: #fff; }
+        .footer-logo span { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
+        .footer-links a { margin-left: 20px; color: var(--text-dim); text-decoration: none; font-size: 14px; }
+
+        @media (max-width: 768px) {
+            .feature-section { padding: 50px 5%; }
+            .feature-header h2 { font-size: 1.5rem; }
+            .nav-links { gap: 15px; }
+            .feature-list { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+
+    <nav>
+        <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/program" class="active">Program</a>
+            <a href="/reseller">Reseller</a>
+            <a href="/dashboard">Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="hero-mini">
+        <h1>The Complete Arsenal</h1>
+        <p>Every module of Exclusive Aim is engineered for elite performance. Explore the full capabilities of the world's most advanced computer vision engine.</p>
+    </div>
+
+    <div class="toc">
+        <a href="#aimbot">Aimbot</a>
+        <a href="#antirecoil">Anti-Recoil</a>
+        <a href="#ocr">OCR</a>
+        <a href="#triggerbot">Triggerbot</a>
+        <a href="#hardware">Hardware</a>
+        <a href="#capture">Capture</a>
+        <a href="#stealth">Stealth</a>
+        <a href="#cloud">Cloud</a>
+    </div>
+
+    <!-- ═══ AIMBOT ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="aimbot">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(0, 191, 255, 0.1); color: var(--primary);">🎯</div>
+            <h2>Aimbot</h2>
+        </div>
+        <p class="feature-desc">AI-powered target acquisition with sub-pixel precision, physics-based PID tracking, and fully configurable aim profiles.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>AI aim assist (YOLO object detection)</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>PID tracking with 1000Hz polling</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Multi-model stacking (up to 5)</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Custom FOV, speed &amp; response curve</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>ADS / Shoot / Always-On activation modes</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Dynamic Restricted Movement (Distance)</p></div>
+        </div>
+        <img src="/static/img/program/aimbot.png" alt="Aimbot Configuration" class="feature-screenshot" loading="lazy">
+    </section>
+
+    <!-- ═══ ANTI-RECOIL ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="antirecoil">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(255, 193, 7, 0.1); color: var(--warning);">🔫</div>
+            <h2>Anti-Recoil</h2>
+        </div>
+        <p class="feature-desc">Automatically compensate for weapon recoil with multiple modes and human-like variance to stay undetectable.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Normal &amp; adaptive modes</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Humanized variance</p></div>
+        </div>
+    </section>
+
+    <!-- ═══ OCR ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="ocr">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(255, 193, 7, 0.1); color: var(--warning);">🔍</div>
+            <h2>OCR (Weapon Detection)</h2>
+        </div>
+        <p class="feature-desc">Automatically detect active weapons via on-screen text recognition. Per-weapon recoil profiles activate dynamically as you switch guns in-game.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Real-time weapon name reading</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Per-weapon recoil profiles (X, Y, variance)</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Per-weapon rapid fire toggle</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Auto-switch on weapon swap</p></div>
+        </div>
+        <img src="/static/img/program/ocr.png" alt="OCR Weapon Detection" class="feature-screenshot" loading="lazy">
+    </section>
+
+    <!-- ═══ TRIGGERBOT ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="triggerbot">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(255, 71, 87, 0.1); color: var(--error);">⚡</div>
+            <h2>Triggerbot</h2>
+        </div>
+        <p class="feature-desc">Precision auto-fire when a target is detected within your crosshair, with configurable thresholds for distance and confidence.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Auto-fire with distance &amp; confidence threshold</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Configurable delay &amp; hold time</p></div>
+        </div>
+    </section>
+
+    <!-- ═══ HARDWARE ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="hardware">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(255, 71, 87, 0.1); color: var(--error);">🎮</div>
+            <h2>Hardware</h2>
+        </div>
+        <p class="feature-desc">True hardware-level input injection via Titan Two for fully undetectable output. Supports all major controllers and MnK.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Titan Two — undetectable hardware output</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Controller &amp; MnK support</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Custom button mapping &amp; deadzone</p></div>
+        </div>
+        <img src="/static/img/program/hardware.png" alt="Hardware Configuration" class="feature-screenshot" loading="lazy">
+    </section>
+
+    <!-- ═══ CAPTURE ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="capture">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(46, 204, 113, 0.1); color: var(--success);">📹</div>
+            <h2>Capture</h2>
+        </div>
+        <p class="feature-desc">Hardware-accelerated video capture from any source — capture cards, monitors, or windows — with real-time preview and overlays.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Capture card / monitor / window</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Up to 240 FPS · Live preview with overlays</p></div>
+        </div>
+        <img src="/static/img/program/capture.png" alt="Capture Settings" class="feature-screenshot" loading="lazy">
+    </section>
+
+    <!-- ═══ STEALTH ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="stealth">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(112, 0, 255, 0.1); color: var(--accent);">🛡️</div>
+            <h2>Stealth</h2>
+        </div>
+        <p class="feature-desc">Multi-layered anti-detection. No game injection, no memory writes. Runs fully external with encrypted configs and process-level obfuscation.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Stealth overlay (hidden from screen capture)</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Process spoofing</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>XOR-encrypted config on disk</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>No game injection — runs fully external</p></div>
+        </div>
+    </section>
+
+    <!-- ═══ CLOUD ═══ -->
+    <div class="divider"></div>
+    <section class="feature-section" id="cloud">
+        <div class="feature-header">
+            <div class="icon" style="background: rgba(112, 0, 255, 0.1); color: var(--accent);">☁️</div>
+            <h2>Cloud</h2>
+        </div>
+        <p class="feature-desc">Encrypted model downloads, community-driven sharing, and a full license key system with web dashboard management.</p>
+        <div class="feature-list">
+            <div class="feature-list-item"><span class="bullet">▸</span><p>Encrypted model downloads &amp; shared library</p></div>
+            <div class="feature-list-item"><span class="bullet">▸</span><p>License key system &amp; web dashboard</p></div>
+        </div>
+        <img src="/static/img/program/cloud.png" alt="Cloud Models" class="feature-screenshot" loading="lazy">
+    </section>
+
+    <div class="divider" style="margin-top: 60px;"></div>
+
+    <footer>
+        <div class="footer-logo">EXCLUSIVE<span>AIM</span></div>
+        <div class="footer-links">
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/refund">Refund</a>
+            <a href="/reseller">Reseller</a>
+        </div>
+    </footer>
+</body>
+</html>
