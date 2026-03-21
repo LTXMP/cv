@@ -1613,14 +1613,48 @@ def get_shared_users(model_id):
 
     # Fetch shared users, filtering out Admins or Owner
     query = '''
-        SELECT u.username 
+        SELECT u.username, s.expiry_date 
         FROM shares s
         JOIN users u ON s.target_user_id = u.id
         WHERE s.model_id = ? AND u.is_admin = 0 AND u.is_owner = 0
     '''
     c.execute(query, (model_id,))
-    users = [row['username'] for row in c.fetchall()]
+    users = [{'username': row['username'], 'expiry': row['expiry_date']} for row in c.fetchall()]
     return jsonify(users)
+
+@app.route('/api/models/<int:model_id>/revoke_share', methods=['POST'])
+@login_required
+def revoke_share(model_id):
+    data = request.json
+    target_username = data.get('username')
+    user_id = session['user_id']
+    is_admin = session.get('is_admin')
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # Verify authorization
+    c.execute("SELECT user_id FROM models WHERE id=?", (model_id,))
+    model = c.fetchone()
+    if not model:
+        conn.close()
+        return jsonify({'error': 'Model not found'}), 404
+        
+    if model['user_id'] != user_id and not is_admin:
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Resolve username to id
+    target_user = c.execute("SELECT id FROM users WHERE username=?", (target_username,)).fetchone()
+    if not target_user:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    # Revoke Share
+    c.execute("DELETE FROM shares WHERE model_id=? AND target_user_id=?", (model_id, target_user['id']))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Access revoked for {target_username}'})
 
 
 
