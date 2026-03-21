@@ -813,7 +813,7 @@ def get_user_license():
     
     # Fix: Always show the best/latest license info
     license = c.execute("SELECT * FROM licenses WHERE user_id=? ORDER BY expiry DESC", (user_id,)).fetchone()
-    user = c.execute("SELECT email, total_time, is_admin, is_owner FROM users WHERE id=?", (user_id,)).fetchone()
+    user = c.execute("SELECT email, total_time, is_admin, is_owner, created_at FROM users WHERE id=?", (user_id,)).fetchone()
     
     total_time = user['total_time'] if user else 0
     is_admin = bool(user['is_admin']) if user else False
@@ -854,11 +854,16 @@ def get_user_license():
                     is_expired = True
             except: pass
 
+        exp_val = license['expiry']
+        if isinstance(exp_val, str):
+            try: exp_val = float(exp_val)
+            except: exp_val = 9999999999
+            
         res_data.update({
             'status': 'Expired' if is_expired else 'Active',
             'type': license['duration'],
-            'expiry': time.strftime('%Y-%m-%d %H:%M', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never',
-            'expiry_timestamp': license['expiry'],
+            'expiry': time.strftime('%Y-%m-%d %H:%M', time.localtime(exp_val)) if exp_val < 9999999999 else 'Never',
+            'expiry_timestamp': exp_val,
             'hwid_bound': True if (license['hwid'] and license['hwid'] != "") else False,
         })
     else:
