@@ -1130,8 +1130,14 @@ def reset_hwid():
 def admin_list_licenses():
     conn = get_db()
     c = conn.cursor()
-    # Return only unclaimed keys
-    c.execute("SELECT key, duration, expiry FROM licenses WHERE user_id IS NULL ORDER BY expiry ASC")
+    c.execute("PRAGMA table_info(licenses)")
+    cols = [r['name'] for r in c.fetchall()]
+    
+    if 'reseller_id' in cols:
+        c.execute("SELECT key, duration, expiry FROM licenses WHERE user_id IS NULL AND reseller_id IS NULL ORDER BY expiry ASC")
+    else:
+        c.execute("SELECT key, duration, expiry FROM licenses WHERE user_id IS NULL ORDER BY expiry ASC")
+        
     licenses = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify(licenses)
@@ -1348,7 +1354,18 @@ def generate_license():
     c.execute("INSERT INTO licenses (key, hwid, duration, expiry) VALUES (?, ?, ?, ?)",
               (key, "", duration, expiry))
     conn.commit()
+    
+    admin_name = ""
+    u = c.execute("SELECT username FROM users WHERE id=?", (session['user_id'],)).fetchone()
+    if u: admin_name = u['username']
     conn.close()
+    
+    duration_str = "Lifetime" if duration == 'LIFETIME' else f"{int(duration)//86400} Days"
+    send_discord_notification(
+        "Keys Generated",
+        f"**Action**: Administrator generated a new key.\n**Admin**: {admin_name}\n**Key**: `{key}`\n**Duration**: {duration_str}\n**Quantity**: 1\n**Type**: Master Key",
+        color=0xf1c40f
+    )
     
     return jsonify({'key': key, 'duration': duration})
 
@@ -2037,7 +2054,7 @@ def admin_generate_reseller_license():
     conn = get_db()
     c = conn.cursor()
     
-    reseller = c.execute("SELECT id FROM users WHERE id=? AND is_reseller=1", (reseller_id,)).fetchone()
+    reseller = c.execute("SELECT id, username FROM users WHERE id=? AND is_reseller=1", (reseller_id,)).fetchone()
     if not reseller:
         conn.close()
         return jsonify({'error': 'Invalid reseller ID'}), 400
@@ -2052,7 +2069,20 @@ def admin_generate_reseller_license():
         keys.append(key)
         
     conn.commit()
+    
+    admin_name = ""
+    u = c.execute("SELECT username FROM users WHERE id=?", (session['user_id'],)).fetchone()
+    if u: admin_name = u['username']
     conn.close()
+    
+    duration_str = "Lifetime" if duration == 'LIFETIME' else f"{int(duration)//86400} Days"
+    reseller_name = reseller['username']
+    
+    send_discord_notification(
+        "Reseller Keys Generated",
+        f"**Action**: Administrator generated keys for a reseller.\n**Admin**: {admin_name}\n**Reseller**: {reseller_name} (ID: {reseller_id})\n**Duration**: {duration_str}\n**Quantity**: {amount}",
+        color=0x9b59b6
+    )
     
     return jsonify({'success': True, 'keys': keys})
 
