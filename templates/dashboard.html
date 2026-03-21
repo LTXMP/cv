@@ -1020,14 +1020,26 @@
                     statusEl.innerText = `${data.status} (${data.type})`;
                     statusEl.className = "status-active";
                     statusEl.style.color = "#2ecc71";
-                    expiryEl.innerText = data.expiry;
+                    
+                    // Expiry Countdown
+                    const expTs = data.expiry_timestamp;
+                    if (expTs && expTs < 9999999999) {
+                        expiryEl.setAttribute('data-expiry', expTs);
+                        expiryEl.classList.add('live-countdown');
+                    } else {
+                        expiryEl.innerText = "Never";
+                        expiryEl.classList.remove('live-countdown');
+                    }
 
-                    // Total Time Display
-                    const totalSeconds = data.total_time || 0;
-                    const days = Math.floor(totalSeconds / 86400);
-                    const hours = Math.floor((totalSeconds % 86400) / 3600);
-                    const timeStr = days > 3650 ? "LIFETIME" : `${days}d ${hours}h`;
-                    document.getElementById('status-total-time').innerText = timeStr;
+                    // Total Time Display (Remaining)
+                    if (expTs && expTs < 9999999999) {
+                        const totalEl = document.getElementById('status-total-time');
+                        totalEl.setAttribute('data-expiry', expTs);
+                        totalEl.classList.add('live-countdown');
+                    } else if (data.type === 'Lifetime' || data.type === 'LIFETIME') {
+                        document.getElementById('status-total-time').innerText = "LIFETIME";
+                        document.getElementById('status-total-time').classList.remove('live-countdown');
+                    }
 
                     const hwidEl = document.getElementById('status-hwid');
                     if (data.hwid_bound) {
@@ -1345,32 +1357,29 @@
                     container.innerHTML = '<div style="margin-bottom:8px; color:var(--text-dim); font-size:0.9em;">Shared with:</div><div style="display:flex; flex-wrap:wrap;"></div>';
                     const wrapper = container.querySelector('div:last-child');
                     
-                    users.forEach(u => {
-                        let expiryText = "";
-                        if (u.expiry) {
-                            const now = Date.now() / 1000;
-                            const diff = u.expiry - now;
-                            if (diff <= 0) {
-                                expiryText = "(Expired)";
+                        users.forEach(u => {
+                            const chip = document.createElement('span');
+                            chip.className = 'user-chip';
+                            
+                            let expiryHtml = "";
+                            if (u.expiry) {
+                                if (u.expiry >= 9999999999) {
+                                    expiryHtml = `<span class="expiry-info">(Lifetime)</span>`;
+                                } else {
+                                    expiryHtml = `<span class="expiry-info live-countdown" data-expiry="${u.expiry}" data-prefix="(" data-suffix=" left)"></span>`;
+                                }
                             } else {
-                                const days = Math.floor(diff / 86400);
-                                const hours = Math.floor((diff % 86400) / 3600);
-                                if (days > 0) expiryText = `(${days}d ${hours}h left)`;
-                                else expiryText = `(${hours}h left)`;
+                                expiryHtml = `<span class="expiry-info">(Lifetime)</span>`;
                             }
-                        } else {
-                            expiryText = "(Lifetime)";
-                        }
 
-                        const chip = document.createElement('span');
-                        chip.className = 'user-chip';
-                        chip.innerHTML = `
-                            <span>${u.username} <span class="expiry-info">${expiryText}</span></span>
-                            <span class="revoke-btn" onclick="revokeAccess(${modelId}, '${u.username}', this)" title="Revoke Access">&times;</span>
-                        `;
-                        wrapper.appendChild(chip);
-                    });
-                }
+                            chip.innerHTML = `
+                                <span>${u.username} ${expiryHtml}</span>
+                                <span class="revoke-btn" onclick="revokeAccess(${modelId}, '${u.username}', this)" title="Revoke Access">&times;</span>
+                            `;
+                            wrapper.appendChild(chip);
+                        });
+                        updateAllCountdowns(); // Initial render for new chips
+                    }
                 
                 container.classList.remove('hidden');
                 btn.innerText = 'Hide Users';
@@ -1513,6 +1522,40 @@
             if (!token) tokenInput.focus();
         }
 
+        // --- Live Updates ---
+        
+        function formatTimeRemaining(seconds) {
+            if (seconds <= 0) return "Expired";
+            
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            let parts = [];
+            if (days > 0) parts.push(`${days}d`);
+            if (hours > 0) parts.push(`${hours}h`);
+            if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+            
+            return parts.join(' ');
+        }
+
+        function updateAllCountdowns() {
+            const now = Date.now() / 1000;
+            document.querySelectorAll('.live-countdown').forEach(el => {
+                const expiry = parseFloat(el.getAttribute('data-expiry'));
+                const prefix = el.getAttribute('data-prefix') || "";
+                const suffix = el.getAttribute('data-suffix') || "";
+                
+                if (isNaN(expiry)) return;
+                
+                const remaining = expiry - now;
+                el.innerText = prefix + formatTimeRemaining(remaining) + suffix;
+            });
+        }
+
+        // Start interval
+        setInterval(updateAllCountdowns, 60000); // Every minute
+        
     </script>
 </body>
 
