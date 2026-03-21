@@ -791,7 +791,7 @@
                         <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}${isResellerFlag}</td>
                         <td style="padding:12px; text-align: right;">
                             ${(isOwner || !u.is_admin) ? `
-                                <select style="width:140px; padding:6px; font-size:12px; margin:0; background: var(--glass); border-color: var(--glass-border);" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
+                                <select style="width:140px; padding:6px; font-size:12px; margin:0; background: #0d0d0d; color: #ffffff; border-color: var(--glass-border);" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
                                     <option value="" disabled selected>Actions...</option>
                                     <option value="reset_pass">Reset PW</option>
                                     <option value="${u.is_banned ? 'unban' : 'ban'}">${u.is_banned ? 'Unban' : 'Ban'}</option>
