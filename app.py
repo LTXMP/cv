@@ -426,6 +426,10 @@ def refund():
 def reseller():
     return render_template('reseller.html')
 
+@app.route('/program')
+def program():
+    return render_template('program.html')
+
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     conn = get_db()
