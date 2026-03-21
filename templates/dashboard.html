@@ -475,6 +475,19 @@
             <div id="page-admin" class="page hidden">
                 <h1 style="margin-bottom: 30px;">Admin Controller</h1>
 
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3 style="margin-bottom: 20px; color: var(--success);">Feature Controls</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                            <div>
+                                <h4 style="margin: 0; font-size: 15px;">7-Day Free Trial</h4>
+                                <p style="margin: 0; font-size: 11px; color: var(--text-dim);">New signups get 7 days free</p>
+                            </div>
+                            <button id="trial-toggle-btn" onclick="toggleTrial()" style="width: auto; padding: 8px 16px; margin: 0; font-size: 13px;">Loading...</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
                     <div class="card">
                         <h3 style="margin-bottom: 20px; color: var(--accent);">Generate Licenses</h3>
@@ -570,6 +583,7 @@
         // --- Admin Functions ---
 
         async function loadAdminData() {
+            loadSettings();
             loadAdminUsers();
             loadAdminModels();
             loadAdminLicenses();
@@ -632,6 +646,40 @@
             searchTimeout = setTimeout(() => {
                 loadAdminUsers(val);
             }, 400); // 400ms debounce
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch(`${API_URL}/settings`);
+                const data = await res.json();
+                const btn = document.getElementById('trial-toggle-btn');
+                if (btn) {
+                    btn.textContent = data.free_trial_enabled ? 'Enabled' : 'Disabled';
+                    btn.className = data.free_trial_enabled ? 'status-active' : 'status-invalid';
+                    btn.style.background = data.free_trial_enabled ? 'var(--success)' : 'var(--error)';
+                    btn.style.color = '#000';
+                    btn.dataset.enabled = data.free_trial_enabled;
+                }
+            } catch (e) { console.error("Load settings error:", e); }
+        }
+
+        async function toggleTrial() {
+            const btn = document.getElementById('trial-toggle-btn');
+            const newState = !(btn.dataset.enabled === 'true');
+            try {
+                const res = await fetch(`${API_URL}/admin/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'free_trial_enabled', value: newState ? '1' : '0' })
+                });
+                if (res.ok) {
+                    showNotification(newState ? "Free Trial Enabled" : "Free Trial Disabled", "success");
+                    loadSettings();
+                } else {
+                    const data = await res.json();
+                    showNotification(data.error || "Failed to update setting", "error");
+                }
+            } catch (e) { showNotification("Connection error", "error"); }
         }
 
         async function loadAdminUsers(searchQuery = '') {

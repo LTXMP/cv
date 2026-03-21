@@ -116,7 +116,7 @@
         .hero h1 {
             font-size: clamp(40px, 8vw, 90px);
             max-width: 1000px;
-            margin-bottom: 20px;
+            margin: 0 auto 20px auto;
             background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
             -webkit-background-clip: text;
             background-clip: text;
@@ -210,6 +210,10 @@
         }
         .nav-auth-mobile { display: none; }
     </style>
+
+    <div id="trial-banner" style="display:none; background: linear-gradient(90deg, var(--primary), var(--accent)); color: #000; text-align: center; padding: 10px; font-weight: 800; font-size: 14px; position: sticky; top: 0; z-index: 1001;">
+        🚀 SPECIAL OFFER: GET A 7-DAY FREE TRIAL ON NEW SIGNUPS! <a href="/dashboard?action=register" style="color: #000; text-decoration: underline; margin-left: 10px;">CLAIM NOW</a>
+    </div>
 
     <nav>
         <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
@@ -337,5 +341,17 @@
             <a href="https://discord.gg/jpRXXw3keR" target="_blank">Discord Support</a>
         </div>
     </footer>
+    <script>
+        async function checkTrial() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.free_trial_enabled) {
+                    document.getElementById('trial-banner').style.display = 'block';
+                }
+            } catch (e) {}
+        }
+        checkTrial();
+    </script>
 </body>
 </html>
