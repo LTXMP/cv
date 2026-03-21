@@ -183,7 +183,8 @@
             transition: 0.4s;
         }
         .price-card.featured { border-color: var(--primary); transform: scale(1.05); }
-        .price-card .price { font-size: 56px; font-weight: 800; margin-bottom: 30px; }
+        .price-card .price { font-size: 38px; font-weight: 800; margin-bottom: 25px; white-space: nowrap; }
+        .price-card .price span { font-size: 14px; color: var(--text-dim); font-weight: 400; margin-left: 3px; vertical-align: middle; }
         .price-list { list-style: none; text-align: left; margin-bottom: 40px; color: var(--text-dim); }
         .price-list li { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
         .price-list li::before { content: '✓'; color: var(--primary); }
@@ -197,14 +198,36 @@
 <body>
     <div class="bg-glow"></div>
 
+    <style>
+        /* Modern Mobile Fixes */
+        @media (max-width: 768px) {
+            nav {
+                padding: 12px 5% !important;
+                padding-top: calc(12px + env(safe-area-inset-top)) !important;
+            }
+            .logo { font-size: 20px !important; }
+            .mobile-hide { display: none !important; }
+            .mobile-show { display: block !important; }
+            .nav-auth-mobile { display: flex !important; gap: 10px; }
+        }
+        .nav-auth-mobile { display: none; }
+    </style>
+
     <nav>
         <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
-        <div class="nav-links">
+        
+        <!-- Desktop Links -->
+        <div class="nav-links mobile-hide">
             <a href="#features">Features</a>
             <a href="#tech">Technology</a>
             <a href="#pricing">Pricing</a>
             <a href="/dashboard" class="login-outline">Login</a>
             <a href="/dashboard?action=register" class="cta-btn">Join Now</a>
+        </div>
+
+        <!-- Mobile Quick Actions -->
+        <div class="nav-auth-mobile">
+            <a href="/dashboard" class="cta-btn" style="padding: 8px 15px; font-size: 13px;">Login</a>
         </div>
     </nav>
 

@@ -5,148 +5,156 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exclusive Aim - User Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #6c5ce7;
-            --bg: #0f0f13;
-            --card-bg: #1a1a20;
-            --text: #ffffff;
+            --bg-deep: #050505;
+            --bg-card: rgba(13, 13, 13, 0.7);
+            --primary: #00BFFF;
+            --primary-glow: rgba(0, 191, 255, 0.4);
+            --accent: #7000FF;
+            --text-main: #ffffff;
             --text-dim: #a0a0a0;
-            --border: #333;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --nav-bg: rgba(5, 5, 5, 0.8);
+            --error: #ff4757;
+            --success: #2ecc71;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+            min-height: 100vh;
         }
 
-        h1,
-        h2 {
-            font-weight: 300;
-            letter-spacing: 1px;
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        /* --- Background Effects --- */
+        .bg-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.05), transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(112, 0, 255, 0.05), transparent 40%);
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 40px 20px;
         }
 
-        /* Auth Wrapper */
-        #auth-wrapper {
-            display: block;
-            /* Default visible */
-        }
-
-        #dashboard-wrapper {
-            display: none;
-        }
-
-        /* Cards */
-        .card {
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Forms */
-        input,
-        select,
-        button {
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 6px;
-            border: 1px solid #333;
-            background: #25252b;
-            color: white;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        button {
-            background-color: var(--primary);
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
-        }
-
-        button:hover {
-            opacity: 0.9;
-        }
-
-        button.secondary {
-            background-color: #444;
-        }
-
-        button.danger {
-            background-color: #e74c3c;
-        }
-
-        /* Model List */
-        .model-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #222;
-            padding: 10px;
-            margin-bottom: 5px;
-            border-radius: 4px;
-        }
-
-        .tag {
-            font-size: 0.8em;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin-left: 10px;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        /* Auth Container Styling */
-        .section {
-            background: var(--card-bg);
+        /* --- Components --- */
+        .card, .section {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            max-width: 400px;
-            margin: 0 auto;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .section {
+            max-width: 450px;
+            margin: 50px auto;
             text-align: center;
         }
 
-        .row {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
+        /* Forms */
+        input, select {
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        button {
+            padding: 12px 24px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: none;
+            background: var(--primary);
+            color: #000;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.3s;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--primary-glow);
+            opacity: 0.95;
+        }
+
+        button.secondary {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            box-shadow: none;
+        }
+
+        button.danger {
+            background: var(--error);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
+        }
+
+        /* Layout */
+        #dashboard-wrapper {
+            display: none;
+            gap: 30px;
+            align-items: flex-start;
         }
 
         .sidebar {
-            width: 200px;
-            background: var(--card-bg);
-            padding: 20px;
+            width: 250px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            padding: 24px;
+            border-radius: 20px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            height: 80vh;
-            border-radius: 12px;
-        }
-
-        #dashboard-wrapper {
-            display: none;
-            gap: 20px;
+            gap: 8px;
+            position: sticky;
+            top: 40px;
         }
 
         .content {
@@ -157,180 +165,206 @@
             text-align: left;
             background: transparent;
             color: var(--text-dim);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 0;
+            width: 100%;
+            box-shadow: none;
+            font-weight: 600;
+            text-transform: none;
+            letter-spacing: 0;
         }
 
-        .nav-item:hover,
-        .nav-item.active {
+        .nav-item:hover, .nav-item.active {
             background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
+            color: var(--primary);
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Models Grid */
+        .grid-models {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .model-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            border-radius: 16px;
+            transition: 0.3s;
+        }
+
+        .model-card:hover {
+            border-color: var(--primary);
+            background: rgba(255,255,255,0.04);
+        }
+
+        /* Status Tags */
+        .status-active { color: var(--success); text-shadow: 0 0 10px rgba(46, 204, 113, 0.3); }
+        .status-invalid { color: var(--error); }
+
+        /* Shared Users */
+        .shared-users-container {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .user-chip {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 6px 12px;
+            border-radius: 30px;
+            margin: 4px;
+            font-size: 0.85em;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
 
         /* Notifications */
         .notification {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #333;
+            bottom: 30px;
+            right: 30px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
             color: white;
-            padding: 15px 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-            transform: translateY(100px);
-            transition: transform 0.3s ease-out;
-            z-index: 1000;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform: translateY(150px);
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2000;
         }
 
-        .notification.show {
-            transform: translateY(0);
-        }
+        .notification.show { transform: translateY(0); }
+        .notification.success { border-left: 4px solid var(--success); }
+        .notification.error { border-left: 4px solid var(--error); }
 
-        .notification.success {
-            border-left: 4px solid #2ecc71;
-        }
-
-        .notification.error {
-            border-left: 4px solid #e74c3c;
-        }
-
-        .notification.info {
-            border-left: 4px solid #3498db;
-        }
-
-        /* Shared Users List */
-        .shared-users-container {
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.85em;
-        }
-
-        .user-chip {
-            display: inline-flex;
+        header {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            background: var(--primary);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 16px;
-            margin: 4px;
-            font-size: 0.85em;
-            gap: 8px;
+            padding: 20px 30px;
+            padding-top: calc(20px + env(safe-area-inset-top));
+            background: var(--nav-bg);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
+            margin-bottom: 40px;
+            border-radius: 0 0 24px 24px;
         }
 
-        .revoke-btn {
-            cursor: pointer;
-            color: rgba(255, 255, 255, 0.6);
-            font-weight: bold;
-            font-size: 1.1em;
-            transition: color 0.2s;
-            line-height: 1;
+        @media (max-width: 768px) {
+            header {
+                padding: 15px 20px;
+                padding-top: calc(15px + env(safe-area-inset-top));
+                margin-bottom: 24px;
+            }
+            header h1 { font-size: 20px !important; }
         }
 
-        .revoke-btn:hover {
-            color: #ff4757;
-        }
-
-        .expiry-info {
-            font-size: 0.8em;
-            color: rgba(255, 255, 255, 0.7);
-            margin-left: 4px;
-        }
+        .hidden { display: none !important; }
     </style>
 </head>
 
 <body>
+    <div class="bg-glow"></div>
 
     <div class="container">
-        <header class="nav">
+        <header>
             <div>
-                <h1 style="color:white; margin:0;">EXCLUSIVE<span style="color:var(--primary)">AIM</span></h1>
+                <a href="/" style="text-decoration:none;"><h1 style="color:white; margin:0;">EXCLUSIVE<span>AIM</span></h1></a>
             </div>
-            <div id="userInfo" style="display:none">
-                <span id="usernameDisplay" style="color:var(--text-dim);">User</span>
+            <div id="userInfo" style="display:none; align-items: center; gap: 15px;">
+                <span id="usernameDisplay" style="color:var(--text-dim); font-weight: 600;">User</span>
             </div>
         </header>
 
         <!-- Auth View -->
         <div id="auth-wrapper">
-
             <!-- Login Section -->
             <div id="login-section" class="section">
-                <!-- User Logo -->
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h2 style="color: var(--primary); margin: 0;">LOGIN</h2>
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h2 style="color: var(--primary); font-size: 28px;">LOGIN</h2>
+                    <p style="color: var(--text-dim); font-size: 14px;">Access your exclusive dashboard</p>
                 </div>
 
                 <input type="email" id="login-email" placeholder="Email Address">
                 <input type="password" id="login-pass" placeholder="Password">
-                <div class="row">
-                    <button class="btn primary" onclick="login()">Login</button>
-                    <button class="btn secondary" onclick="showRegister()">Register</button>
+                <div class="row" style="margin-top: 20px;">
+                    <button onclick="login()">Login</button>
+                    <button class="secondary" onclick="showRegister()">Register</button>
                 </div>
-                <div style="margin-top: 10px;">
+                <div style="margin-top: 20px;">
                     <a href="#" onclick="showResetRequest()"
-                        style="color: var(--text-dim); font-size: 0.9em; text-decoration: none;">Forgot Password?</a>
+                        style="color: var(--text-dim); font-size: 0.85em; text-decoration: none; border-bottom: 1px dashed var(--glass-border);">Forgot Password?</a>
                 </div>
             </div>
 
             <!-- Register Section -->
             <div id="register-section" class="section hidden">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h2 style="color: var(--primary); margin: 0;">REGISTER</h2>
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h2 style="color: var(--primary); font-size: 28px;">REGISTER</h2>
+                    <p style="color: var(--text-dim); font-size: 14px;">Join the elite precision engine</p>
                 </div>
                 <input type="text" id="reg-user" placeholder="Username (for sharing)">
                 <input type="email" id="reg-email" placeholder="Email Address">
                 <input type="password" id="reg-pass" placeholder="Password">
-                <p style="font-size: 0.8em; color: var(--text-dim); text-align: left; margin: 5px 0 15px 0;">
-                    Password must be at least 8 characters and contain at least one number or special character.
+                <p style="font-size: 0.75em; color: var(--text-dim); text-align: left; margin: 10px 0 20px 5px; opacity: 0.7;">
+                    Min. 8 characters with numbers or symbols.
                 </p>
                 <div class="row">
-                    <button class="btn primary" onclick="register()">Create Account</button>
-                    <button class="btn secondary" onclick="showLogin()">Back to Login</button>
+                    <button onclick="register()">Create Account</button>
+                    <button class="secondary" onclick="showLogin()">Back</button>
                 </div>
             </div>
 
             <!-- Request Reset Section -->
             <div id="reset-request-section" class="section hidden">
-                <h2>Reset Password</h2>
-                <p style="color:var(--text-dim); font-size:0.9em;">Enter your email to receive a reset link.</p>
+                <h2 style="color: var(--primary);">RESET PASS</h2>
+                <p style="color:var(--text-dim); font-size:0.9em; margin-bottom: 20px;">Enter your email for a reset link.</p>
                 <input type="email" id="reset-email" placeholder="Enter your Email">
                 <div class="row">
-                    <button class="btn primary" onclick="requestReset()">Send Link</button>
-                    <button class="btn secondary" onclick="showLogin()">Back</button>
+                    <button onclick="requestReset()">Send Link</button>
+                    <button class="secondary" onclick="showLogin()">Back</button>
                 </div>
             </div>
 
             <!-- Perform Reset Section -->
             <div id="reset-perform-section" class="section hidden">
-                <h2>Set New Password</h2>
-                <p style="color:var(--text-dim); font-size:0.9em; margin-bottom: 15px;">Enter the 8-character code sent
-                    to your email.</p>
-                <input type="text" id="reset-token" placeholder="Security Code"
-                    style="text-align: center; font-weight: bold; letter-spacing: 2px; font-family: monospace; font-size: 1.2em;">
+                <h2 style="color: var(--primary);">SET PASSWORD</h2>
+                <p style="color:var(--text-dim); font-size:0.85em; margin-bottom: 20px;">Enter the 8-character security code sent to your email.</p>
+                <input type="text" id="reset-token" placeholder="0 0 0 0 0 0 0 0"
+                    style="text-align: center; font-weight: 800; letter-spacing: 4px; font-family: monospace; font-size: 1.4em; color: var(--primary);">
                 <input type="password" id="new-reset-pass" placeholder="New Password">
                 <div class="row">
-                    <button class="btn primary" onclick="performReset()">Change Password</button>
-                    <button class="btn secondary" onclick="showLogin()">Back</button>
+                    <button onclick="performReset()">Change Pass</button>
+                    <button class="secondary" onclick="showLogin()">Back</button>
                 </div>
             </div>
         </div>
 
-        <!-- Main Dashboard (Hidden by default) -->
+        <!-- Main Dashboard -->
         <div id="dashboard-wrapper">
             <!-- Sidebar -->
             <div class="sidebar">
-                <div
-                    style="text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333;">
-                    <a href="/" style="text-decoration:none;"><h3 style="margin:0; color:var(--primary)">EA <span style="color:white">DASH</span></h3></a>
+                <div style="text-align: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border);">
+                    <a href="/" style="text-decoration:none;"><h3 style="margin:0; color:var(--primary); font-size: 20px;">EA <span style="color:white">DASH</span></h3></a>
                 </div>
                 <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
                 <button class="nav-item" onclick="showPage('admin')" id="nav-admin"
-                    style="display:none; color:#e056fd;">Admin Panel</button>
+                    style="display:none; color:var(--accent);">Admin Panel</button>
                 <div style="flex-grow:1"></div>
                 <button class="nav-item" onclick="location.href='/'" style="opacity: 0.7; font-size: 0.85em; margin-bottom: 10px;">&larr; Back to Website</button>
-                <button class="nav-item" onclick="logout()">Logout</button>
+                <button class="nav-item" onclick="logout()" style="color: var(--error);">Logout</button>
             </div>
 
             <!-- Content Area -->
@@ -338,58 +372,74 @@
 
                 <!-- Tab: Account Settings -->
                 <div id="page-account" class="page active">
-                    <h1>Account Settings</h1>
+                    <h1 style="margin-bottom: 30px;">Account Settings</h1>
 
-                    <!-- License Status -->
-                    <div class="card">
-                        <h3>License Status</h3>
-                        <p><strong>Status:</strong> <span id="status-license" class="status-invalid">Checking...</span>
-                        </p>
-                        <p><strong>Expiry:</strong> <span id="status-expiry">-</span></p>
-                        <p><strong>Total Sub Time:</strong> <span id="status-total-time" style="color:#f1c40f;">-</span>
-                        </p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                        <!-- License Status -->
+                        <div class="card">
+                            <h3 style="margin-bottom: 20px; color: var(--primary);">License Status</h3>
+                            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                                <p style="margin-bottom: 12px; display: flex; justify-content: space-between;">
+                                    <strong>Status:</strong> 
+                                    <span id="status-license" class="status-invalid">Checking...</span>
+                                </p>
+                                <p style="margin-bottom: 12px; display: flex; justify-content: space-between;">
+                                    <strong>Expiry:</strong> 
+                                    <span id="status-expiry">-</span>
+                                </p>
+                                <p style="display: flex; justify-content: space-between;">
+                                    <strong>Tenure:</strong> 
+                                    <span id="status-total-time" style="color:var(--primary);">-</span>
+                                </p>
+                            </div>
 
-                        <h4>Hardware ID (HWID)</h4>
-                        <p><strong>Status:</strong> <span id="status-hwid"
-                                style="color:var(--text-dim);">Checking...</span></p>
-                        <p style="font-size:0.9em; color:var(--text-dim);">Reset this to use your license on a new
-                            PC. (Limit: Once per hour)</p>
-                        <button class="btn secondary" onclick="resetHWID()" id="btn-reset-hwid">Reset HWID</button>
-                    </div>
+                            <h4 style="margin: 20px 0 10px 0;">Hardware ID (HWID)</h4>
+                            <p style="font-size: 0.9em; color: var(--text-dim); margin-bottom: 15px;">
+                                <strong>Status:</strong> <span id="status-hwid">Checking...</span>
+                            </p>
+                            <button class="secondary" onclick="resetHWID()" id="btn-reset-hwid" style="font-size: 13px; padding: 10px;">Reset HWID</button>
+                            <p style="font-size:0.75em; color:var(--text-dim); margin-top: 10px; opacity: 0.6;">Limit: Once per hour</p>
+                        </div>
 
-                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
-                        <h4>Redeem License Key</h4>
-                        <input type="text" id="license-key-input" placeholder="Enter License Key">
-                        <button class="btn primary" onclick="redeemKey()">Activate Key</button>
-                    </div>
-                    <!-- Profile Settings -->
-                    <div class="card" style="margin-top: 20px;">
-                        <h3>Edit Profile</h3>
-                        <input type="email" id="update-email" placeholder="New Email">
-                        <input type="password" id="update-pass" placeholder="New Password">
-                        <button class="btn primary" onclick="updateProfile()">Save Changes</button>
+                        <!-- Update Profile & Redeem -->
+                        <div>
+                            <div class="card">
+                                <h3 style="margin-bottom: 15px;">Redeem License</h3>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="license-key-input" placeholder="XXXX-XXXX-XXXX-XXXX" style="margin: 0;">
+                                    <button onclick="redeemKey()" style="width: auto; padding: 0 20px; margin: 0;">Redeem</button>
+                                </div>
+                            </div>
+
+                            <div class="card" style="margin-top: 0;">
+                                <h3 style="margin-bottom: 15px;">Security Settings</h3>
+                                <input type="email" id="update-email" placeholder="New Email">
+                                <input type="password" id="update-pass" placeholder="New Password">
+                                <button onclick="updateProfile()" style="margin-top: 15px;">Update Profile</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Tab: Model Sharing -->
             <div id="page-models" class="page hidden">
-                <h1>Model Sharing & Management</h1>
+                <h1 style="margin-bottom: 30px;">Model Management</h1>
 
                 <!-- Upload Section -->
                 <div class="card">
-                    <h3>Upload New Model</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <h3 style="margin-bottom: 20px; color: var(--primary);">Upload New Model</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
                         <div>
-                            <label>Model Name</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Model Name</label>
                             <input type="text" id="upload-name" placeholder="E.g. Exclusive v1">
                         </div>
                         <div>
-                            <label>Model File (.onnx)</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Model File (.onnx)</label>
                             <input type="file" id="upload-file" accept=".onnx">
                         </div>
                         <div>
-                            <label>Model Size</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Model Architecture</label>
                             <select id="upload-model-size">
                                 <option value="Nano">Nano</option>
                                 <option value="Small">Small</option>
@@ -399,7 +449,7 @@
                             </select>
                         </div>
                         <div>
-                            <label>Image Size</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Input Resolution</label>
                             <select id="upload-img-size">
                                 <option value="320">320</option>
                                 <option value="416">416</option>
@@ -408,78 +458,75 @@
                             </select>
                         </div>
                         <div style="grid-column: span 2;">
-                            <label>Thumbnail (Image)</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Preview Thumbnail</label>
                             <input type="file" id="upload-thumb" accept="image/*">
                         </div>
                     </div>
-                    <button class="btn primary" style="margin-top: 10px;" onclick="uploadModel()">Upload
-                        Model</button>
+                    <button onclick="uploadModel()" style="margin-top: 20px;">Deploy to Cloud</button>
                 </div>
 
                 <!-- Models List -->
-                <div id="models-list">
+                <div id="models-list" class="grid-models">
                     <!-- Populated by JS -->
                 </div>
             </div>
 
             <!-- Tab: Admin Panel -->
             <div id="page-admin" class="page hidden">
-                <h1>Admin Dashboard</h1>
+                <h1 style="margin-bottom: 30px;">Admin Controller</h1>
 
-                <div class="card">
-                    <h3>Generate License Key</h3>
-                    <div class="row">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <div class="card">
+                        <h3 style="margin-bottom: 20px; color: var(--accent);">Generate Licenses</h3>
+                        <label style="font-size: 13px; color: var(--text-dim);">Duration</label>
                         <select id="gen-duration">
                             <option value="LIFETIME">Lifetime</option>
+                            <option value="31536000">1 Year</option>
                             <option value="2592000">30 Days</option>
+                            <option value="604800">7 Days</option>
                             <option value="86400">1 Day</option>
                         </select>
-                        <button class="btn primary" onclick="generateLicense()">Generate Key</button>
+                        <button onclick="generateLicense()" style="background: var(--accent); color: #fff; margin-top: 15px;">Generate Key</button>
+                        
+                        <div id="gen-result" style="margin-top: 15px; display: none;">
+                            <p style="font-size: 13px; color: var(--text-dim);">New Key:</p>
+                            <input type="text" id="new-license-key" readonly 
+                                style="text-align: center; border-color: var(--accent); color: white; cursor: pointer;"
+                                onclick="this.select(); document.execCommand('copy');">
+                            <p style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 5px;">Click to copy</p>
+                        </div>
                     </div>
-                    <div id="gen-result"
-                        style="margin-top:15px; display:none; background:#222; padding:10px; border-radius:6px;">
-                        <p style="margin:0; color:var(--text-dim);">Generated Key:</p>
-                        <code id="new-license-key"
-                            style="font-size:1.2em; color:#2ecc71; display:block; margin:5px 0;"></code>
+
+                    <div class="card">
+                        <h3 style="margin-bottom: 20px;">Unclaimed Licenses</h3>
+                        <div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                            <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                                <tbody id="admin-licenses-list">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <div class="card">
-                    <h3>Unclaimed Licenses</h3>
-                    <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
-                            <thead>
-                                <tr style="border-bottom:1px solid #333; cursor:pointer;">
-                                    <th style="padding:10px;" onclick="sortLicenses('key')">Key ↕</th>
-                                    <th style="padding:10px;" onclick="sortLicenses('duration')">Duration ↕</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-licenses-list">
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h3>User Management</h3>
-                    <div style="margin-bottom: 15px;">
+                <div class="card" style="margin-top: 24px;">
+                    <h3 style="margin-bottom: 20px;">User Management</h3>
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px;">
                         <input type="text" id="admin-user-search" placeholder="Search by username or email..."
-                            oninput="debounceSearch(this.value)" style="width: 70%; display: inline-block;">
-                        <button class="btn primary"
-                            onclick="loadAdminUsers(document.getElementById('admin-user-search').value)"
-                            style="width: 28%; display: inline-block;">Search</button>
+                            oninput="debounceSearch(this.value)" style="margin: 0;">
+                        <button onclick="loadAdminUsers(document.getElementById('admin-user-search').value)"
+                            style="width: 150px; margin: 0;">Search</button>
                     </div>
                     <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                             <thead>
-                                <tr style="border-bottom:1px solid #333;">
-                                    <th style="padding:10px;">ID</th>
-                                    <th style="padding:10px;">User</th>
-                                    <th style="padding:10px;">Total Time</th>
-                                    <th style="padding:10px;">Status</th>
-                                    <th style="padding:10px;">Role</th>
-                                    <th style="padding:10px;">Actions</th>
+                                <tr style="border-bottom:1px solid var(--glass-border);">
+                                    <th style="padding:12px;">ID</th>
+                                    <th style="padding:12px;">User</th>
+                                    <th style="padding:12px;">Tenure</th>
+                                    <th style="padding:12px;">Status</th>
+                                    <th style="padding:12px;">Role</th>
+                                    <th style="padding:12px; text-align: right;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-users-list">
@@ -489,17 +536,17 @@
                     </div>
                 </div>
 
-                <div class="card">
-                    <h3>System Models (All)</h3>
+                <div class="card" style="margin-top: 24px;">
+                    <h3 style="margin-bottom: 20px;">Cloud Repository (All Models)</h3>
                     <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                             <thead>
-                                <tr style="border-bottom:1px solid #333;">
-                                    <th style="padding:10px;">ID</th>
-                                    <th style="padding:10px;">Name</th>
-                                    <th style="padding:10px;">Owner</th>
-                                    <th style="padding:10px;">Visibility</th>
-                                    <th style="padding:10px;">Actions</th>
+                                <tr style="border-bottom:1px solid var(--glass-border);">
+                                    <th style="padding:12px;">ID</th>
+                                    <th style="padding:12px;">Name</th>
+                                    <th style="padding:12px;">Owner</th>
+                                    <th style="padding:12px;">Visibility</th>
+                                    <th style="padding:12px; text-align: right;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-models-list">
@@ -546,12 +593,12 @@
             tbody.innerHTML = '';
             list.forEach(l => {
                 const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #333';
+                tr.style.borderBottom = '1px solid var(--glass-border)';
                 tr.innerHTML = `
-                    <td style="padding:10px; font-family:monospace; color:#2ecc71;">${l.key}</td>
-                    <td style="padding:10px;">${l.duration}</td>
-                    <td style="padding:10px; text-align:right;">
-                        <button class="btn danger" style="padding:5px 10px; font-size:0.75em; width:auto;" onclick="adminDeleteLicense('${l.key}')">Delete</button>
+                    <td style="padding:12px; font-family:monospace; color:var(--success);">${l.key}</td>
+                    <td style="padding:12px;">${l.duration === 'LIFETIME' ? 'Lifetime' : (l.duration / 86400).toFixed(0) + 'd'}</td>
+                    <td style="padding:12px; text-align:right;">
+                        <button class="danger" style="padding:4px 12px; font-size:11px; width:auto; margin:0;" onclick="adminDeleteLicense('${l.key}')">Delete</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -604,12 +651,11 @@
 
                 users.forEach(u => {
                     const tr = document.createElement('tr');
-                    tr.style.borderBottom = '1px solid #333';
+                    tr.style.borderBottom = '1px solid var(--glass-border)';
 
-                    const banStatus = u.is_banned ? '<span class="tag" style="background:#e74c3c">BANNED</span>' : '<span class="tag" style="background:#2ecc71">Active</span>';
-                    const tooltip = `Email: ${u.email}\nLast IP: ${u.last_ip || 'None'}\nCreated: ${new Date(u.created_at * 1000).toLocaleDateString()}`;
+                    const banStatus = u.is_banned ? '<span class="status-invalid">BANNED</span>' : '<span class="status-active">Active</span>';
+                    const tooltip = `Email: ${u.email}\nLast IP: ${u.last_ip || 'None'}`;
 
-                    // Format Total Time (seconds to days/hours)
                     const totalSeconds = u.total_time || 0;
                     const days = Math.floor(totalSeconds / 86400);
                     const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -617,27 +663,25 @@
 
                     const isOwner = localStorage.getItem('isOwner') === 'true';
                     tr.innerHTML = `
-                        <td style="padding:10px;">${u.id}</td>
-                        <td style="padding:10px;" title="${tooltip}">
-                            <span style="border-bottom:1px dotted #777; cursor:help;">${u.username}</span>
+                        <td style="padding:12px;">${u.id}</td>
+                        <td style="padding:12px;" title="${tooltip}">
+                            <span style="border-bottom:1px dotted var(--text-dim); cursor:help;">${u.username}</span>
                         </td>
-                        <td style="padding:10px; color:#f1c40f;">${timeStr}</td>
-                        <td style="padding:10px;">${banStatus}</td>
-                        <td style="padding:10px;">${u.is_admin ? 'ADMIN' : 'User'}</td>
-                        <td style="padding:10px;">
+                        <td style="padding:12px; color:var(--primary); font-weight:600;">${timeStr}</td>
+                        <td style="padding:12px; font-size: 13px;">${banStatus}</td>
+                        <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}</td>
+                        <td style="padding:12px; text-align: right;">
                             ${(isOwner || !u.is_admin) ? `
-                                <select class="btn secondary" style="width:auto; padding:5px; font-size:0.85em; background:#333;" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
+                                <select style="width:140px; padding:6px; font-size:12px; margin:0; background: var(--glass); border-color: var(--glass-border);" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
                                     <option value="" disabled selected>Actions...</option>
                                     <option value="reset_pass">Reset PW</option>
-                                    <option value="${u.is_banned ? 'unban' : 'ban'}">${u.is_banned ? 'Unban User' : 'Ban User'}</option>
-                                    <option value="ban_ip">Ban IP (${u.last_ip || 'N/A'})</option>
-                                    <option value="release">Release License</option>
-                                    ${isOwner ? `
-                                        <option value="${u.is_admin ? 'demote' : 'promote'}">${u.is_admin ? 'Demote (to User)' : 'Promote to Admin'}</option>
-                                    ` : ''}
-                                    <option value="delete" style="color:#e74c3c;">Delete User</option>
+                                    <option value="${u.is_banned ? 'unban' : 'ban'}">${u.is_banned ? 'Unban' : 'Ban'}</option>
+                                    <option value="ban_ip">Ban IP</option>
+                                    <option value="release">Release Key</option>
+                                    ${isOwner ? `<option value="${u.is_admin ? 'demote' : 'promote'}">${u.is_admin ? 'Demote' : 'Promote'}</option>` : ''}
+                                    <option value="delete" style="color:var(--error);">Delete User</option>
                                 </select>
-                            ` : '-'}
+                            ` : '<span style="color:var(--text-dim); font-size:12px;">Protected</span>'}
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -699,19 +743,19 @@
 
                 models.forEach(m => {
                     const tr = document.createElement('tr');
-                    tr.style.borderBottom = '1px solid #333';
+                    tr.style.borderBottom = '1px solid var(--glass-border)';
                     tr.innerHTML = `
-                        <td style="padding:10px;">${m.id}</td>
-                        <td style="padding:10px;">${m.name}</td>
-                        <td style="padding:10px;">${m.owner_username}</td>
-                        <td style="padding:10px;">
-                             ${m.is_public ? '<span style="color:#2ecc71">Public</span>' : '<span style="color:#e74c3c">Private</span>'}
+                        <td style="padding:12px;">${m.id}</td>
+                        <td style="padding:12px; color:white; font-weight:600;">${m.name}</td>
+                        <td style="padding:12px;">${m.owner_username}</td>
+                        <td style="padding:12px;">
+                             ${m.is_public ? '<span class="status-active">Public</span>' : '<span class="status-invalid">Private</span>'}
                         </td>
-                        <td style="padding:10px; display:flex; gap:5px;">
-                            <button class="btn secondary" style="padding:5px; font-size:0.75em; width:auto;" onclick="adminToggleModel(${m.id}, ${m.is_public})">
-                                ${m.is_public ? 'Unpublish' : 'Publish'}
+                        <td style="padding:12px; text-align: right; display:flex; gap:8px; justify-content: flex-end;">
+                            <button class="secondary" style="padding:4px 12px; font-size:11px; width:auto; margin:0;" onclick="adminToggleModel(${m.id}, ${m.is_public})">
+                                ${m.is_public ? 'Private' : 'Public'}
                             </button>
-                            <button class="btn danger" style="padding:5px; font-size:0.75em; width:auto;" onclick="adminDeleteModel(${m.id})">Delete</button>
+                            <button class="danger" style="padding:4px 12px; font-size:11px; width:auto; margin:0;" onclick="adminDeleteModel(${m.id})">Delete</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -1158,45 +1202,45 @@
             // Own Models
             if (data.own && data.own.length > 0) {
                 const ownHeader = document.createElement('h3');
-                ownHeader.innerText = "My Models";
+                ownHeader.innerText = "My Custom Models";
+                ownHeader.style.gridColumn = "1 / -1";
+                ownHeader.style.marginBottom = "10px";
                 list.appendChild(ownHeader);
 
                 data.own.forEach(m => {
                     const card = document.createElement('div');
-                    card.className = 'card model-item';
-                    card.style.display = 'flex';
-                    card.style.gap = '15px';
-                    card.style.alignItems = 'center';
-                    // Model Metadata
+                    card.className = 'model-card';
+                    
                     const thumb = m.thumbnail_path || '';
-
                     let thumbHtml = '';
                     if (thumb) {
-                        thumbHtml = `<img src="${thumb}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">`;
+                        thumbHtml = `<img src="${thumb}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 15px; border: 1px solid var(--glass-border);">`;
                     } else {
-                        thumbHtml = `<div style="width: 80px; height: 80px; background: #333; border-radius: 8px; display:flex; align-items:center; justify-content:center; color:#555; font-size:0.8em;">No Img</div>`;
+                        thumbHtml = `<div style="width: 100%; height: 160px; background: rgba(255,255,255,0.03); border-radius: 12px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-dim); font-size:0.8em; margin-bottom: 15px; border: 1px solid var(--glass-border);"><span style="font-size: 24px; margin-bottom: 5px;">📦</span>No Preview</div>`;
                     }
 
                     card.innerHTML = `
-                    ${thumbHtml}
-                    <div style="flex-grow: 1;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="margin: 0;">${m.name} <span style="font-size:0.8em; color:var(--primary);">#${m.unique_id}</span></h3>
-                            ${m.is_public ? '<span style="color:#2ecc71; font-size:0.8em;">Public</span>' : '<span style="color:#e74c3c; font-size:0.8em;">Private</span>'}
+                        ${thumbHtml}
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 10px;">
+                            <h4 style="margin: 0; font-size: 1.1em;">${m.name}</h4>
+                            <span style="font-size:0.7em; color:var(--primary); background: var(--glass); padding: 2px 8px; border-radius: 4px;">#${m.unique_id}</span>
                         </div>
-                        <p style="font-size: 0.9em; color: var(--text-dim); margin: 5px 0;">
-                            Size: ${m.model_size} | Img: ${m.image_size}
-                        </p>
-                        <div class="row" style="margin-top:10px; gap:10px;">
-                            <button class="btn secondary" onclick="togglePublic(${m.id})">${m.is_public ? 'Unpublish' : 'Publish'}</button>
-                            <button class="btn secondary" onclick="openShareModal(${m.id})">Share</button>
-                            <button class="btn secondary" onclick="showSharedUsers(${m.id}, this)">Users</button>
-                            <button class="btn secondary" onclick="replaceModel(${m.id})">Replace File</button>
-                            <button class="btn danger" onclick="deleteModel(${m.id})">Delete</button>
+                        <div style="display:flex; gap: 10px; font-size: 0.8em; color: var(--text-dim); margin-bottom: 15px;">
+                            <span>${m.model_size}</span>
+                            <span>•</span>
+                            <span>${m.image_size}px</span>
+                            <span>•</span>
+                            <span class="${m.is_public ? 'status-active' : 'status-invalid'}">${m.is_public ? 'Public' : 'Private'}</span>
                         </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="togglePublic(${m.id})">${m.is_public ? 'Private' : 'Public'}</button>
+                            <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="openShareModal(${m.id})">Share</button>
+                            <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="showSharedUsers(${m.id}, this)">Users</button>
+                            <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="replaceModel(${m.id})">Swap</button>
+                        </div>
+                        <button class="danger" style="margin-top: 10px; padding: 8px; font-size: 11px;" onclick="deleteModel(${m.id})">Revoke / Delete</button>
                         <div id="shared-users-${m.id}" class="shared-users-container hidden"></div>
-                    </div>
-                `;
+                    `;
                     list.appendChild(card);
                 });
             }
