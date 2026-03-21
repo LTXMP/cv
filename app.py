@@ -421,6 +421,10 @@ def terms():
 def privacy():
     return render_template('privacy.html')
 
+@app.route('/refund')
+def refund():
+    return render_template('refund.html')
+
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     conn = get_db()
