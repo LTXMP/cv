@@ -1639,18 +1639,21 @@
                     }
                 } else {
                     console.log("No user found, showing login.");
-                    showLogin();
+                    // Check for Actions only when not logged in
+                    const urlParams2 = new URLSearchParams(window.location.search);
+                    const action = urlParams2.get('action');
+                    if (action === 'register') {
+                        showRegister();
+                    } else {
+                        showLogin();
+                    }
                 }
 
-                // Check for Reset Token or Actions
+                // Check for Reset Token (always, since it's a special flow)
                 const urlParams = new URLSearchParams(window.location.search);
                 const resetToken = urlParams.get('reset_token');
                 if (resetToken) {
                     showResetPerform(resetToken);
-                }
-                const action = urlParams.get('action');
-                if (action === 'register') {
-                    showRegister();
                 }
             } catch (err) {
                 alert("CRITICAL STARTUP ERROR: " + err);
