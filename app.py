@@ -171,14 +171,11 @@ def init_db():
             print(f"Model Migration Failed: {e}")
 
     # Migration: Check for last_hwid_reset in users
-    if 'last_hwid_reset' not in columns: # Reuse columns list from user check if updated
-        # Re-fetch strictly to be safe
-        c.execute("PRAGMA table_info(users)")
-        cols_now = [info[1] for info in c.fetchall()]
-        if 'last_hwid_reset' not in cols_now:
-             try:
-                c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
-             except: pass
+    if 'last_hwid_reset' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
+            conn.commit()
+        except: pass
 
     # Shares Table
     c.execute('''CREATE TABLE IF NOT EXISTS shares 
@@ -188,6 +185,7 @@ def init_db():
                   expiry_date REAL,
                   FOREIGN KEY(model_id) REFERENCES models(id),
                   FOREIGN KEY(target_user_id) REFERENCES users(id))''')
+
     # Migration: Check for total_time in users
     c.execute("PRAGMA table_info(users)")
     user_cols = [info[1] for info in c.fetchall()]
@@ -195,11 +193,11 @@ def init_db():
         try:
             print("DB Migration: Adding total_time column...")
             c.execute("ALTER TABLE users ADD COLUMN total_time REAL DEFAULT 0")
-            conn.commit() # Immediate commit after structural change
+            conn.commit()
         except Exception as e: 
             print(f"Col Migration Warning: {e}")
     
-    # Backfill: Populate total_time from existing licenses if empty
+    # Backfill: Populate total_time from existing licenses
     try:
         c.execute("SELECT user_id, duration FROM licenses WHERE user_id IS NOT NULL")
         license_rows = c.fetchall()
@@ -207,7 +205,6 @@ def init_db():
             u_id = row['user_id']
             dur = str(row['duration'])
             dur_sec = 315360000 if dur == 'LIFETIME' else (float(dur) if dur.replace('.','').isdigit() else 0)
-            # Update if 0 or NULL
             c.execute("UPDATE users SET total_time = ? WHERE id = ? AND (total_time IS NULL OR total_time = 0)", (dur_sec, u_id))
         conn.commit()
     except Exception as e:
@@ -425,6 +422,10 @@ def privacy():
 def refund():
     return render_template('refund.html')
 
+@app.route('/reseller')
+def reseller():
+    return render_template('reseller.html')
+
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     conn = get_db()
@@ -448,6 +449,7 @@ def admin_update_settings():
     conn.commit()
     conn.close()
     return jsonify({'message': 'Setting updated'})
+
 
 @app.route('/health')
 def health_check():
@@ -490,16 +492,16 @@ def register():
     c = conn.cursor()
     try:
         # Check if Free Trial is enabled
-        trial_row = c.execute("SELECT value FROM global_settings WHERE key='free_trial_enabled'").fetchone()
-        trial_enabled = trial_row['value'] == '1' if trial_row else False
+        row = c.execute("SELECT value FROM global_settings WHERE key='free_trial_enabled'").fetchone()
+        trial_enabled = row['value'] == '1' if row else False
         
         # Anti-Abuse: Check IP
         client_ip = request.remote_addr
         already_claimed = c.execute("SELECT 1 FROM trial_claims WHERE ip=?", (client_ip,)).fetchone()
         
         # Default is_verified=0
-        c.execute("INSERT INTO users (username, email, password_hash, created_at, is_banned, last_ip, last_hwid_reset, is_verified, total_time) VALUES (?, ?, ?, ?, 0, ?, 0, 0, ?)",
-                  (username, email, hashed_pw, time.time(), client_ip, 0 if not trial_enabled or already_claimed else 604800))
+        c.execute("INSERT INTO users (username, email, password_hash, created_at, is_banned, last_ip, is_verified, total_time) VALUES (?, ?, ?, ?, 0, ?, 0, ?)",
+                  (username, email, hashed_pw, time.time(), client_ip, 604800 if trial_enabled and not already_claimed else 0))
         user_id = c.lastrowid
         
         # Grant Trial License if eligible
@@ -521,29 +523,23 @@ def register():
     
     # Generate Verification Token
     token = secrets.token_urlsafe(32)
-    expiry = time.time() + (24 * 3600) # 24 hours
+    expiry = time.time() + (24 * 3600)
     c.execute("INSERT INTO email_verifications (token, user_id, expiry) VALUES (?, ?, ?)", (token, user_id, expiry))
     conn.commit()
-
-    # Get the base URL from request, handling Render domains correctly
-    base_url = request.url_root.rstrip('/')
-    # If dev host (127.0.0.1 or localhost), use it, else let client decide (often Render frontends handle URL). 
-    # Hardcoding typical structure:
-    verify_link = f"{base_url}/api/auth/verify?token={token}"
-
-    # Notifications
-    welcome_subject = "Exclusive Aim - Verify your Email Address"
-    welcome_body = f"Hello {username},\n\nWelcome to Exclusive Aim! Your account has been successfully created.\n\nPlease click the link below to verify your email address and activate your account:\n\n<strong><a href='{verify_link}' style='color:#00BFFF; word-break: break-all;'>{verify_link}</a></strong>\n\nThis link will expire in 24 hours.\n\nBest regards,\nThe Exclusive Aim Team"
-    send_email(email, welcome_subject, welcome_body)
-
-    send_discord_notification(
-        "New Registration",
-        f"**User**: {username}\n**Email**: {email}\n**IP**: {request.remote_addr}",
-        color=0x2ecc71 # Green
-    )
-
     conn.close()
-    return jsonify({'message': 'Registration successful. Please check your email to verify your account.'})
+    
+    # Base URL for verification
+    base_url = request.url_root.rstrip('/')
+    verify_link = f"{base_url}/api/auth/verify?token={token}"
+    
+    # Notifications
+    subject = "Exclusive Aim - Verify your Email Address"
+    body = f"Hello {username},\n\nWelcome to Exclusive Aim!\n\nPlease click the link below to verify your email address:\n\n<strong><a href='{verify_link}' style='color:#00BFFF;'>{verify_link}</a></strong>\n\nBest regards,\nThe Exclusive Aim Team"
+    send_email(email, subject, body)
+    
+    send_discord_notification("New Registration", f"**User**: {username}\n**Email**: {email}", color=0x2ecc71)
+
+    return jsonify({'message': 'Registration successful. Please check your email to verify.'})
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -1244,11 +1240,11 @@ def admin_list_users():
     
     if search:
         # Search closest to the query, limit to 20 for better visibility
-        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
+        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
                   (f"%{search}%", f"%{search}%"))
     else:
         # 5 newest registrations by default
-        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at, total_time FROM users ORDER BY id DESC LIMIT 5")
+        c.execute("SELECT id, username, email, is_admin, is_banned, last_ip, created_at FROM users ORDER BY id DESC LIMIT 5")
         
     users = [dict(row) for row in c.fetchall()]
     conn.close()
