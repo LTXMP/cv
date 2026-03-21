@@ -1155,6 +1155,72 @@ def admin_ban_ip():
 
     return jsonify({'message': f'IP {ip} banned'})
 
+@app.route('/api/admin/adjust_time', methods=['POST'])
+@admin_required
+def admin_adjust_time():
+    data = request.json
+    seconds = data.get('seconds', 0)  # positive = add, negative = remove
+    target = data.get('target', 'all')  # 'all' or a user_id integer
+    
+    if not seconds:
+        return jsonify({'error': 'Seconds value required'}), 400
+    
+    try:
+        seconds = int(seconds)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid seconds value'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    if target == 'all':
+        # Get all non-LIFETIME licenses
+        licenses = c.execute("SELECT key, expiry FROM licenses WHERE user_id IS NOT NULL AND expiry != 'LIFETIME'").fetchall()
+        count = 0
+        for lic in licenses:
+            try:
+                current_expiry = float(lic['expiry'])
+                new_expiry = current_expiry + seconds
+                c.execute("UPDATE licenses SET expiry=? WHERE key=?", (new_expiry, lic['key']))
+                count += 1
+            except (ValueError, TypeError):
+                continue
+        conn.commit()
+        conn.close()
+        
+        direction = "added to" if seconds > 0 else "removed from"
+        days = abs(seconds) / 86400
+        return jsonify({'message': f'{days:.1f} day(s) {direction} {count} license(s)'})
+    else:
+        # Target specific user
+        try:
+            user_id = int(target)
+        except (ValueError, TypeError):
+            conn.close()
+            return jsonify({'error': 'Invalid user ID'}), 400
+        
+        licenses = c.execute("SELECT key, expiry FROM licenses WHERE user_id=? AND expiry != 'LIFETIME'", (user_id,)).fetchall()
+        if not licenses:
+            conn.close()
+            return jsonify({'error': 'No adjustable licenses found for this user (may be LIFETIME or none)'}), 404
+        
+        count = 0
+        for lic in licenses:
+            try:
+                current_expiry = float(lic['expiry'])
+                new_expiry = current_expiry + seconds
+                c.execute("UPDATE licenses SET expiry=? WHERE key=?", (new_expiry, lic['key']))
+                count += 1
+            except (ValueError, TypeError):
+                continue
+        conn.commit()
+        conn.close()
+        
+        direction = "added to" if seconds > 0 else "removed from"
+        days = abs(seconds) / 86400
+        return jsonify({'message': f'{days:.1f} day(s) {direction} {count} license(s) for user #{user_id}'})
+
+
 @app.route('/api/admin/models/<int:model_id>/publish', methods=['POST'])
 @admin_required
 def admin_publish_model(model_id):
