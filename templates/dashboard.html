@@ -195,6 +195,26 @@
         .notification.info {
             border-left: 4px solid #3498db;
         }
+
+        /* Shared Users List */
+        .shared-users-container {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.85em;
+        }
+
+        .user-chip {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin: 2px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 
@@ -1121,9 +1141,11 @@
                         <div class="row" style="margin-top:10px; gap:10px;">
                             <button class="btn secondary" onclick="togglePublic(${m.id})">${m.is_public ? 'Unpublish' : 'Publish'}</button>
                             <button class="btn secondary" onclick="openShareModal(${m.id})">Share</button>
+                            <button class="btn secondary" onclick="showSharedUsers(${m.id}, this)">Users</button>
                             <button class="btn secondary" onclick="replaceModel(${m.id})">Replace File</button>
                             <button class="btn danger" onclick="deleteModel(${m.id})">Delete</button>
                         </div>
+                        <div id="shared-users-${m.id}" class="shared-users-container hidden"></div>
                     </div>
                 `;
                     list.appendChild(card);
@@ -1279,6 +1301,37 @@
                 showNotification(data.message, 'success');
             } else {
                 showNotification(data.error, 'error');
+            }
+        }
+
+        async function showSharedUsers(modelId, btn) {
+            const container = document.getElementById(`shared-users-${modelId}`);
+            
+            // Toggle if already visible
+            if (!container.classList.contains('hidden')) {
+                container.classList.add('hidden');
+                btn.innerText = 'Users';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/models/${modelId}/shared_users`);
+                const users = await res.json();
+                
+                if (users.length === 0) {
+                    container.innerHTML = '<span style="color:var(--text-dim)">No users shared (excluding Admins/Owner)</span>';
+                } else {
+                    container.innerHTML = '<div style="margin-bottom:5px; color:var(--text-dim);">Shared with:</div>';
+                    users.forEach(u => {
+                        container.innerHTML += `<span class="user-chip">${u}</span> `;
+                    });
+                }
+                
+                container.classList.remove('hidden');
+                btn.innerText = 'Hide Users';
+            } catch (e) {
+                console.error("Failed to load shared users", e);
+                showNotification("Failed to load users", "error");
             }
         }
 
