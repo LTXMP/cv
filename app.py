@@ -390,7 +390,13 @@ def format_duration(seconds):
 # --- Routes: Auth & Profile ---
 
 @app.route('/')
-def home():
+def index():
+    # If already logged in, we stay on landing or can redirect? 
+    # Usually landing page is always accessible.
+    return render_template('index.html')
+
+@app.route('/dashboard')
+def dashboard():
     return render_template('dashboard.html')
 
 @app.route('/health')
