@@ -372,6 +372,21 @@ def notify_mod_action(user_id, subject_prefix, action_description):
             color=0xe67e22 # Orange
         )
 
+def format_duration(seconds):
+    if seconds >= 315360000: # 10 years
+        return "Lifetime"
+    
+    days = int(seconds // 86400)
+    hours = int((seconds % 86400) // 3600)
+    minutes = int((seconds % 3600) // 60)
+    
+    parts = []
+    if days > 0: parts.append(f"{days}d")
+    if hours > 0: parts.append(f"{hours}h")
+    if minutes > 0 or not parts: parts.append(f"{minutes}m")
+    
+    return " ".join(parts)
+
 # --- Routes: Auth & Profile ---
 
 @app.route('/')
@@ -841,7 +856,8 @@ def get_user_license():
         res_data.update({
             'status': 'Expired' if is_expired else 'Active',
             'type': license['duration'],
-            'expiry': time.strftime('%Y-%m-%d', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never',
+            'expiry': time.strftime('%Y-%m-%d %H:%M', time.localtime(license['expiry'])) if license['expiry'] < 9999999999 else 'Never',
+            'expiry_timestamp': license['expiry'],
             'hwid_bound': True if (license['hwid'] and license['hwid'] != "") else False,
         })
     else:
@@ -897,11 +913,12 @@ def claim_key():
     conn.close()
 
     if user_row and user_row['email']:
-        expiry_str = time.strftime('%Y-%m-%d', time.localtime(new_expiry)) if new_expiry < 9999999999 else 'Never'
+        added_dur = format_duration(duration_seconds)
+        expiry_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(new_expiry)) if new_expiry < 9999999999 else 'Never'
         send_email(
             user_row['email'],
             "Exclusive Aim - License Successfully Activated",
-            f"Hello {user_row['username']},\n\nFantastic news! Your license key has been successfully claimed and activated on your account.\n\n<strong>Subscription Details:</strong>\n&bull; Duration: {license_row['duration']}\n&bull; Expiry Date: {expiry_str}\n\nYou now have full access to our premium features. Thank you for choosing Exclusive Aim!\n\nBest regards,\nThe Exclusive Aim Team"
+            f"Hello {user_row['username']},\n\nFantastic news! Your license key has been successfully claimed and activated on your account.\n\n<strong>Subscription Details:</strong>\n&bull; Added Duration: {added_dur}\n&bull; New Expiry: {expiry_str}\n\nYou now have full access to our premium features. Thank you for choosing Exclusive Aim!\n\nBest regards,\nThe Exclusive Aim Team"
         )
         send_discord_notification(
             "License Claimed",
