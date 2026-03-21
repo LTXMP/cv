@@ -127,12 +127,13 @@
             font-size: clamp(16px, 2vw, 20px);
             color: var(--text-dim);
             max-width: 700px;
-            margin-bottom: 40px;
+            margin: 0 auto 40px auto;
         }
 
         .hero-actions {
             display: flex;
             gap: 20px;
+            justify-content: center;
         }
 
         .main-hero-img {
@@ -229,10 +230,10 @@
     </nav>
 
     <section class="hero">
-        <div style="margin-top: 80px;">
+        <div style="margin-top: 80px; width: 100%;">
             <h1>Unleash the Power of <span>AI Precision</span></h1>
             <p>Exclusive Aim is the world's most advanced C++ powered computer vision engine. undetectable, incredibly fast, and built for the elite.</p>
-            <div class="hero-actions" style="justify-content: center;">
+            <div class="hero-actions">
                 <a href="#pricing" class="cta-btn">View Plans</a>
                 <a href="#features" class="cta-btn" style="background: var(--glass); border: 1px solid var(--glass-border); color: #fff;">Learn More</a>
             </div>
