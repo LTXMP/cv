@@ -638,6 +638,25 @@
                     </div>
                 </div>
 
+                <div class="card" style="margin-top: 24px;">
+                    <h3 style="margin-bottom: 20px; color: var(--error);">Pending Revoke Requests</h3>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--glass-border);">
+                                    <th style="padding:12px;">Key</th>
+                                    <th style="padding:12px;">Reseller</th>
+                                    <th style="padding:12px;">Target User</th>
+                                    <th style="padding:12px; text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-pending-revokes-list">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Tab: Reseller Panel -->
@@ -687,6 +706,7 @@
             loadAdminModels();
             loadAdminLicenses();
             loadAdminResellers();
+            loadAdminPendingRevocations();
             loadSettings();
         }
 
@@ -1755,6 +1775,49 @@
             }
         }
 
+        async function loadAdminPendingRevocations() {
+            try {
+                const res = await fetch(`${API_URL}/admin/pending_revocations`);
+                const revokes = await res.json();
+                const tbody = document.getElementById('admin-pending-revokes-list');
+                tbody.innerHTML = '';
+                if (!Array.isArray(revokes) || revokes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding:10px; color:var(--text-dim);">No pending revocations.</td></tr>';
+                    return;
+                }
+                revokes.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid var(--glass-border)';
+                    tr.innerHTML = `
+                        <td style="padding:10px; font-family:monospace;">${r.key}</td>
+                        <td style="padding:10px; color:var(--warning);">${r.reseller_name || 'Unknown'}</td>
+                        <td style="padding:10px;">${r.claimed_by || 'Unknown'}</td>
+                        <td style="padding:10px; text-align:right;">
+                            <button class="success" style="padding:4px 10px; font-size:11px; margin:0; width:auto; border: 1px solid var(--success);" onclick="adminConfirmRevoke('${r.key}')">Confirm</button>
+                            <button class="secondary" style="padding:4px 10px; font-size:11px; margin:0; width:auto; margin-left: 8px;" onclick="adminRejectRevoke('${r.key}')">Reject</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error('Failed to load pending revokes', e);
+            }
+        }
+
+        async function adminConfirmRevoke(key) {
+            if (!confirm("Permanently revoke this license? It will be returned to the reseller.")) return;
+            const res = await fetch(`${API_URL}/admin/licenses/${key}/confirm_revoke`, { method: 'POST' });
+            if (res.ok) { showNotification('Revocation Confirmed', 'success'); loadAdminPendingRevocations(); loadAdminLicenses(); }
+            else { showNotification('Failed to confirm', 'error'); }
+        }
+
+        async function adminRejectRevoke(key) {
+            if (!confirm("Reject this revocation? The license will be unpaused and returned to the target user.")) return;
+            const res = await fetch(`${API_URL}/admin/licenses/${key}/reject_revoke`, { method: 'POST' });
+            if (res.ok) { showNotification('Revocation Rejected', 'success'); loadAdminPendingRevocations(); loadAdminLicenses(); }
+            else { showNotification('Failed to reject', 'error'); }
+        }
+
         // --- Reseller Dashboard Functions ---
         async function loadResellerData() {
             try {
@@ -1788,7 +1851,10 @@
                 
                 let statusText = "";
                 let statusStyle = "";
-                if (!isClaimed) {
+                if (l.revoke_pending) {
+                    statusText = "Revoke Pending";
+                    statusStyle = "color: var(--warning);";
+                } else if (!isClaimed) {
                     statusText = "Available";
                     statusStyle = "color: var(--success);";
                 } else if (l.is_paused) {
@@ -1811,25 +1877,32 @@
                 if (isClaimed) {
                     if (l.duration === 'LIFETIME') {
                         timeStr = "Lifetime";
-                    } else if (l.is_paused) {
+                    } else if (l.is_paused && !l.revoke_pending) {
                         const days = Math.floor(l.pause_time_left / 86400);
                         const hours = Math.floor((l.pause_time_left % 86400) / 3600);
                         timeStr = `${days}d ${hours}h left (Frozen)`;
+                    } else if (l.revoke_pending) {
+                        timeStr = "Awaiting Admin";
                     } else {
                         const date = new Date(l.expiry * 1000);
                         timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                     }
                 }
 
-                const actions = `
-                    <select style="width:110px; padding:6px; font-size:12px; margin:0;" onchange="handleResellerAction('${l.key}', this.value); this.selectedIndex=0;">
-                        <option value="" disabled selected>Manage...</option>
-                        ${isClaimed ? `
-                            <option value="revoke">Revoke License</option>
-                            <option value="${l.is_paused ? 'resume' : 'pause'}">${l.is_paused ? 'Resume Sub' : 'Pause Sub'}</option>
-                        ` : ''}
-                    </select>
-                `;
+                let actions = "";
+                if (l.revoke_pending) {
+                    actions = `<span style="font-size:11px; color:var(--text-dim);">Awaiting confirmation</span>`;
+                } else {
+                    actions = `
+                        <select style="width:110px; padding:6px; font-size:12px; margin:0;" onchange="handleResellerAction('${l.key}', this.value); this.selectedIndex=0;">
+                            <option value="" disabled selected>Manage...</option>
+                            ${isClaimed ? `
+                                <option value="revoke">Revoke License</option>
+                                <option value="${l.is_paused ? 'resume' : 'pause'}">${l.is_paused ? 'Resume Sub' : 'Pause Sub'}</option>
+                            ` : ''}
+                        </select>
+                    `;
+                }
 
                 tr.innerHTML = `
                     <td style="padding:12px; font-family:monospace;">
