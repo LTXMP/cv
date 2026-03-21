@@ -1319,7 +1319,7 @@
                 const users = await res.json();
                 
                 if (users.length === 0) {
-                    container.innerHTML = '<span style="color:var(--text-dim)">No users shared (excluding Admins/Owner)</span>';
+                    container.innerHTML = '<span style="color:var(--text-dim)">No users shared</span>';
                 } else {
                     container.innerHTML = '<div style="margin-bottom:5px; color:var(--text-dim);">Shared with:</div>';
                     users.forEach(u => {
