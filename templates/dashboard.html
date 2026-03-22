@@ -715,34 +715,63 @@
                     <button onclick="openCreateTicketModal()" style="width:auto; margin:0;">Create Ticket</button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
-                    <!-- Ticket List -->
-                    <div class="card" style="height: 600px; display:flex; flex-direction:column; padding: 0;">
+                <!-- User View -->
+                <div id="support-user-layout" style="display: none; flex-direction: column; gap: 15px;">
+                    <div class="card" style="padding: 0;">
                         <div style="padding: 20px; border-bottom: 1px solid var(--glass-border);">
                             <h3 style="margin: 0;">My Tickets</h3>
                         </div>
-                        <div id="support-ticket-list" style="flex-grow: 1; overflow-y: auto;">
+                        <div id="support-ticket-list-user" style="max-height: 400px; overflow-y: auto;">
                             <!-- JS populates -->
                         </div>
                     </div>
+                </div>
 
-                    <!-- Ticket View -->
-                    <div class="card" style="height: 600px; display:flex; flex-direction:column; padding: 0;" id="support-ticket-view">
-                        <div style="padding: 20px; border-bottom: 1px solid var(--glass-border); display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="margin: 0; color:var(--text-dim);" id="support-active-subject">Select a ticket</h3>
-                            <button id="support-close-btn" class="danger hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeActiveTicket()">Close Ticket</button>
-                        </div>
-                        <div id="support-messages" style="flex-grow: 1; overflow-y: auto; padding: 20px; display:flex; flex-direction:column; gap: 15px;">
-                            <p style="color:var(--text-dim); text-align:center;">No ticket selected.</p>
-                        </div>
-                        <div id="support-reply-area" style="padding: 20px; border-top: 1px solid var(--glass-border); display:none; gap:10px;">
-                            <input type="text" id="support-reply-input" placeholder="Type a message..." style="margin:0; flex-grow:1;">
-                            <button onclick="sendTicketReply()" style="width:auto; margin:0;">Send</button>
-                        </div>
+                <!-- Staff View -->
+                <div id="support-staff-layout" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: start;">
+                    <div class="card" style="padding: 15px;">
+                        <h3 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Support</h3>
+                        <div id="kanban-support" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                    </div>
+                    <div class="card" style="padding: 15px;">
+                        <h3 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Buy</h3>
+                        <div id="kanban-buy" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                    </div>
+                    <div class="card" style="padding: 15px;">
+                        <h3 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Rebrand</h3>
+                        <div id="kanban-rebrand" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                    </div>
+                    <div class="card" style="padding: 15px;">
+                        <h3 style="margin-top:0; color:var(--text-dim); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Closed</h3>
+                        <div id="kanban-closed" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
                     </div>
                 </div>
             </div>
             
+        </div>
+    </div>
+
+    <!-- Ticket View Modal -->
+    <div id="support-ticket-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:4000; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:100%; max-width:700px; height: 80vh; display:flex; flex-direction:column; padding:0;">
+            <div style="padding: 20px; border-bottom: 1px solid var(--glass-border); display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.2);">
+                <h3 style="margin: 0; display:flex; align-items:center; gap:10px;" id="support-active-subject">
+                    Select a ticket
+                </h3>
+                <div style="display:flex; gap:10px;">
+                    <button id="support-reopen-btn" class="hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--success);" onclick="reopenActiveTicket()">Reopen</button>
+                    <button id="support-delete-btn" class="danger hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="deleteActiveTicket()">Delete</button>
+                    <button id="support-close-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeActiveTicket()">Close</button>
+                    <button class="danger" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeSupportTicketModal()">X</button>
+                </div>
+            </div>
+            <div id="support-messages" style="flex-grow: 1; padding: 20px; overflow-y: auto; display:flex; flex-direction:column; gap: 15px;">
+                <p style="color:var(--text-dim); text-align:center;">No ticket selected.</p>
+            </div>
+            <div id="support-reply-area" style="padding: 20px; border-top: 1px solid var(--glass-border); display: none; gap: 10px; align-items:flex-end;">
+                <textarea id="support-reply-input" placeholder="Type your reply..." style="flex-grow:1; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:60px; font-family:inherit; outline:none; resize:none;"></textarea>
+                <button onclick="sendTicketReply()" style="width:auto; margin:0;">Send</button>
+            </div>
         </div>
     </div>
 
@@ -1182,92 +1211,146 @@
         async function loadSupportTickets() {
             try {
                 const res = await fetch(`${API_URL}/support/tickets`);
-                const tickets = await res.json();
-                renderSupportTickets(tickets);
+                const data = await res.json();
+                renderSupportTickets(data.tickets, data.is_staff);
             } catch (e) {
                 console.error("Failed to load tickets", e);
             }
         }
 
-        function renderSupportTickets(list) {
-            const container = document.getElementById('support-ticket-list');
-            container.innerHTML = '';
+        let isCurrentUserStaff = false;
+
+        function renderSupportTickets(list, isStaff) {
+            isCurrentUserStaff = isStaff;
+            const userView = document.getElementById('support-user-layout');
+            const staffView = document.getElementById('support-staff-layout');
             
+            if (isStaff) {
+                userView.style.display = 'none';
+                staffView.style.display = 'grid';
+            } else {
+                userView.style.display = 'flex';
+                staffView.style.display = 'none';
+            }
+
+            const containers = {
+                user: document.getElementById('support-ticket-list-user'),
+                support: document.getElementById('kanban-support'),
+                buy: document.getElementById('kanban-buy'),
+                rebrand: document.getElementById('kanban-rebrand'),
+                closed: document.getElementById('kanban-closed')
+            };
+
+            for (const key in containers) { if (containers[key]) containers[key].innerHTML = ''; }
+
             if (!list || list.length === 0) {
-                container.innerHTML = '<p style="padding:20px; color:var(--text-dim); text-align:center;">No tickets found.</p>';
+                if (!isStaff && containers.user) {
+                    containers.user.innerHTML = '<p style="padding:20px; color:var(--text-dim); text-align:center;">No tickets found.</p>';
+                }
                 return;
             }
             
             list.forEach(t => {
                 const div = document.createElement('div');
-                div.style.padding = '15px';
-                div.style.borderBottom = '1px solid var(--glass-border)';
+                div.style.padding = '10px 15px';
+                div.style.border = '1px solid var(--glass-border)';
+                div.style.borderRadius = '8px';
                 div.style.cursor = 'pointer';
                 div.style.transition = '0.2s';
+                div.style.background = 'rgba(0,0,0,0.3)';
                 div.onmouseover = () => div.style.background = 'rgba(255,255,255,0.05)';
-                div.onmouseout = () => div.style.background = 'transparent';
+                div.onmouseout = () => div.style.background = 'rgba(0,0,0,0.3)';
                 div.onclick = () => openSupportTicket(t.id, t.subject, t.status);
                 
                 const statusColor = t.status === 'open' ? 'var(--success)' : 'var(--text-dim)';
                 const title = t.username ? `[${t.username}] ${t.subject}` : t.subject;
-                const catBadge = `<span style="border:1px solid var(--glass-border); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--primary);">${t.category || 'Support'}</span>`;
+                const catBadge = !isStaff ? `<span style="border:1px solid var(--glass-border); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--primary);">${t.category || 'Support'}</span>` : '';
                 
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                        <strong style="color:white; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">${catBadge}${title}</strong>
-                        <span style="color:${statusColor}; font-size:12px; font-weight:600; text-transform:uppercase;">${t.status}</span>
+                        <strong style="color:white; font-size:13px; line-height:1.4; overflow:hidden; text-overflow:ellipsis;">${catBadge}${title}</strong>
                     </div>
-                    <div style="font-size:12px; color:var(--text-dim);">
-                        ID: #${t.id} &bull; ${new Date(t.updated_at * 1000).toLocaleString()}
+                    <div style="font-size:11px; color:var(--text-dim); display:flex; justify-content:space-between;">
+                        <span>#${t.id} &bull; ${new Date(t.updated_at * 1000).toLocaleDateString()}</span>
+                        <span style="color:${statusColor}; font-weight:600; text-transform:uppercase;">${t.status}</span>
                     </div>
                 `;
-                container.appendChild(div);
+                
+                if (!isStaff) {
+                    if (containers.user) containers.user.appendChild(div);
+                } else {
+                    if (t.status === 'closed') {
+                        if (containers.closed) containers.closed.appendChild(div);
+                    } else if (t.category === 'Buy') {
+                        if (containers.buy) containers.buy.appendChild(div);
+                    } else if (t.category === 'Rebrand/Reseller') {
+                        if (containers.rebrand) containers.rebrand.appendChild(div);
+                    } else {
+                        if (containers.support) containers.support.appendChild(div);
+                    }
+                }
             });
         }
 
         async function openSupportTicket(id, subject, status) {
             currentTicketId = id;
             document.getElementById('support-active-subject').innerText = `#${id} - ${subject}`;
+            document.getElementById('support-ticket-modal').classList.remove('hidden');
             
             const msgContainer = document.getElementById('support-messages');
             msgContainer.innerHTML = '<p style="color:var(--text-dim); text-align:center;">Loading...</p>';
             
             try {
                 const res = await fetch(`${API_URL}/support/tickets/${id}/messages`);
-                const msgs = await res.json();
+                const ticketData = await res.json();
                 
                 msgContainer.innerHTML = '';
-                msgs.forEach(m => {
-                    const isStaff = m.is_admin || m.is_support;
-                    const bubbleAlign = isStaff ? 'flex-start' : 'flex-end';
-                    const bubbleColor = isStaff ? 'rgba(52, 152, 219, 0.2)' : 'rgba(255,255,255,0.05)';
-                    const bubbleBorder = isStaff ? 'var(--accent)' : 'var(--glass-border)';
-                    const authorName = m.username + (isStaff ? ' <span style="color:var(--accent);font-size:10px;">[STAFF]</span>' : '');
-                    
-                    const div = document.createElement('div');
-                    div.style.alignSelf = bubbleAlign;
-                    div.style.background = bubbleColor;
-                    div.style.border = `1px solid ${bubbleBorder}`;
-                    div.style.padding = '12px 16px';
-                    div.style.borderRadius = '12px';
-                    div.style.maxWidth = '80%';
-                    div.innerHTML = `
-                        <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px;">${authorName} &bull; ${new Date(m.created_at * 1000).toLocaleString()}</div>
-                        <div style="color:white; font-size:14px; white-space:pre-wrap;">${m.message}</div>
-                    `;
-                    msgContainer.appendChild(div);
-                });
+                if (ticketData.messages) {
+                    ticketData.messages.forEach(m => {
+                        const isStaff = m.is_admin || m.is_support;
+                        const bubbleAlign = isStaff ? 'flex-start' : 'flex-end';
+                        const bubbleColor = isStaff ? 'rgba(52, 152, 219, 0.2)' : 'rgba(255,255,255,0.05)';
+                        const bubbleBorder = isStaff ? 'var(--accent)' : 'var(--glass-border)';
+                        const authorName = m.username + (isStaff ? ' <span style="color:var(--accent);font-size:10px;">[STAFF]</span>' : '');
+                        
+                        const div = document.createElement('div');
+                        div.style.alignSelf = bubbleAlign;
+                        div.style.background = bubbleColor;
+                        div.style.border = `1px solid ${bubbleBorder}`;
+                        div.style.padding = '12px 16px';
+                        div.style.borderRadius = '12px';
+                        div.style.maxWidth = '80%';
+                        div.innerHTML = `
+                            <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px;">${authorName} &bull; ${new Date(m.created_at * 1000).toLocaleString()}</div>
+                            <div style="color:white; font-size:14px; white-space:pre-wrap;">${m.message}</div>
+                        `;
+                        msgContainer.appendChild(div);
+                    });
+                }
                 msgContainer.scrollTop = msgContainer.scrollHeight;
                 
                 const replyArea = document.getElementById('support-reply-area');
                 const closeBtn = document.getElementById('support-close-btn');
+                const reopenBtn = document.getElementById('support-reopen-btn');
+                const deleteBtn = document.getElementById('support-delete-btn');
                 
                 if (status === 'open') {
                     replyArea.style.display = 'flex';
                     closeBtn.classList.remove('hidden');
+                    reopenBtn.classList.add('hidden');
+                    if (isCurrentUserStaff) deleteBtn.classList.remove('hidden'); else deleteBtn.classList.add('hidden');
                 } else {
                     replyArea.style.display = 'none';
                     closeBtn.classList.add('hidden');
+                    
+                    if (isCurrentUserStaff) {
+                        reopenBtn.classList.remove('hidden');
+                        deleteBtn.classList.remove('hidden');
+                    } else {
+                        reopenBtn.classList.add('hidden');
+                        deleteBtn.classList.add('hidden');
+                    }
+                    
                     const msg = document.createElement('div');
                     msg.innerHTML = '<p style="color:var(--error); text-align:center; margin-top:10px;">This ticket is closed.</p>';
                     msgContainer.appendChild(msg);
@@ -1276,6 +1359,37 @@
                 console.error("Failed to load messages", e);
                 msgContainer.innerHTML = '<p style="color:var(--error); text-align:center;">Error loading messages.</p>';
             }
+        }
+
+        function closeSupportTicketModal() {
+            document.getElementById('support-ticket-modal').classList.add('hidden');
+            currentTicketId = null;
+        }
+
+        async function reopenActiveTicket() {
+            if (!currentTicketId) return;
+            try {
+                const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/reopen`, { method: 'POST' });
+                if (res.ok) {
+                    showNotification('Ticket Reopened', 'success');
+                    const subject = document.getElementById('support-active-subject').innerText.split('- ')[1];
+                    openSupportTicket(currentTicketId, subject, 'open');
+                    loadSupportTickets();
+                }
+            } catch (e) {}
+        }
+
+        async function deleteActiveTicket() {
+            if (!currentTicketId) return;
+            if (!confirm("Are you sure you want to PERMANENTLY delete this ticket?")) return;
+            try {
+                const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/delete`, { method: 'POST' });
+                if (res.ok) {
+                    showNotification('Ticket Deleted', 'success');
+                    closeSupportTicketModal();
+                    loadSupportTickets();
+                }
+            } catch (e) {}
         }
 
         function openCreateTicketModal() {
