@@ -40,11 +40,20 @@ print(f"Database: {DB_PATH}")
 SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
 IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
 
-# Ensure directory exists
+# Ensuring directories exist
+THUMBNAIL_FOLDER = os.path.join(BASE_DIR, 'static', 'thumbnails')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
+
 try:
     os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
 except Exception as e:
-    print(f"Warning: Could not create storage directory at {MODEL_DIR}: {e}")
+    print(f"Warning: Could not create storage directories: {e}")
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Discord Logging Configuration
 DISCORD_WEBHOOK_URL = "https://discordapp.com/api/webhooks/1474747432708472993/Xv3858MR95mWX3NDsuvzO9XEyVCrUxiLKlFa-4Wah_LCC6pC97uYLfvPT1B2qXVMcKmg"
@@ -263,6 +272,17 @@ def init_db():
         except: pass
 
     if 'marketplace_description' not in model_columns:
+        try:
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_description TEXT")
+        except: pass
+
+    if 'marketplace_price_monthly' not in model_columns:
+        try:
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_price_monthly TEXT")
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_price_lifetime TEXT")
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_has_monthly BOOLEAN DEFAULT 0")
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_has_lifetime BOOLEAN DEFAULT 1")
+        except: pass
         try:
             c.execute("ALTER TABLE models ADD COLUMN marketplace_description TEXT")
         except: pass
@@ -2781,6 +2801,21 @@ def update_marketplace_listing(model_id):
     user_info = c.execute("SELECT is_admin FROM users WHERE id=?", (user_id,)).fetchone()
     
     model_row = c.execute("SELECT user_id FROM models WHERE id=?", (model_id,)).fetchone()
+    data = request.json
+    m_name = data.get('marketplace_name')
+    m_description = data.get('marketplace_description')
+    p_monthly = data.get('price_monthly')
+    p_lifetime = data.get('price_lifetime')
+    h_monthly = data.get('has_monthly', 0)
+    h_lifetime = data.get('has_lifetime', 1)
+
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Need to check if user owns model OR is admin
+    user_info = c.execute("SELECT is_admin FROM users WHERE id=?", (user_id,)).fetchone()
+    
+    model_row = c.execute("SELECT user_id FROM models WHERE id=?", (model_id,)).fetchone()
     if not model_row:
         conn.close()
         return jsonify({'error': 'Model not found'}), 404
@@ -2789,10 +2824,54 @@ def update_marketplace_listing(model_id):
         conn.close()
         return jsonify({'error': 'Unauthorized'}), 403
     
-    c.execute("UPDATE models SET marketplace_name=?, marketplace_description=? WHERE id=?", (m_name, m_description, model_id))
+    c.execute("""
+        UPDATE models 
+        SET marketplace_name=?, marketplace_description=?, 
+            marketplace_price_monthly=?, marketplace_price_lifetime=?, 
+            marketplace_has_monthly=?, marketplace_has_lifetime=? 
+        WHERE id=?
+    """, (m_name, m_description, p_monthly, p_lifetime, h_monthly, h_lifetime, model_id))
     conn.commit()
     conn.close()
     return jsonify({'message': 'Marketplace listing updated'})
+
+@app.route('/api/models/<int:model_id>/thumbnail', methods=['POST'])
+@login_required
+def upload_marketplace_thumbnail(model_id):
+    user_id = session.get('user_id')
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Auth check
+    user_info = c.execute("SELECT is_admin FROM users WHERE id=?", (user_id,)).fetchone()
+    model_row = c.execute("SELECT user_id FROM models WHERE id=?", (model_id,)).fetchone()
+    if not model_row:
+        conn.close()
+        return jsonify({'error': 'Model not found'}), 404
+    if model_row['user_id'] != user_id and not (user_info and user_info['is_admin']):
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if file and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        thumb_filename = f"thumb_{model_id}_{int(time.time())}.{ext}"
+        filepath = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
+        file.save(filepath)
+        
+        thumb_path = f"/static/thumbnails/{thumb_filename}"
+        c.execute("UPDATE models SET thumbnail_path=? WHERE id=?", (thumb_path, model_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Thumbnail updated', 'thumbnail_path': thumb_path})
+    
+    conn.close()
+    return jsonify({'error': 'Invalid file type'}), 400
 
 @app.route('/api/marketplace/models', methods=['GET'])
 @login_required
@@ -2802,7 +2881,10 @@ def get_marketplace_models():
     # Return current user_id so frontend knows if it's the owner
     curr_user_id = session['user_id']
     models = c.execute('''
-        SELECT m.id, m.name, m.marketplace_name, m.marketplace_description, m.thumbnail_path, m.user_id, u.username as seller_username
+        SELECT m.id, m.name, m.marketplace_name, m.marketplace_description, m.thumbnail_path, 
+               m.marketplace_price_monthly, m.marketplace_price_lifetime, 
+               m.marketplace_has_monthly, m.marketplace_has_lifetime,
+               m.user_id, u.username as seller_username
         FROM models m
         JOIN users u ON m.user_id = u.id
         WHERE m.in_marketplace = 1
