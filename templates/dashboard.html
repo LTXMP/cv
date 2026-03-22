@@ -1446,6 +1446,7 @@
             if (res.ok) {
                 showNotification('Seller role updated', 'success');
                 loadAdminUsers(document.getElementById('admin-user-search').value);
+                if (typeof loadAdminSellers === 'function') loadAdminSellers();
             } else {
                 const data = await res.json();
                 showNotification(data.error || 'Failed to update', 'error');
@@ -1471,6 +1472,7 @@
             if (res.ok) {
                 showNotification('Team assignment updated', 'success');
                 loadAdminUsers(document.getElementById('admin-user-search').value);
+                if (typeof loadAdminSellers === 'function') loadAdminSellers();
             } else {
                 const data = await res.json();
                 showNotification(data.error || 'Failed to assign team', 'error');
