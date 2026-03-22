@@ -1649,12 +1649,13 @@
                 
                 if (isAuthor) {
                     if (containers.user) containers.user.appendChild(div);
+                    return; // Own tickets go to My Tickets ONLY, never to Kanban
                 }
                 
                 if (isStaff || isSellerTeam) {
-                    // Route to Kanban
+                    // Route OTHER people's tickets to Kanban
                     const kDiv = div.cloneNode(true);
-                    kDiv.onclick = div.onclick; // Ensure handler works on clone
+                    kDiv.onclick = div.onclick;
                     
                     if (t.status === 'closed' || t.status === 'pending_delete') {
                         if (containers.closed) containers.closed.appendChild(kDiv);
@@ -1674,7 +1675,6 @@
                         if (t.category === 'Buy' || t.category === 'Weights') {
                             if (containers.buy) containers.buy.appendChild(kDiv);
                         } else {
-                            // Support for team
                             if (containers.support) containers.support.appendChild(kDiv);
                         }
                     }
