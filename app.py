@@ -282,6 +282,7 @@ def init_db():
             c.execute("ALTER TABLE models ADD COLUMN marketplace_price_lifetime TEXT")
             c.execute("ALTER TABLE models ADD COLUMN marketplace_has_monthly BOOLEAN DEFAULT 0")
             c.execute("ALTER TABLE models ADD COLUMN marketplace_has_lifetime BOOLEAN DEFAULT 1")
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_game TEXT")
         except: pass
         try:
             c.execute("ALTER TABLE models ADD COLUMN marketplace_description TEXT")
@@ -2808,6 +2809,7 @@ def update_marketplace_listing(model_id):
     p_lifetime = data.get('price_lifetime')
     h_monthly = data.get('has_monthly', 0)
     h_lifetime = data.get('has_lifetime', 1)
+    m_game = data.get('marketplace_game')
 
     conn = get_db()
     c = conn.cursor()
@@ -2828,9 +2830,10 @@ def update_marketplace_listing(model_id):
         UPDATE models 
         SET marketplace_name=?, marketplace_description=?, 
             marketplace_price_monthly=?, marketplace_price_lifetime=?, 
-            marketplace_has_monthly=?, marketplace_has_lifetime=? 
+            marketplace_has_monthly=?, marketplace_has_lifetime=?,
+            marketplace_game=? 
         WHERE id=?
-    """, (m_name, m_description, p_monthly, p_lifetime, h_monthly, h_lifetime, model_id))
+    """, (m_name, m_description, p_monthly, p_lifetime, h_monthly, h_lifetime, m_game, model_id))
     conn.commit()
     conn.close()
     return jsonify({'message': 'Marketplace listing updated'})
@@ -2884,6 +2887,7 @@ def get_marketplace_models():
         SELECT m.id, m.name, m.marketplace_name, m.marketplace_description, m.thumbnail_path, 
                m.marketplace_price_monthly, m.marketplace_price_lifetime, 
                m.marketplace_has_monthly, m.marketplace_has_lifetime,
+               m.marketplace_game,
                m.user_id, u.username as seller_username
         FROM models m
         JOIN users u ON m.user_id = u.id
