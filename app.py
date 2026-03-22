@@ -1270,7 +1270,7 @@ def create_ticket():
               (user_id, subject, category, now, now))
     ticket_id = c.lastrowid
     
-    c.execute("INSERT INTO ticket_messages (ticket_id, user_id, message, created_at) VALUES (?, ?, ?, ?)",
+    c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, created_at) VALUES (?, ?, ?, ?)",
               (ticket_id, user_id, message, now))
     conn.commit()
 
@@ -1317,7 +1317,7 @@ def get_tickets():
     conn.close()
     return jsonify([dict(row) for row in tickets])
 
-@app.route('/api/support/tickets/<int:ticket_id>', methods=['GET'])
+@app.route('/api/support/tickets/<int:ticket_id>/messages', methods=['GET'])
 @login_required
 def get_ticket_details(ticket_id):
     user_id = session['user_id']
@@ -1335,7 +1335,7 @@ def get_ticket_details(ticket_id):
         conn.close()
         return jsonify({'error': 'Ticket not found or unauthorized'}), 404
         
-    messages = c.execute("SELECT tm.id, tm.user_id, tm.message, tm.created_at, u.username FROM ticket_messages tm JOIN users u ON tm.user_id = u.id WHERE tm.ticket_id = ? ORDER BY tm.created_at ASC", (ticket_id,)).fetchall()
+    messages = c.execute("SELECT tm.id, tm.sender_id as user_id, tm.message, tm.created_at, u.username, u.is_admin, u.is_support FROM ticket_messages tm JOIN users u ON tm.sender_id = u.id WHERE tm.ticket_id = ? ORDER BY tm.created_at ASC", (ticket_id,)).fetchall()
     
     conn.close()
     
@@ -1343,7 +1343,7 @@ def get_ticket_details(ticket_id):
     ticket_dict['messages'] = [dict(msg) for msg in messages]
     return jsonify(ticket_dict)
 
-@app.route('/api/support/tickets/<int:ticket_id>/reply', methods=['POST'])
+@app.route('/api/support/tickets/<int:ticket_id>/messages', methods=['POST'])
 @login_required
 def reply_to_ticket(ticket_id):
     user_id = session['user_id']
@@ -1367,7 +1367,7 @@ def reply_to_ticket(ticket_id):
         return jsonify({'error': 'Ticket not found or unauthorized'}), 404
         
     now = time.time()
-    c.execute("INSERT INTO ticket_messages (ticket_id, user_id, message, created_at) VALUES (?, ?, ?, ?)",
+    c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, created_at) VALUES (?, ?, ?, ?)",
               (ticket_id, user_id, message, now))
     c.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (now, ticket_id))
     conn.commit()
