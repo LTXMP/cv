@@ -1469,19 +1469,25 @@
                 if (staffHeader) staffHeader.style.display = 'block';
 
                 // Dynamic columns for Sellers
-                const rebrandCol = document.getElementById('kanban-rebrand').closest('.card');
-                const salesCol = document.getElementById('kanban-sales').closest('.card');
+                const rebrandEl = document.getElementById('kanban-rebrand');
+                const salesEl = document.getElementById('kanban-sales');
+                const rebrandCol = rebrandEl ? rebrandEl.closest('.card') : null;
+                const salesCol = salesEl ? salesEl.closest('.card') : null;
                 
                 if (!isGlobalStaff && isSellerTeam) {
                     staffView.style.gridTemplateColumns = 'repeat(3, 1fr)';
                     if (rebrandCol) rebrandCol.style.display = 'none';
                     if (salesCol) salesCol.style.display = 'none';
-                    if (staffHeader) staffHeader.querySelector('h2').innerText = 'Team Management (Kanban)';
+                    if (staffHeader && staffHeader.querySelector('h2')) {
+                        staffHeader.querySelector('h2').innerText = 'Team Management (Kanban)';
+                    }
                 } else {
                     staffView.style.gridTemplateColumns = 'repeat(5, 1fr)';
                     if (rebrandCol) rebrandCol.style.display = 'block';
                     if (salesCol) salesCol.style.display = 'block';
-                    if (staffHeader) staffHeader.querySelector('h2').innerText = 'Staff Management (Kanban)';
+                    if (staffHeader && staffHeader.querySelector('h2')) {
+                        staffHeader.querySelector('h2').innerText = 'Staff Management (Kanban)';
+                    }
                 }
             } else {
                 staffView.style.display = 'none';
