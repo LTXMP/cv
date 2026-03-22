@@ -792,6 +792,28 @@
                     </div>
                 </div>
 
+                <!-- Seller Management Section -->
+                <div class="card" style="margin-top: 24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                        <h3 style="margin:0; color: var(--accent);">Seller Management</h3>
+                        <button onclick="loadAdminSellers()" style="width:auto; padding:8px 15px; font-size:12px; margin:0;"><i class="fas fa-sync"></i> Refresh</button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--glass-border);">
+                                    <th style="padding:12px;">Seller Username</th>
+                                    <th style="padding:12px;">Team ID</th>
+                                    <th style="padding:12px; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-sellers-list">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Tab: Reseller Panel -->
@@ -1057,6 +1079,7 @@
             loadAdminLicenses();
             loadAdminResellers();
             loadAdminPendingRevocations();
+            loadAdminSellers();
             loadSettings();
         }
 
@@ -3585,10 +3608,39 @@
             document.getElementById('marketplace-desc-modal').classList.add('hidden');
         }
 
-        // Start interval
-        updateAllCountdowns(); // Initial call
-        setInterval(updateAllCountdowns, 60000); // Every minute
-        
+        // Seller Management JS
+        async function loadAdminSellers() {
+            try {
+                const res = await fetch(`${API_URL}/admin/sellers`);
+                const sellers = await res.json();
+                renderAdminSellers(sellers);
+            } catch (err) { console.error("Failed to load sellers:", err); }
+        }
+
+        function renderAdminSellers(sellers) {
+            const list = document.getElementById('admin-sellers-list');
+            if (!list) return;
+            list.innerHTML = '';
+            
+            if (sellers.length === 0) {
+                list.innerHTML = '<tr><td colspan="3" style="padding:20px; text-align:center;">No sellers found.</td></tr>';
+                return;
+            }
+
+            sellers.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--glass-border)';
+                tr.innerHTML = `
+                    <td style="padding:12px; color:white; font-weight:600;">${s.username}</td>
+                    <td style="padding:12px;">${s.seller_team_id ? `<span style="color:var(--primary);">Team #${s.seller_team_id}</span>` : '<span style="color:var(--text-dim);">No Team</span>'}</td>
+                    <td style="padding:12px; text-align:right;">
+                        <button onclick="adminAssignTeam(${s.id})" style="width:auto; padding:5px 10px; font-size:11px; margin:0;">Edit Team</button>
+                    </td>
+                `;
+                list.appendChild(tr);
+            });
+        }
+
     </script>
 
     <!-- Modal: Edit Marketplace Listing -->
