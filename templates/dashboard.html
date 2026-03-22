@@ -1533,14 +1533,14 @@
             try {
                 const res = await fetch(`${API_URL}/support/tickets`);
                 const data = await res.json();
-                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.is_global_staff, data.current_user_id);
+                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.is_global_staff, data.current_user_id, data.user_team_id);
                 loadMacros(); // Load macros for staff/sellers
             } catch (e) {
                 console.error("Failed to load tickets", e);
             }
         }
 
-        function renderSupportTickets(list, isStaff, isSellerTeam, isGlobalStaff, currentUserId) {
+        function renderSupportTickets(list, isStaff, isSellerTeam, isGlobalStaff, currentUserId, myTeamId) {
             isCurrentUserStaff = isStaff;
             isCurrentUserSellerTeam = isSellerTeam;
             supportCurrentUserId = currentUserId;
@@ -1632,7 +1632,16 @@
                     </div>
                 `;
                 
-                if (t.user_id === currentUserId) {
+                const isAuthor = t.user_id === currentUserId;
+                const isForMyTeam = myTeamId && (t.seller_team_id === myTeamId);
+                const isGeneralForStaff = isGlobalStaff && t.category === 'Support' && !t.seller_team_id;
+
+                // STRICT FRONTEND FILTER (Layer 2)
+                if (!isAuthor && !isForMyTeam && !isGeneralForStaff) {
+                    return; // Skip this ticket, user should NOT see it
+                }
+                
+                if (isAuthor) {
                     if (containers.user) containers.user.appendChild(div);
                 }
                 
