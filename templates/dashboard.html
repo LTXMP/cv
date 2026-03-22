@@ -991,6 +991,7 @@
                         </div>
                     </div>
                     <div style="display:flex; gap:10px;">
+                        <button id="support-transcript-btn" class="secondary" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:rgba(255,255,255,0.05); border-color:var(--glass-border);" onclick="handleTranscriptAction()">Transcript</button>
                         <button id="support-reopen-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--primary); border-color:var(--primary);" onclick="reopenTicket()">Reopen</button>
                         <button id="support-close-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeActiveTicket()">Close</button>
                         <button id="support-delete-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--error); border-color:var(--error);" onclick="deleteTicketPermanent()">Delete</button>
@@ -2229,6 +2230,35 @@
             selectedSupportFile = null;
             document.getElementById('support-file-input').value = '';
             document.getElementById('file-preview-area').style.display = 'none';
+        }
+
+        async function handleTranscriptAction() {
+            if (!currentTicketId) return;
+            const btn = document.getElementById('support-transcript-btn');
+            const originalText = btn.innerText;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                const choice = confirm("Generate and Email Transcript?\n\nThis will send the full ticket history to the Creator and the Seller (if applicable).");
+                if (!choice) return;
+
+                const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/email_transcript`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showNotification(data.message, "success");
+                } else {
+                    throw new Error(data.error || "Failed to email transcript");
+                }
+            } catch (e) {
+                showNotification(e.message, "error");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
         async function reopenTicket() {
