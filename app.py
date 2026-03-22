@@ -98,9 +98,25 @@ def init_db():
                   created_at REAL)''')
 
     # Migration: Check for email, banned, last_ip
-    # Fix old thumbnail paths
+    # Fix old thumbnail paths in DB
     c.execute("UPDATE models SET thumbnail_path = REPLACE(thumbnail_path, '/static/thumbnails/', '/static/img/thumbnails/') WHERE thumbnail_path LIKE '/static/thumbnails/%'")
     conn.commit()
+    
+    # Physically move files if they exist in the old folder
+    old_thumb_dir = os.path.join(BASE_DIR, 'static', 'thumbnails')
+    new_thumb_dir = os.path.join(BASE_DIR, 'static', 'img', 'thumbnails')
+    if os.path.exists(old_thumb_dir):
+        import shutil
+        for f in os.listdir(old_thumb_dir):
+            src = os.path.join(old_thumb_dir, f)
+            dst = os.path.join(new_thumb_dir, f)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    shutil.move(src, dst)
+                    print(f"[BOOT] Moved thumbnail: {f}")
+                except Exception as e:
+                    print(f"[BOOT] Failed to move {f}: {e}")
+    
     c.execute("PRAGMA table_info(users)")
     columns = [info[1] for info in c.fetchall()]
     
@@ -1431,7 +1447,7 @@ def get_tickets():
                    AND t.category NOT IN ('Sale','Model Support','Buy','Weights'))
             ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
         ''', (user_id,)).fetchall()
-    elif my_team_id:
+    elif is_seller or my_team_id:
         # Seller/team member: own + team tickets
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
@@ -2964,6 +2980,15 @@ def admin_toggle_weight_seller(user_id):
     conn.commit()
     conn.close()
     return jsonify({'message': f'Weight seller {"enabled" if new_val else "disabled"}'})
+
+@app.route('/api/admin/sellers', methods=['GET'])
+@admin_required
+def get_admin_sellers():
+    conn = get_db()
+    c = conn.cursor()
+    sellers = c.execute("SELECT id, username, seller_team_id FROM users WHERE is_weight_seller = 1 ORDER BY username").fetchall()
+    conn.close()
+    return jsonify([dict(s) for s in sellers])
 
 @app.route('/api/admin/users/<int:user_id>/seller_team', methods=['POST'])
 @admin_required
