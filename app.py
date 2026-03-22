@@ -1393,46 +1393,84 @@ def get_tickets():
     is_seller = int(user_row['is_weight_seller'] or 0) == 1
     my_team_id = user_row['seller_team_id']
     
-    # Global Staff = Owner, Admin, Support (See all general tickets)
     is_global_staff = is_admin or is_owner or is_support
     is_any_staff = is_global_staff or is_seller
 
-    # Lazy cleanup of tickets pending deletion or closed for > 24 hours
-    
-    # Dual-Layer Isolation Logic: Explicitly list allowed tickets via UNION
-    # 1. Author's own tickets
-    # 2. Tickets for user's assigned team (if any)
-    # 3. General Support tickets (NULL Team) IF user is Global Staff
-    
-    params = [user_id]
-    where_clauses = ["t.user_id = ?"]
-    
-    if my_team_id:
-        where_clauses.append("t.seller_team_id = ?")
-        params.append(my_team_id)
-        
-    if is_global_staff:
-        # Global staff see ALL general tickets (no team assigned)
-        where_clauses.append("(t.seller_team_id IS NULL)")
+    # DEBUG: Print role info to server logs
+    print(f"[TICKETS DEBUG] user_id={user_id} is_admin={is_admin} is_owner={is_owner} is_support={is_support} is_seller={is_seller} my_team_id={my_team_id} is_global_staff={is_global_staff}", flush=True)
 
-    query = f'''
-        SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-        FROM tickets t
-        JOIN users u ON t.user_id = u.id
-        WHERE {' OR '.join(where_clauses)}
-        ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-    '''
-    tickets = c.execute(query, params).fetchall()
+    # =====================================================
+    # STRICT TICKET ISOLATION — Complete Rewrite
+    # =====================================================
+    # Categories that are marketplace/weight-related (team-private):
+    #   'Sale', 'Model Support', 'Buy', 'Weights'
+    # Categories that are general (visible to global staff):
+    #   'Support', 'Rebrand/Reseller', anything else
+    # =====================================================
+    
+    TEAM_PRIVATE_CATEGORIES = ('Sale', 'Model Support', 'Buy', 'Weights')
+    
+    if is_global_staff and my_team_id:
+        # Global staff WITH a team: see own tickets + their team's tickets + general tickets
+        tickets = c.execute('''
+            SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
+            FROM tickets t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.user_id = ?
+               OR t.seller_team_id = ?
+               OR (t.seller_team_id IS NULL 
+                   AND t.category NOT IN ('Sale','Model Support','Buy','Weights')
+                   AND (t.model_id IS NULL OR t.model_id = 0))
+            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+        ''', (user_id, my_team_id)).fetchall()
+    elif is_global_staff:
+        # Global staff WITHOUT a team: see own tickets + general tickets only
+        tickets = c.execute('''
+            SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
+            FROM tickets t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.user_id = ?
+               OR (t.seller_team_id IS NULL 
+                   AND t.category NOT IN ('Sale','Model Support','Buy','Weights')
+                   AND (t.model_id IS NULL OR t.model_id = 0))
+            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+        ''', (user_id,)).fetchall()
+    elif my_team_id:
+        # Seller/team member: see own tickets + their team's tickets
+        tickets = c.execute('''
+            SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
+            FROM tickets t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.user_id = ? OR t.seller_team_id = ?
+            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+        ''', (user_id, my_team_id)).fetchall()
+    else:
+        # Regular user: own tickets ONLY
+        tickets = c.execute('''
+            SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
+            FROM tickets t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.user_id = ?
+            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+        ''', (user_id,)).fetchall()
+
+    # DEBUG: Print result count
+    print(f"[TICKETS DEBUG] user_id={user_id} returned {len(tickets)} tickets", flush=True)
         
     conn.close()
     return jsonify({
         'is_staff': bool(is_any_staff),
         'is_global_staff': bool(is_global_staff),
         'is_seller_team': bool(my_team_id),
-        'user_team_id': my_team_id, # Extra metadata for frontend validation
+        'user_team_id': my_team_id,
         'tickets': [dict(row) for row in tickets],
         'current_user_id': user_id
     })
+
 
 @app.route('/api/support/macros', methods=['GET', 'POST'])
 @login_required
