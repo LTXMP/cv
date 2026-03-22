@@ -380,7 +380,7 @@ def login_required(f):
 
 def admin_required(f):
     def wrapper(*args, **kwargs):
-        if 'user_id' not in session or not session.get('is_admin'):
+        if 'user_id' not in session or not (session.get('is_admin') or session.get('is_owner')):
             return jsonify({'error': 'Forbidden: Admin only'}), 403
         return f(*args, **kwargs)
     wrapper.__name__ = f.__name__
@@ -737,18 +737,21 @@ def login():
 
         session['user_id'] = user['id']
         session['username'] = user['username'] 
-        session['is_admin'] = user['is_admin']
+        session['is_admin'] = int(user['is_admin'] or 0) == 1
         
-        # Double-check owner status (in case init_db hasn't run or email matched)
+        # Double-check owner status
         is_owner = user['is_owner']
+        is_admin = int(user['is_admin'] or 0) == 1
         owner_email_env = os.environ.get('OWNER_EMAIL', 'philippcalka0@gmail.com').lower()
         if user['username'].lower() == 'exclusive' or user['email'].lower() == owner_email_env:
             is_owner = 1
-            if not user['is_owner']:
-                c.execute("UPDATE users SET is_owner=1 WHERE id=?", (user['id'],))
+            is_admin = 1 # Owner is always Admin
+            if not user['is_owner'] or not user['is_admin']:
+                c.execute("UPDATE users SET is_owner=1, is_admin=1 WHERE id=?", (user['id'],))
                 conn.commit()
 
         session['is_owner'] = is_owner
+        session['is_admin'] = is_admin
         
         is_reseller = int(user['is_reseller'] or 0) == 1
         is_support = int(user['is_support'] or 0) == 1
@@ -2960,7 +2963,11 @@ def admin_toggle_weight_seller(user_id):
 @admin_required
 def admin_assign_seller_team(user_id):
     data = request.json
-    team_id = data.get('team_id')  # None to remove from team
+    team_id = data.get('team_id')
+    
+    # DEBUG: Log team assignment attempt
+    admin_id = session.get('user_id')
+    print(f"[TEAM DEBUG] Admin {admin_id} assigning user {user_id} to team {team_id}", flush=True)
     
     conn = get_db()
     c = conn.cursor()
@@ -2969,11 +2976,13 @@ def admin_assign_seller_team(user_id):
         team = c.execute("SELECT id FROM seller_teams WHERE id=?", (team_id,)).fetchone()
         if not team:
             conn.close()
+            print(f"[TEAM DEBUG] FAILED: Team {team_id} not found", flush=True)
             return jsonify({'error': 'Team not found'}), 404
     
     c.execute("UPDATE users SET seller_team_id=? WHERE id=?", (team_id, user_id))
     conn.commit()
     conn.close()
+    print(f"[TEAM DEBUG] SUCCESS: User {user_id} assigned to team {team_id}", flush=True)
     return jsonify({'message': 'Team assignment updated'})
 
 @app.route('/api/models/<int:model_id>/marketplace', methods=['POST'])
