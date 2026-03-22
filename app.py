@@ -1396,22 +1396,12 @@ def get_tickets():
     is_global_staff = is_admin or is_owner or is_support
     is_any_staff = is_global_staff or is_seller
 
-    # DEBUG: Print role info to server logs
-    print(f"[TICKETS DEBUG] user_id={user_id} is_admin={is_admin} is_owner={is_owner} is_support={is_support} is_seller={is_seller} my_team_id={my_team_id} is_global_staff={is_global_staff}", flush=True)
-
-    # =====================================================
-    # STRICT TICKET ISOLATION — Complete Rewrite
-    # =====================================================
-    # Categories that are marketplace/weight-related (team-private):
-    #   'Sale', 'Model Support', 'Buy', 'Weights'
-    # Categories that are general (visible to global staff):
-    #   'Support', 'Rebrand/Reseller', anything else
-    # =====================================================
-    
-    TEAM_PRIVATE_CATEGORIES = ('Sale', 'Model Support', 'Buy', 'Weights')
+    # Ticket Isolation — Category-based filtering
+    # Own tickets are always included (frontend routes them to 'My Tickets')
+    # Staff Kanban shows OTHER people's tickets only (handled in frontend)
     
     if is_global_staff and my_team_id:
-        # Global staff WITH a team: see own tickets + their team's tickets + general tickets
+        # Global staff WITH a team: own + team + general (non-marketplace)
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
                    t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
@@ -1420,12 +1410,11 @@ def get_tickets():
             WHERE t.user_id = ?
                OR t.seller_team_id = ?
                OR (t.seller_team_id IS NULL 
-                   AND t.category NOT IN ('Sale','Model Support','Buy','Weights')
-                   AND (t.model_id IS NULL OR t.model_id = 0))
+                   AND t.category NOT IN ('Sale','Model Support','Buy','Weights'))
             ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
         ''', (user_id, my_team_id)).fetchall()
     elif is_global_staff:
-        # Global staff WITHOUT a team: see own tickets + general tickets only
+        # Global staff WITHOUT a team: own + general (non-marketplace)
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
                    t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
@@ -1433,12 +1422,11 @@ def get_tickets():
             JOIN users u ON t.user_id = u.id
             WHERE t.user_id = ?
                OR (t.seller_team_id IS NULL 
-                   AND t.category NOT IN ('Sale','Model Support','Buy','Weights')
-                   AND (t.model_id IS NULL OR t.model_id = 0))
+                   AND t.category NOT IN ('Sale','Model Support','Buy','Weights'))
             ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
         ''', (user_id,)).fetchall()
     elif my_team_id:
-        # Seller/team member: see own tickets + their team's tickets
+        # Seller/team member: own + team tickets
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
                    t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
@@ -1457,9 +1445,6 @@ def get_tickets():
             WHERE t.user_id = ?
             ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
         ''', (user_id,)).fetchall()
-
-    # DEBUG: Print result count
-    print(f"[TICKETS DEBUG] user_id={user_id} returned {len(tickets)} tickets", flush=True)
         
     conn.close()
     return jsonify({
