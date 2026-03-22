@@ -1784,6 +1784,28 @@
                 }
 
                 messageArea.innerHTML = '';
+
+                // Add Proof of Purchase Notice for Buy/Weights tickets
+                if (ticket.category && (ticket.category.toLowerCase() === 'buy' || ticket.category.toLowerCase() === 'weights' || ticket.model_id)) {
+                    const noticeDiv = document.createElement('div');
+                    noticeDiv.style.background = 'rgba(255, 193, 7, 0.1)';
+                    noticeDiv.style.border = '1px solid rgba(255, 193, 7, 0.3)';
+                    noticeDiv.style.borderRadius = '10px';
+                    noticeDiv.style.padding = '15px';
+                    noticeDiv.style.marginBottom = '20px';
+                    noticeDiv.style.display = 'flex';
+                    noticeDiv.style.alignItems = 'center';
+                    noticeDiv.style.gap = '15px';
+                    noticeDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle" style="color:#ffc107; font-size:20px;"></i>
+                        <div style="font-size:13px; color:#ffc107; line-height:1.4;">
+                            <strong style="display:block; margin-bottom:2px; font-size:14px;">Notice: Proof of Purchase Required</strong>
+                            Please always save your proof of purchase (Receipt/Transaction ID). If you are buying a model, send the proof here for faster processing!
+                        </div>
+                    `;
+                    messageArea.appendChild(noticeDiv);
+                }
+
                 ticket.messages.forEach(msg => {
                     const isMe = msg.user_id === supportCurrentUserId;
                     const msgDiv = document.createElement('div');
