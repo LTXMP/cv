@@ -1446,7 +1446,7 @@
             if (res.ok) {
                 showNotification('Seller role updated', 'success');
                 loadAdminUsers(document.getElementById('admin-user-search').value);
-                if (typeof loadAdminSellers === 'function') loadAdminSellers();
+                if (typeof loadAdminSellers === 'function') await loadAdminSellers();
             } else {
                 const data = await res.json();
                 showNotification(data.error || 'Failed to update', 'error');
@@ -1472,7 +1472,7 @@
             if (res.ok) {
                 showNotification('Team assignment updated', 'success');
                 loadAdminUsers(document.getElementById('admin-user-search').value);
-                if (typeof loadAdminSellers === 'function') loadAdminSellers();
+                if (typeof loadAdminSellers === 'function') await loadAdminSellers();
             } else {
                 const data = await res.json();
                 showNotification(data.error || 'Failed to assign team', 'error');
@@ -3658,9 +3658,10 @@
             sellers.forEach(s => {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid var(--glass-border)';
+                const teamDisplay = s.team_name ? `<span style="color:var(--primary);">${s.team_name}</span> <span style="font-size:10px; opacity:0.6;">(#${s.seller_team_id})</span>` : '<span style="color:var(--text-dim);">No Team</span>';
                 tr.innerHTML = `
                     <td style="padding:12px; color:white; font-weight:600;">${s.username}</td>
-                    <td style="padding:12px;">${s.seller_team_id ? `<span style="color:var(--primary);">Team #${s.seller_team_id}</span>` : '<span style="color:var(--text-dim);">No Team</span>'}</td>
+                    <td style="padding:12px;">${teamDisplay}</td>
                     <td style="padding:12px; text-align:right;">
                         <button onclick="adminAssignTeam(${s.id})" style="width:auto; padding:5px 10px; font-size:11px; margin:0;">Edit Team</button>
                     </td>
