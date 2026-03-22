@@ -82,7 +82,7 @@
         }
 
         /* Forms */
-        input, select {
+        input {
             padding: 12px 16px;
             margin: 8px 0;
             border-radius: 10px;
@@ -93,6 +93,25 @@
             box-sizing: border-box;
             outline: none;
             transition: 0.3s;
+        }
+
+        select {
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            background: #0d0d0d;
+            color: #ffffff;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        select option {
+            background: #0d0d0d;
+            color: #ffffff;
         }
 
         input:focus {
@@ -364,6 +383,7 @@
                     style="display:none; color:var(--accent);">Admin Panel</button>
                 <button class="nav-item" onclick="showPage('reseller')" id="nav-reseller"
                     style="display:none; color:var(--warning);">Reseller Panel</button>
+                <button class="nav-item" onclick="showPage('support')" id="nav-support">Support Tickets</button>
                 <div style="flex-grow:1"></div>
                 <button class="nav-item" onclick="location.href='/'" style="opacity: 0.7; font-size: 0.85em; margin-bottom: 10px;">&larr; Back to Website</button>
                 <button class="nav-item" onclick="logout()" style="color: var(--error);">Logout</button>
@@ -682,13 +702,62 @@
                                 </tr>
                             </thead>
                             <tbody id="reseller-licenses-list">
-                                <!-- Populated by JS -->
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
+            <!-- Tab: Support Panel -->
+            <div id="page-support" class="page hidden">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+                    <h1 style="margin:0;">Support Tickets</h1>
+                    <button onclick="openCreateTicketModal()" style="width:auto; margin:0;">Create Ticket</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+                    <!-- Ticket List -->
+                    <div class="card" style="height: 600px; display:flex; flex-direction:column; padding: 0;">
+                        <div style="padding: 20px; border-bottom: 1px solid var(--glass-border);">
+                            <h3 style="margin: 0;">My Tickets</h3>
+                        </div>
+                        <div id="support-ticket-list" style="flex-grow: 1; overflow-y: auto;">
+                            <!-- JS populates -->
+                        </div>
+                    </div>
+
+                    <!-- Ticket View -->
+                    <div class="card" style="height: 600px; display:flex; flex-direction:column; padding: 0;" id="support-ticket-view">
+                        <div style="padding: 20px; border-bottom: 1px solid var(--glass-border); display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="margin: 0; color:var(--text-dim);" id="support-active-subject">Select a ticket</h3>
+                            <button id="support-close-btn" class="danger hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeActiveTicket()">Close Ticket</button>
+                        </div>
+                        <div id="support-messages" style="flex-grow: 1; overflow-y: auto; padding: 20px; display:flex; flex-direction:column; gap: 15px;">
+                            <p style="color:var(--text-dim); text-align:center;">No ticket selected.</p>
+                        </div>
+                        <div id="support-reply-area" style="padding: 20px; border-top: 1px solid var(--glass-border); display:none; gap:10px;">
+                            <input type="text" id="support-reply-input" placeholder="Type a message..." style="margin:0; flex-grow:1;">
+                            <button onclick="sendTicketReply()" style="width:auto; margin:0;">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Create Ticket Modal -->
+    <div id="create-ticket-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:100%; max-width:500px;">
+            <h3 style="margin-bottom:20px;">Open New Ticket</h3>
+            <label style="color:var(--text-dim); font-size:13px;">Subject</label>
+            <input type="text" id="new-ticket-subject" placeholder="e.g., HWID Reset Issue">
+            <label style="color:var(--text-dim); font-size:13px;">Message</label>
+            <textarea id="new-ticket-message" placeholder="Describe your issue..." style="width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="secondary" style="width:auto; margin:0;" onclick="closeCreateTicketModal()">Cancel</button>
+                <button style="width:auto; margin:0;" onclick="submitNewTicket()">Submit Ticket</button>
+            </div>
         </div>
     </div>
 
@@ -800,6 +869,7 @@
 
                     const isOwner = localStorage.getItem('isOwner') === 'true';
                     const isResellerFlag = u.is_reseller ? '<br><span style="color:var(--warning); font-size: 11px;">RESELLER</span>' : '';
+                    const isSupportFlag = u.is_support ? '<br><span style="color:var(--success); font-size: 11px;">SUPPORT</span>' : '';
                     
                     tr.innerHTML = `
                         <td style="padding:12px;">${u.id}</td>
@@ -808,7 +878,7 @@
                         </td>
                         <td style="padding:12px; color:var(--primary); font-weight:600;">${timeStr}</td>
                         <td style="padding:12px; font-size: 13px;">${banStatus}</td>
-                        <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}${isResellerFlag}</td>
+                        <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}${isResellerFlag}${isSupportFlag}</td>
                         <td style="padding:12px; text-align: right;">
                             ${(isOwner || !u.is_admin) ? `
                                 <select style="width:140px; padding:6px; font-size:12px; margin:0; background: #0d0d0d; color: #ffffff; border-color: var(--glass-border);" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
@@ -819,6 +889,7 @@
                                     <option value="release">Release Key</option>
                                     ${isOwner ? `<option value="${u.is_admin ? 'demote' : 'promote'}">${u.is_admin ? 'Demote' : 'Promote'}</option>` : ''}
                                     ${isOwner || localStorage.getItem('isAdmin') === 'true' ? `<option value="${u.is_reseller ? 'revoke_reseller' : 'make_reseller'}">${u.is_reseller ? 'Revoke Reseller' : 'Make Reseller'}</option>` : ''}
+                                    ${isOwner || localStorage.getItem('isAdmin') === 'true' ? `<option value="toggle_support">${u.is_support ? 'Revoke Support' : 'Make Support'}</option>` : ''}
                                     <option value="delete" style="color:var(--error);">Delete User</option>
                                 </select>
                             ` : '<span style="color:var(--text-dim); font-size:12px;">Protected</span>'}
@@ -1046,6 +1117,18 @@
                 showNotification(data.error || 'Failed to demote', 'error');
             }
         }
+        
+        async function adminToggleSupport(userId) {
+            if (!confirm("Toggle Support role for this user?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${userId}/support`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('Support role updated', 'success');
+                loadAdminUsers(document.getElementById('admin-user-search').value);
+            } else {
+                const data = await res.json();
+                showNotification(data.error || 'Failed to update', 'error');
+            }
+        }
 
         // --- Action Dispatchers ---
 
@@ -1060,6 +1143,7 @@
             else if (action === 'demote') adminDemoteUser(userId);
             else if (action === 'delete') adminDeleteUser(userId, username);
             else if (action === 'make_reseller' || action === 'revoke_reseller') adminToggleReseller(userId);
+            else if (action === 'toggle_support') adminToggleSupport(userId);
 
             // Reset dropdown
             const selects = document.querySelectorAll('select');
@@ -1080,11 +1164,177 @@
                 document.getElementById('new-license-key').innerText = data.key;
                 document.getElementById('gen-result').style.display = 'block';
                 loadAdminLicenses(); // Refresh list
+            } else {
+                showNotification(data.error || 'Generation Failed', 'error');
+            }
+        }
+        
+        // --- Support Ticketing System ---
+        let currentTicketId = null;
+
+        async function loadSupportTickets() {
+            try {
+                const res = await fetch(`${API_URL}/support/tickets`);
+                const tickets = await res.json();
+                renderSupportTickets(tickets);
+            } catch (e) {
+                console.error("Failed to load tickets", e);
             }
         }
 
+        function renderSupportTickets(list) {
+            const container = document.getElementById('support-ticket-list');
+            container.innerHTML = '';
+            
+            if (!list || list.length === 0) {
+                container.innerHTML = '<p style="padding:20px; color:var(--text-dim); text-align:center;">No tickets found.</p>';
+                return;
+            }
+            
+            list.forEach(t => {
+                const div = document.createElement('div');
+                div.style.padding = '15px';
+                div.style.borderBottom = '1px solid var(--glass-border)';
+                div.style.cursor = 'pointer';
+                div.style.transition = '0.2s';
+                div.onmouseover = () => div.style.background = 'rgba(255,255,255,0.05)';
+                div.onmouseout = () => div.style.background = 'transparent';
+                div.onclick = () => openSupportTicket(t.id, t.subject, t.status);
+                
+                const statusColor = t.status === 'open' ? 'var(--success)' : 'var(--text-dim)';
+                const title = t.username ? `[${t.username}] ${t.subject}` : t.subject;
+                
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <strong style="color:white; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">${title}</strong>
+                        <span style="color:${statusColor}; font-size:12px; font-weight:600; text-transform:uppercase;">${t.status}</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-dim);">
+                        ID: #${t.id} &bull; ${new Date(t.updated_at * 1000).toLocaleString()}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
 
+        async function openSupportTicket(id, subject, status) {
+            currentTicketId = id;
+            document.getElementById('support-active-subject').innerText = `#${id} - ${subject}`;
+            
+            const msgContainer = document.getElementById('support-messages');
+            msgContainer.innerHTML = '<p style="color:var(--text-dim); text-align:center;">Loading...</p>';
+            
+            try {
+                const res = await fetch(`${API_URL}/support/tickets/${id}/messages`);
+                const msgs = await res.json();
+                
+                msgContainer.innerHTML = '';
+                msgs.forEach(m => {
+                    const isStaff = m.is_admin || m.is_support;
+                    const bubbleAlign = isStaff ? 'flex-start' : 'flex-end';
+                    const bubbleColor = isStaff ? 'rgba(52, 152, 219, 0.2)' : 'rgba(255,255,255,0.05)';
+                    const bubbleBorder = isStaff ? 'var(--accent)' : 'var(--glass-border)';
+                    const authorName = m.username + (isStaff ? ' <span style="color:var(--accent);font-size:10px;">[STAFF]</span>' : '');
+                    
+                    const div = document.createElement('div');
+                    div.style.alignSelf = bubbleAlign;
+                    div.style.background = bubbleColor;
+                    div.style.border = `1px solid ${bubbleBorder}`;
+                    div.style.padding = '12px 16px';
+                    div.style.borderRadius = '12px';
+                    div.style.maxWidth = '80%';
+                    div.innerHTML = `
+                        <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px;">${authorName} &bull; ${new Date(m.created_at * 1000).toLocaleString()}</div>
+                        <div style="color:white; font-size:14px; white-space:pre-wrap;">${m.message}</div>
+                    `;
+                    msgContainer.appendChild(div);
+                });
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+                
+                const replyArea = document.getElementById('support-reply-area');
+                const closeBtn = document.getElementById('support-close-btn');
+                
+                if (status === 'open') {
+                    replyArea.style.display = 'flex';
+                    closeBtn.classList.remove('hidden');
+                } else {
+                    replyArea.style.display = 'none';
+                    closeBtn.classList.add('hidden');
+                    const msg = document.createElement('div');
+                    msg.innerHTML = '<p style="color:var(--error); text-align:center; margin-top:10px;">This ticket is closed.</p>';
+                    msgContainer.appendChild(msg);
+                }
+            } catch (e) {
+                console.error("Failed to load messages", e);
+                msgContainer.innerHTML = '<p style="color:var(--error); text-align:center;">Error loading messages.</p>';
+            }
+        }
 
+        function openCreateTicketModal() {
+            document.getElementById('new-ticket-subject').value = '';
+            document.getElementById('new-ticket-message').value = '';
+            document.getElementById('create-ticket-modal').classList.remove('hidden');
+        }
+
+        function closeCreateTicketModal() {
+            document.getElementById('create-ticket-modal').classList.add('hidden');
+        }
+
+        async function submitNewTicket() {
+            const subject = document.getElementById('new-ticket-subject').value.trim();
+            const message = document.getElementById('new-ticket-message').value.trim();
+            if (!subject || !message) { showNotification('Subject and message required', 'error'); return; }
+            
+            try {
+                const res = await fetch(`${API_URL}/support/tickets`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({subject, message})
+                });
+                if (res.ok) {
+                    showNotification('Ticket Created', 'success');
+                    closeCreateTicketModal();
+                    loadSupportTickets();
+                } else {
+                    showNotification('Failed to create ticket', 'error');
+                }
+            } catch (e) {}
+        }
+
+        async function sendTicketReply() {
+            if (!currentTicketId) return;
+            const input = document.getElementById('support-reply-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/messages`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message})
+                });
+                if (res.ok) {
+                    input.value = '';
+                    const subject = document.getElementById('support-active-subject').innerText.split('- ')[1];
+                    openSupportTicket(currentTicketId, subject, 'open');
+                }
+            } catch (e) {}
+        }
+
+        async function closeActiveTicket() {
+            if (!currentTicketId) return;
+            if (!confirm("Are you sure you want to close this ticket?")) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/close`, { method: 'POST' });
+                if (res.ok) {
+                    showNotification('Ticket Closed', 'success');
+                    const subject = document.getElementById('support-active-subject').innerText.split('- ')[1];
+                    openSupportTicket(currentTicketId, subject, 'closed');
+                    loadSupportTickets();
+                }
+            } catch (e) {}
+        }
 
         // --- Auth Functions --- //
 
@@ -1255,6 +1505,9 @@
             }
             if (pageId === 'reseller') {
                 loadResellerData();
+            }
+            if (pageId === 'support') {
+                loadSupportTickets();
             }
         }
 
