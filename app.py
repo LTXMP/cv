@@ -1412,25 +1412,27 @@ def get_tickets():
             '''
             tickets = c.execute(query).fetchall()
         else:
-            # Support: Sees General (NULL) + Own + Their Team
             if my_team_id:
+                # Support with a Team: Sees General Support Category + Their Team
                 query = '''
                     SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
                     FROM tickets t
                     JOIN users u ON t.user_id = u.id
-                    WHERE t.seller_team_id IS NULL OR t.seller_team_id = ? OR t.user_id = ?
+                    WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) OR t.seller_team_id = ? OR t.user_id = ?
                     ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
                 '''
                 tickets = c.execute(query, (my_team_id, user_id)).fetchall()
             else:
+                # Support without a Team: Sees General Support Category + Own
                 query = '''
                     SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
                     FROM tickets t
                     JOIN users u ON t.user_id = u.id
-                    WHERE t.seller_team_id IS NULL OR t.user_id = ?
+                    WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) OR t.user_id = ?
                     ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
                 '''
                 tickets = c.execute(query, (user_id,)).fetchall()
+
     elif is_seller and my_team_id:
         # Team seller (who isn't Support): See own tickets + tickets routed to their team ONLY
         query = '''
