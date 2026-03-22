@@ -720,11 +720,23 @@
                     <div class="card" style="padding: 20px;">
                         <h3 style="margin-bottom:20px;">Open New Ticket</h3>
                         <label style="color:var(--text-dim); font-size:13px;">Reason / Category</label>
-                        <select id="user-new-ticket-category" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
+                        <select id="user-new-ticket-category" onchange="onTicketCategoryChange('user')" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
                             <option value="Support">General Support</option>
                             <option value="Buy">Purchasing & Billing</option>
                             <option value="Rebrand/Reseller">Rebrand / Reseller</option>
                         </select>
+                        <div id="user-subcategory-group" style="display:none;">
+                            <label style="color:var(--text-dim); font-size:13px;">Type</label>
+                            <select id="user-new-ticket-subcategory" onchange="onTicketSubcategoryChange('user')" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
+                                <option value="Program">Program (Subscription)</option>
+                                <option value="Weights">Weights (AI Models)</option>
+                            </select>
+                        </div>
+                        <div id="user-item-group" style="display:none;">
+                            <label style="color:var(--text-dim); font-size:13px;">Item</label>
+                            <select id="user-new-ticket-item" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
+                            </select>
+                        </div>
                         <br>
                         <label style="color:var(--text-dim); font-size:13px;">Subject</label>
                         <input type="text" id="user-new-ticket-subject" placeholder="e.g., HWID Reset Issue">
@@ -745,7 +757,7 @@
                 </div>
 
                 <!-- Staff View -->
-                <div id="support-staff-layout" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: start;">
+                <div id="support-staff-layout" style="display: none; grid-template-columns: repeat(5, 1fr); gap: 20px; align-items: start;">
                     <div class="card" style="padding: 15px;">
                         <h3 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Support</h3>
                         <div id="kanban-support" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
@@ -757,6 +769,10 @@
                     <div class="card" style="padding: 15px;">
                         <h3 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Rebrand</h3>
                         <div id="kanban-rebrand" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                    </div>
+                    <div class="card" style="padding: 15px;">
+                        <h3 style="margin-top:0; color:var(--accent); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">My Sales</h3>
+                        <div id="kanban-sales" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
                     </div>
                     <div class="card" style="padding: 15px;">
                         <h3 style="margin-top:0; color:var(--text-dim); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Closed</h3>
@@ -923,6 +939,8 @@
                     const isOwner = localStorage.getItem('isOwner') === 'true';
                     const isResellerFlag = u.is_reseller ? '<br><span style="color:var(--warning); font-size: 11px;">RESELLER</span>' : '';
                     const isSupportFlag = u.is_support ? '<br><span style="color:var(--success); font-size: 11px;">SUPPORT</span>' : '';
+                    const isSellerFlag = u.is_weight_seller ? '<br><span style="color:var(--accent); font-size: 11px;">SELLER</span>' : '';
+                    const teamFlag = u.seller_team_id ? `<br><span style="color:var(--primary); font-size: 10px;">Team #${u.seller_team_id}</span>` : '';
                     
                     tr.innerHTML = `
                         <td style="padding:12px;">${u.id}</td>
@@ -931,7 +949,7 @@
                         </td>
                         <td style="padding:12px; color:var(--primary); font-weight:600;">${timeStr}</td>
                         <td style="padding:12px; font-size: 13px;">${banStatus}</td>
-                        <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}${isResellerFlag}${isSupportFlag}</td>
+                        <td style="padding:12px;">${u.is_admin ? '<span style="color:var(--accent)">ADMIN</span>' : 'User'}${isResellerFlag}${isSupportFlag}${isSellerFlag}${teamFlag}</td>
                         <td style="padding:12px; text-align: right;">
                             ${(isOwner || !u.is_admin) ? `
                                 <select style="width:140px; padding:6px; font-size:12px; margin:0; background: #0d0d0d; color: #ffffff; border-color: var(--glass-border);" onchange="handleUserAction(${u.id}, this.value, '${u.username}', '${u.last_ip}')">
@@ -943,6 +961,8 @@
                                     ${isOwner ? `<option value="${u.is_admin ? 'demote' : 'promote'}">${u.is_admin ? 'Demote' : 'Promote'}</option>` : ''}
                                     ${isOwner || localStorage.getItem('isAdmin') === 'true' ? `<option value="${u.is_reseller ? 'revoke_reseller' : 'make_reseller'}">${u.is_reseller ? 'Revoke Reseller' : 'Make Reseller'}</option>` : ''}
                                     ${isOwner || localStorage.getItem('isAdmin') === 'true' ? `<option value="toggle_support">${u.is_support ? 'Revoke Support' : 'Make Support'}</option>` : ''}
+                                    ${isOwner || localStorage.getItem('isAdmin') === 'true' ? `<option value="toggle_seller">${u.is_weight_seller ? 'Revoke Seller' : 'Make Seller'}</option>` : ''}
+                                    ${isOwner || localStorage.getItem('isAdmin') === 'true' ? `<option value="assign_team">Assign Team</option>` : ''}
                                     <option value="delete" style="color:var(--error);">Delete User</option>
                                 </select>
                             ` : '<span style="color:var(--text-dim); font-size:12px;">Protected</span>'}
@@ -1183,6 +1203,37 @@
             }
         }
 
+        async function adminToggleSeller(userId) {
+            if (!confirm("Toggle Weight Seller role for this user?")) return;
+            const res = await fetch(`${API_URL}/admin/users/${userId}/weight_seller`, { method: 'POST' });
+            if (res.ok) {
+                showNotification('Seller role updated', 'success');
+                loadAdminUsers(document.getElementById('admin-user-search').value);
+            } else {
+                const data = await res.json();
+                showNotification(data.error || 'Failed to update', 'error');
+            }
+        }
+
+        async function adminAssignTeam(userId) {
+            const teamIdStr = prompt("Enter Seller Team ID to assign (or leave empty to remove from team):");
+            if (teamIdStr === null) return;
+            const teamId = teamIdStr.trim() === '' ? null : parseInt(teamIdStr);
+            
+            const res = await fetch(`${API_URL}/admin/users/${userId}/seller_team`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({team_id: teamId})
+            });
+            if (res.ok) {
+                showNotification('Team assignment updated', 'success');
+                loadAdminUsers(document.getElementById('admin-user-search').value);
+            } else {
+                const data = await res.json();
+                showNotification(data.error || 'Failed to assign team', 'error');
+            }
+        }
+
         // --- Action Dispatchers ---
 
         function handleUserAction(userId, action, username, ip) {
@@ -1197,6 +1248,8 @@
             else if (action === 'delete') adminDeleteUser(userId, username);
             else if (action === 'make_reseller' || action === 'revoke_reseller') adminToggleReseller(userId);
             else if (action === 'toggle_support') adminToggleSupport(userId);
+            else if (action === 'toggle_seller') adminToggleSeller(userId);
+            else if (action === 'assign_team') adminAssignTeam(userId);
 
             // Reset dropdown
             const selects = document.querySelectorAll('select');
@@ -1225,27 +1278,32 @@
         // --- Support Ticketing System ---
         let currentTicketId = null;
 
+        let cachedMarketplaceModels = [];
+
         async function loadSupportTickets() {
             try {
                 const res = await fetch(`${API_URL}/support/tickets`);
                 const data = await res.json();
-                renderSupportTickets(data.tickets, data.is_staff);
+                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team);
             } catch (e) {
                 console.error("Failed to load tickets", e);
             }
         }
 
         let isCurrentUserStaff = false;
+        let isCurrentUserSellerTeam = false;
 
-        function renderSupportTickets(list, isStaff) {
+        function renderSupportTickets(list, isStaff, isSellerTeam) {
             isCurrentUserStaff = isStaff;
+            isCurrentUserSellerTeam = isSellerTeam;
             const userView = document.getElementById('support-user-layout');
             const staffView = document.getElementById('support-staff-layout');
             
-            if (isStaff) {
+            // Show staff/team Kanban if staff OR seller team member
+            if (isStaff || isSellerTeam) {
                 userView.style.display = 'none';
                 staffView.style.display = 'grid';
-                document.getElementById('staff-create-ticket-btn').style.display = 'block';
+                document.getElementById('staff-create-ticket-btn').style.display = isStaff ? 'block' : 'none';
             } else {
                 userView.style.display = 'grid';
                 staffView.style.display = 'none';
@@ -1257,13 +1315,14 @@
                 support: document.getElementById('kanban-support'),
                 buy: document.getElementById('kanban-buy'),
                 rebrand: document.getElementById('kanban-rebrand'),
+                sales: document.getElementById('kanban-sales'),
                 closed: document.getElementById('kanban-closed')
             };
 
             for (const key in containers) { if (containers[key]) containers[key].innerHTML = ''; }
 
             if (!list || list.length === 0) {
-                if (!isStaff && containers.user) {
+                if (!isStaff && !isSellerTeam && containers.user) {
                     containers.user.innerHTML = '<p style="padding:20px; color:var(--text-dim); text-align:center;">No tickets found.</p>';
                 }
                 return;
@@ -1289,12 +1348,13 @@
                 }
 
                 const title = t.username ? `[${t.username}] ${t.subject}` : t.subject;
-                const catBadge = !isStaff ? `<span style="border:1px solid var(--glass-border); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--primary);">${t.category || 'Support'}</span>` : '';
+                const catBadge = !(isStaff || isSellerTeam) ? `<span style="border:1px solid var(--glass-border); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--primary);">${t.category || 'Support'}</span>` : '';
                 const closedBadge = t.status === 'closed' ? `<span style="border:1px solid var(--text-dim); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--text-dim);">Closed</span>` : '';
+                const salesBadge = t.seller_team_id ? `<span style="border:1px solid var(--accent); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--accent);">SALE</span>` : '';
                 
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                        <strong style="color:white; font-size:13px; line-height:1.4; overflow:hidden; text-overflow:ellipsis;">${closedBadge}${catBadge}${title}</strong>
+                        <strong style="color:white; font-size:13px; line-height:1.4; overflow:hidden; text-overflow:ellipsis;">${closedBadge}${salesBadge}${catBadge}${title}</strong>
                     </div>
                     <div style="font-size:11px; color:var(--text-dim); display:flex; justify-content:space-between;">
                         <span>#${t.id} &bull; ${new Date(t.updated_at * 1000).toLocaleDateString()}</span>
@@ -1302,10 +1362,17 @@
                     </div>
                 `;
                 
-                if (!isStaff) {
+                if (!(isStaff || isSellerTeam)) {
                     if (containers.user) containers.user.appendChild(div);
                 } else {
-                    if (t.status === 'closed' || t.status === 'pending_delete') {
+                    // Seller team tickets go to Sales column
+                    if (t.seller_team_id) {
+                        if (t.status === 'closed' || t.status === 'pending_delete') {
+                            if (containers.closed) containers.closed.appendChild(div);
+                        } else {
+                            if (containers.sales) containers.sales.appendChild(div);
+                        }
+                    } else if (t.status === 'closed' || t.status === 'pending_delete') {
                         if (containers.closed) containers.closed.appendChild(div);
                     } else if (t.category === 'Buy') {
                         if (containers.buy) containers.buy.appendChild(div);
@@ -1478,24 +1545,120 @@
         async function submitNewTicketUser() {
             const subject = document.getElementById('user-new-ticket-subject').value.trim();
             const category = document.getElementById('user-new-ticket-category').value;
-            const message = document.getElementById('user-new-ticket-message').value.trim();
+            let message = document.getElementById('user-new-ticket-message').value.trim();
             if (!subject || !message) { showNotification('Subject and message required', 'error'); return; }
             
+            // Build context prefix from subcategory/item
+            const subGroup = document.getElementById('user-subcategory-group');
+            const itemGroup = document.getElementById('user-item-group');
+            let model_id = null;
+            
+            if (subGroup.style.display !== 'none') {
+                const subcat = document.getElementById('user-new-ticket-subcategory').value;
+                const itemEl = document.getElementById('user-new-ticket-item');
+                if (itemGroup.style.display !== 'none' && itemEl.options.length > 0) {
+                    const itemText = itemEl.options[itemEl.selectedIndex].text;
+                    if (subcat === 'Weights') {
+                        model_id = parseInt(itemEl.value);
+                        message = `[${category.toUpperCase()}: Weights - ${itemText}]\n\n${message}`;
+                    } else {
+                        message = `[${category.toUpperCase()}: Program - ${itemText}]\n\n${message}`;
+                    }
+                }
+            }
+            
             try {
+                const body = {subject, category, message};
+                if (model_id) body.model_id = model_id;
+                
                 const res = await fetch(`${API_URL}/support/tickets`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({subject, category, message})
+                    body: JSON.stringify(body)
                 });
                 if (res.ok) {
                     showNotification('Ticket Created', 'success');
                     document.getElementById('user-new-ticket-subject').value = '';
                     document.getElementById('user-new-ticket-message').value = '';
+                    // Reset subcategory
+                    document.getElementById('user-subcategory-group').style.display = 'none';
+                    document.getElementById('user-item-group').style.display = 'none';
+                    document.getElementById('user-new-ticket-category').value = 'Support';
                     loadSupportTickets();
                 } else {
                     showNotification('Failed to create ticket', 'error');
                 }
             } catch (e) {}
+        }
+
+        // --- Dynamic Ticket Form Helpers ---
+
+        function onTicketCategoryChange(prefix) {
+            const cat = document.getElementById(prefix + '-new-ticket-category').value;
+            const subGroup = document.getElementById(prefix + '-subcategory-group');
+            const itemGroup = document.getElementById(prefix + '-item-group');
+            
+            if (cat === 'Buy' || cat === 'Support') {
+                subGroup.style.display = 'block';
+                // Reset subcategory to Program
+                document.getElementById(prefix + '-new-ticket-subcategory').value = 'Program';
+                onTicketSubcategoryChange(prefix);
+            } else {
+                subGroup.style.display = 'none';
+                itemGroup.style.display = 'none';
+            }
+        }
+
+        async function onTicketSubcategoryChange(prefix) {
+            const subcat = document.getElementById(prefix + '-new-ticket-subcategory').value;
+            const itemGroup = document.getElementById(prefix + '-item-group');
+            const itemSelect = document.getElementById(prefix + '-new-ticket-item');
+            
+            itemSelect.innerHTML = '';
+            itemGroup.style.display = 'block';
+            
+            if (subcat === 'Program') {
+                const plans = [
+                    {value: 'day', text: 'Day (4€)'},
+                    {value: 'week', text: 'Week (15€)'},
+                    {value: 'month', text: 'Month (40€)'},
+                    {value: 'lifetime', text: 'Lifetime'}
+                ];
+                plans.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.value;
+                    opt.textContent = p.text;
+                    itemSelect.appendChild(opt);
+                });
+            } else {
+                // Load marketplace models
+                try {
+                    if (cachedMarketplaceModels.length === 0) {
+                        const res = await fetch(`${API_URL}/marketplace/models`);
+                        cachedMarketplaceModels = await res.json();
+                    }
+                    if (cachedMarketplaceModels.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = 'No models available';
+                        opt.disabled = true;
+                        itemSelect.appendChild(opt);
+                    } else {
+                        cachedMarketplaceModels.forEach(m => {
+                            const opt = document.createElement('option');
+                            opt.value = m.id;
+                            opt.textContent = `${m.name} (by ${m.seller_username})`;
+                            itemSelect.appendChild(opt);
+                        });
+                    }
+                } catch (e) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Error loading models';
+                    opt.disabled = true;
+                    itemSelect.appendChild(opt);
+                }
+            }
         }
 
         async function sendTicketReply() {
@@ -1898,10 +2061,13 @@
                         thumbHtml = `<div style="width: 100%; height: 160px; background: rgba(255,255,255,0.03); border-radius: 12px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-dim); font-size:0.8em; margin-bottom: 15px; border: 1px solid var(--glass-border);"><span style="font-size: 24px; margin-bottom: 5px;">📦</span>No Preview</div>`;
                     }
 
+                    const marketplaceBadge = m.in_marketplace ? `<span style="font-size:0.7em; color:var(--accent); background: rgba(var(--accent-rgb,106,17,203),0.15); padding: 2px 8px; border-radius: 4px; margin-left:6px;">MARKETPLACE</span>` : '';
+                    const marketplaceBtn = data.is_weight_seller ? `<button class="secondary" style="margin:0; padding: 8px; font-size: 11px; ${m.in_marketplace ? 'color:var(--error);border-color:var(--error);' : 'color:var(--accent);border-color:var(--accent);'}" onclick="toggleMarketplace(${m.id})">${m.in_marketplace ? '- Marketplace' : '+ Marketplace'}</button>` : '';
+
                     card.innerHTML = `
                         ${thumbHtml}
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 10px;">
-                            <h4 style="margin: 0; font-size: 1.1em;">${m.name}</h4>
+                            <h4 style="margin: 0; font-size: 1.1em;">${m.name}${marketplaceBadge}</h4>
                             <span style="font-size:0.7em; color:var(--primary); background: var(--glass); padding: 2px 8px; border-radius: 4px;">#${m.unique_id}</span>
                         </div>
                         <div style="display:flex; gap: 10px; font-size: 0.8em; color: var(--text-dim); margin-bottom: 15px;">
@@ -1916,6 +2082,7 @@
                             <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="openShareModal(${m.id})">Share</button>
                             <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="showSharedUsers(${m.id}, this)">Users</button>
                             <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="replaceModel(${m.id})">Swap</button>
+                            ${marketplaceBtn}
                         </div>
                         <button class="danger" style="margin-top: 10px; padding: 8px; font-size: 11px;" onclick="deleteModel(${m.id})">Revoke / Delete</button>
                         <div id="shared-users-${m.id}" class="shared-users-container hidden"></div>
@@ -1953,6 +2120,18 @@
             const data = await res.json();
             if (res.ok) {
                 showNotification(data.message, 'success');
+                loadModels();
+            } else {
+                showNotification(data.error, 'error');
+            }
+        }
+
+        async function toggleMarketplace(id) {
+            const res = await fetch(`${API_URL}/models/${id}/marketplace`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.message, 'success');
+                cachedMarketplaceModels = []; // Invalidate cache
                 loadModels();
             } else {
                 showNotification(data.error, 'error');
