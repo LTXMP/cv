@@ -1432,7 +1432,12 @@
         }
 
         async function adminAssignTeam(userId) {
-            const teamIdStr = prompt("Enter Seller Team ID to assign (or leave empty to remove from team):");
+            // First, fetch list of teams to show the user
+            const tRes = await fetch(`${API_URL}/admin/seller_teams`);
+            const teams = await tRes.json();
+            let teamListText = teams.map(t => `#${t.id}: ${t.name}`).join('\n');
+            
+            const teamIdStr = prompt(`Available Teams:\n${teamListText}\n\nEnter Team ID to assign (or leave empty to remove):`);
             if (teamIdStr === null) return;
             const teamId = teamIdStr.trim() === '' ? null : parseInt(teamIdStr);
             
