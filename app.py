@@ -1369,7 +1369,7 @@ def create_ticket():
 @login_required
 def get_tickets():
     user_id = session['user_id']
-    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_reseller', 'is_weight_seller'])
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_weight_seller'])
     
     conn = get_db()
     c = conn.cursor()
@@ -1436,7 +1436,7 @@ def get_tickets():
 @login_required
 def manage_macros():
     user_id = session['user_id']
-    is_authorized = session.get('is_admin') or session.get('is_support') or session.get('is_reseller') or session.get('is_weight_seller')
+    is_authorized = any(session.get(role) for role in ['is_admin', 'is_support', 'is_weight_seller'])
     
     if not is_authorized:
         return jsonify({'error': 'Unauthorized'}), 403
@@ -1569,7 +1569,7 @@ def grant_marketplace_access():
 @login_required
 def reply_to_ticket(ticket_id):
     user_id = session['user_id']
-    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_reseller', 'is_weight_seller'])
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_weight_seller'])
     
     message = ""
     data = request.get_json(silent=True)
@@ -1658,15 +1658,15 @@ def delete_ticket_permanent(ticket_id):
 @login_required
 def close_ticket(ticket_id):
     user_id = session['user_id']
-    is_staff = session.get('is_admin') or session.get('is_support')
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_weight_seller'])
     
     conn = get_db()
     c = conn.cursor()
     
     if is_staff:
-        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+        ticket = c.execute("SELECT user_id, subject, category, status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     else:
-        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
+        ticket = c.execute("SELECT user_id, subject, category, status FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
         
     if not ticket:
         conn.close()
@@ -1708,7 +1708,7 @@ def close_ticket(ticket_id):
 @login_required
 def reopen_ticket(ticket_id):
     user_id = session['user_id']
-    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_reseller', 'is_weight_seller'])
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_weight_seller'])
     
     conn = get_db()
     c = conn.cursor()
