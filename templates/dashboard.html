@@ -874,7 +874,7 @@
                         <button id="support-reopen-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--primary); border-color:var(--primary);" onclick="reopenTicket()">Reopen</button>
                         <button id="support-close-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeActiveTicket()">Close</button>
                         <button id="support-delete-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--error); border-color:var(--error);" onclick="deleteTicketPermanent()">Delete</button>
-                        <button onclick="closeSupportTicketModal()" class="btn-secondary" style="margin:0;"><i class="fas fa-times"></i></button>
+                        <button onclick="closeSupportTicketModal()" class="btn-secondary" style="margin:0; width:40px; height:40px; display:flex; align-items:center; justify-content:center; padding:0; background:rgba(255,255,255,0.05);"><i class="fas fa-times" style="font-size:18px;"></i></button>
                     </div>
                 </div>
                 
@@ -884,11 +884,11 @@
                 
                 <div id="support-reply-footer" style="padding:15px; border-top:1px solid var(--glass-border); background:rgba(0,0,0,0.1);">
                     <!-- File Preview -->
-                    <div id="file-preview-area" style="display:none; margin-bottom:10px; padding:10px; background:rgba(var(--accent-rgb), 0.1); border:1px solid var(--glass-border); border-radius:8px; display:flex; align-items:center; gap:10px;">
+                    <div id="file-preview-area" style="display:none; margin-bottom:10px; padding:10px; background:rgba(var(--accent-rgb), 0.1); border:1px solid var(--glass-border); border-radius:8px; align-items:center; gap:10px;">
                         <i class="fas fa-file-image" style="font-size:20px; color:var(--accent);"></i>
                         <div style="flex:1;">
-                            <div id="selected-filename" style="font-size:12px; font-weight:600; color:white;">filename.jpg</div>
-                            <div id="selected-filesize" style="font-size:10px; color:var(--text-dim);">1.2 MB</div>
+                            <div id="selected-filename" style="font-size:12px; font-weight:600; color:white;"></div>
+                            <div id="selected-filesize" style="font-size:10px; color:var(--text-dim);"></div>
                         </div>
                         <button onclick="clearSelectedFile()" style="background:none; border:none; color:var(--error); padding:5px; cursor:pointer;"><i class="fas fa-times"></i></button>
                     </div>
@@ -908,8 +908,8 @@
                         </div>
 
                         <!-- Send Button -->
-                        <button id="ticket-reply-btn" onclick="sendTicketReply()" class="btn-primary" style="margin:0; height:45px; width:45px; display:flex; align-items:center; justify-content:center; border-radius:8px;">
-                            <i class="fas fa-paper-plane"></i>
+                        <button id="ticket-reply-btn" onclick="sendTicketReply()" class="btn-primary" title="Press Enter to send (Shift+Enter for new line)" style="margin:0; height:45px; width:45px; display:flex; align-items:center; justify-content:center; border-radius:8px;">
+                            <i class="fas fa-level-down-alt" style="transform: rotate(90deg); font-size:18px;"></i>
                         </button>
                     </div>
                 </div>
@@ -1410,6 +1410,18 @@
         let isCurrentUserSellerTeam = false;
         let supportCurrentUserId = null;
         let selectedSupportFile = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const replyInput = document.getElementById('support-reply-input');
+            if (replyInput) {
+                replyInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendTicketReply();
+                    }
+                });
+            }
+        });
 
         async function loadSupportTickets() {
             try {
