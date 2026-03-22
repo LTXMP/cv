@@ -170,6 +170,16 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   name TEXT NOT NULL,
                   created_at REAL)''')
+    
+    # Initialize default teams if empty
+    teams_count = c.execute("SELECT COUNT(*) FROM seller_teams").fetchone()[0]
+    if teams_count == 0:
+        now = time.time()
+        c.execute("INSERT INTO seller_teams (name, created_at) VALUES (?, ?)", ("Team 1", now))
+        c.execute("INSERT INTO seller_teams (name, created_at) VALUES (?, ?)", ("Team 2", now))
+        c.execute("INSERT INTO seller_teams (name, created_at) VALUES (?, ?)", ("Elite Sellers", now))
+        conn.commit()
+        print("[BOOT] Initialized default seller teams.")
 
     # Banned IPs Table
     c.execute('''CREATE TABLE IF NOT EXISTS banned_ips 
@@ -1423,30 +1433,36 @@ def get_tickets():
     # Staff Kanban shows OTHER people's tickets only (handled in frontend)
     
     if is_global_staff and my_team_id:
-        # Global staff WITH a team: own + team + general (non-marketplace)
+        # Global staff WITH a team: own + team + general + models they own
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
-                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, 
+                   u.username, m.user_id AS model_owner_id
             FROM tickets t
             JOIN users u ON t.user_id = u.id
+            LEFT JOIN models m ON t.model_id = m.id
             WHERE t.user_id = ?
                OR t.seller_team_id = ?
+               OR m.user_id = ?
                OR (t.seller_team_id IS NULL 
                    AND t.category NOT IN ('Sale','Model Support','Buy','Weights'))
             ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-        ''', (user_id, my_team_id)).fetchall()
+        ''', (user_id, my_team_id, user_id)).fetchall()
     elif is_global_staff:
-        # Global staff WITHOUT a team: own + general (non-marketplace)
+        # Global staff WITHOUT a team: own + general + models they own
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
-                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, 
+                   u.username, m.user_id AS model_owner_id
             FROM tickets t
             JOIN users u ON t.user_id = u.id
+            LEFT JOIN models m ON t.model_id = m.id
             WHERE t.user_id = ?
+               OR m.user_id = ?
                OR (t.seller_team_id IS NULL 
                    AND t.category NOT IN ('Sale','Model Support','Buy','Weights'))
             ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-        ''', (user_id,)).fetchall()
+        ''', (user_id, user_id)).fetchall()
     elif is_seller or my_team_id:
         # Seller/team member: own + team tickets
         tickets = c.execute('''
@@ -2990,6 +3006,22 @@ def get_admin_sellers():
     sellers = c.execute("SELECT id, username, seller_team_id FROM users WHERE is_weight_seller = 1 ORDER BY username").fetchall()
     conn.close()
     return jsonify([dict(s) for s in sellers])
+
+@app.route('/api/admin/seller_teams', methods=['POST'])
+@admin_required
+def admin_create_seller_team():
+    data = request.json
+    name = data.get('name')
+    if not name:
+        return jsonify({'error': 'Team name required'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT INTO seller_teams (name, created_at) VALUES (?, ?)", (name, time.time()))
+    new_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Team "{name}" created with ID {new_id}', 'team_id': new_id})
 
 @app.route('/api/admin/users/<int:user_id>/seller_team', methods=['POST'])
 @admin_required
