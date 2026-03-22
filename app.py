@@ -1399,55 +1399,47 @@ def get_tickets():
 
     # Lazy cleanup of tickets pending deletion or closed for > 24 hours
     
-    if is_global_staff:
-        # Sees EVERYTHING or General + Their Team
-        # Actually, per user request: "Support, admin, owner have access to all general tickets"
-        # We'll give admin/owner everything. Support sees General + Team if they have one.
-        if is_admin or is_owner:
+    # Ticket Isolation Logic
+    if is_admin or is_owner or is_support:
+        # Global Staff/Admin/Owner: See General Support (NULL Team) + Their Own Assigned Team + Their Own Authored
+        if my_team_id:
             query = '''
                 SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
                 FROM tickets t
                 JOIN users u ON t.user_id = u.id
+                WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) 
+                   OR (t.seller_team_id = ?) 
+                   OR (t.user_id = ?)
                 ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
             '''
-            tickets = c.execute(query).fetchall()
+            tickets = c.execute(query, (my_team_id, user_id)).fetchall()
         else:
-            if my_team_id:
-                # Support with a Team: Sees General Support Category + Their Team
-                query = '''
-                    SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-                    FROM tickets t
-                    JOIN users u ON t.user_id = u.id
-                    WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) OR t.seller_team_id = ? OR t.user_id = ?
-                    ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-                '''
-                tickets = c.execute(query, (my_team_id, user_id)).fetchall()
-            else:
-                # Support without a Team: Sees General Support Category + Own
-                query = '''
-                    SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-                    FROM tickets t
-                    JOIN users u ON t.user_id = u.id
-                    WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) OR t.user_id = ?
-                    ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-                '''
-                tickets = c.execute(query, (user_id,)).fetchall()
-
+            query = '''
+                SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
+                FROM tickets t
+                JOIN users u ON t.user_id = u.id
+                WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) 
+                   OR (t.user_id = ?)
+                ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+            '''
+            tickets = c.execute(query, (user_id,)).fetchall()
     elif is_seller and my_team_id:
-        # Team seller (who isn't Support): See own tickets + tickets routed to their team ONLY
+    elif is_seller and my_team_id:
+        # Pure Sellers (not staff): Only their team + own
         query = '''
             SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
             FROM tickets t
             JOIN users u ON t.user_id = u.id
-            WHERE t.user_id = ? OR t.seller_team_id = ?
-            ORDER BY t.updated_at DESC
+            WHERE t.seller_team_id = ? OR t.user_id = ?
+            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
         '''
-        tickets = c.execute(query, (user_id, my_team_id)).fetchall()
+        tickets = c.execute(query, (my_team_id, user_id)).fetchall()
     else:
         # Regular users/resellers: own tickets only
         query = '''
-            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id
+            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
             FROM tickets t
+            JOIN users u ON t.user_id = u.id
             WHERE t.user_id = ?
             ORDER BY t.updated_at DESC
         '''
@@ -1504,37 +1496,43 @@ def delete_macro(macro_id):
 @login_required
 def get_ticket_details(ticket_id):
     user_id = session['user_id']
-    is_staff = session.get('is_admin') or session.get('is_support')
     
     conn = get_db()
     c = conn.cursor()
     
-    # Get user's team
-    user_row = c.execute("SELECT seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
-    my_team_id = user_row['seller_team_id'] if user_row else None
+    # Fetch user roles and team once
+    user_row = c.execute("SELECT is_admin, is_owner, is_support, seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user_row:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+        
+    is_admin = bool(user_row['is_admin'])
+    is_owner = bool(user_row['is_owner'])
+    is_support = bool(user_row['is_support'])
+    my_team_id = user_row['seller_team_id']
+    
+    is_global_staff = is_admin or is_owner or is_support
     
     ticket = c.execute("SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username FROM tickets t JOIN users u ON t.user_id = u.id WHERE t.id = ?", (ticket_id,)).fetchone()
-    
     if not ticket:
         conn.close()
         return jsonify({'error': 'Ticket not found'}), 404
+        
+    ticket_user_id = ticket['user_id']
+    ticket_team_id = ticket['seller_team_id']
     
-    # Strict Access Check: isolation between weight seller teams
-    can_access = False
-    
-    # Author always has access
-    if ticket['user_id'] == user_id:
-        can_access = True
-    # Team members see their team's tickets
-    elif my_team_id is not None and ticket['seller_team_id'] == my_team_id:
-        can_access = True
-    # Staff see General Support (no team assigned)
-    elif is_staff and ticket['category'] == 'Support' and ticket['seller_team_id'] is None:
-        can_access = True
-    
-    if not can_access:
+    # Access Control Logic (Consistent with get_tickets)
+    allowed = False
+    if ticket_user_id == user_id:
+        allowed = True
+    elif is_global_staff and not ticket_team_id and ticket['category'] == 'Support':
+        allowed = True # General Support assigned to no team
+    elif my_team_id and ticket_team_id == my_team_id:
+        allowed = True # User's own team ticket
+        
+    if not allowed:
         conn.close()
-        return jsonify({'error': 'Unauthorized'}), 403
+        return jsonify({'error': 'Unauthorized. This ticket is restricted to another team / category.'}), 403
         
     messages = c.execute("SELECT tm.id, tm.sender_id as user_id, tm.message, tm.file_path, tm.is_image, tm.created_at, u.username, u.is_admin, u.is_support FROM ticket_messages tm JOIN users u ON tm.sender_id = u.id WHERE tm.ticket_id = ? ORDER BY tm.created_at ASC", (ticket_id,)).fetchall()
     
@@ -1548,13 +1546,8 @@ def get_ticket_details(ticket_id):
 @login_required
 def grant_marketplace_access():
     user_id = session['user_id']
-    is_seller = session.get('is_weight_seller') or session.get('is_admin')
-    if not is_seller:
-        return jsonify({'error': 'Unauthorized'}), 403
-        
-    data = request.json
-    ticket_id = data.get('ticket_id')
-    duration = data.get('duration', 'LIFETIME') # '30' or 'LIFETIME'
+    duration = request.json.get('duration', 'LIFETIME') # '30' or 'LIFETIME'
+    ticket_id = request.json.get('ticket_id')
     
     if not ticket_id:
         return jsonify({'error': 'Ticket ID required'}), 400
@@ -1562,11 +1555,23 @@ def grant_marketplace_access():
     conn = get_db()
     c = conn.cursor()
     
-    # Verify ticket exists and is a marketplace ticket (Buy/Support)
+    user_row = c.execute("SELECT is_admin, is_owner, seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
+    
+    is_admin = bool(user_row['is_admin'])
+    is_owner = bool(user_row['is_owner'])
+    my_team_id = user_row['seller_team_id']
+    
     ticket = c.execute("SELECT user_id, model_id, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     if not ticket:
         conn.close()
         return jsonify({'error': 'Ticket not found'}), 404
+        
+    ticket_team_id = ticket['seller_team_id']
+    
+    # Admin/Owner bypass OR matching team
+    if not (is_admin or is_owner) and (not my_team_id or my_team_id != ticket_team_id):
+        conn.close()
+        return jsonify({'error': 'Unauthorized. You are not in the assigned team.'}), 403
         
     model_id = ticket['model_id']
     target_user_id = ticket['user_id']
@@ -1625,9 +1630,13 @@ def reply_to_ticket(ticket_id):
     conn = get_db()
     c = conn.cursor()
     
-    user_row = c.execute("SELECT seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
+    user_row = c.execute("SELECT is_admin, is_owner, is_support, seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
     my_team_id = user_row['seller_team_id'] if user_row else None
-    is_staff = session.get('is_admin') or session.get('is_support')
+    is_admin = bool(user_row['is_admin']) if user_row else False
+    is_owner = bool(user_row['is_owner']) if user_row else False
+    is_support = bool(user_row['is_support']) if user_row else False
+    
+    is_global_staff = is_admin or is_owner or is_support
 
     ticket = c.execute("SELECT user_id, category, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     if not ticket:
@@ -1639,7 +1648,7 @@ def reply_to_ticket(ticket_id):
         can_access = True
     elif my_team_id is not None and ticket['seller_team_id'] == my_team_id:
         can_access = True
-    elif is_staff and ticket['category'] == 'Support' and ticket['seller_team_id'] is None:
+    elif is_global_staff and ticket['category'] == 'Support' and ticket['seller_team_id'] is None:
         can_access = True
         
     if not can_access:
