@@ -1459,6 +1459,7 @@
             const teamIdStr = prompt(`Available Teams:\n${teamListText}\n\nEnter Team ID to assign (or leave empty to remove):`);
             if (teamIdStr === null) return;
             const teamId = teamIdStr.trim() === '' ? null : parseInt(teamIdStr);
+            console.log(`[Admin] Assigning team ${teamId} to user ${userId}`);
             
             const res = await fetch(`${API_URL}/admin/users/${userId}/seller_team`, {
                 method: 'POST',
@@ -1653,13 +1654,16 @@
                 
                 const isAuthor = parseInt(t.user_id) === parseInt(currentUserId);
                 const isForMyTeam = myTeamId && (parseInt(t.seller_team_id) === parseInt(myTeamId));
+                const isModelOwner = t.model_owner_id && (parseInt(t.model_owner_id) === parseInt(currentUserId));
+                
                 // Marketplace/weight categories are team-private
                 const teamPrivateCategories = ['Sale', 'Model Support', 'Buy', 'Weights'];
                 const isTeamPrivate = teamPrivateCategories.includes(t.category) || !!t.model_id;
+                
                 // Global staff see general tickets: no team, not a team-private category
                 const isGeneralForStaff = isGlobalStaff && !t.seller_team_id && !isTeamPrivate;
-                // Seller team members see tickets assigned to their team
-                const isTeamStaff = isSellerTeam && myTeamId && (parseInt(t.seller_team_id) === parseInt(myTeamId));
+                // Seller team members see tickets assigned to their team OR tickets for models they own
+                const isTeamStaff = isSellerTeam && ( (myTeamId && parseInt(t.seller_team_id) === parseInt(myTeamId)) || isModelOwner );
 
                 // STRICT FRONTEND FILTER (Layer 2)
                 if (!isAuthor && !isForMyTeam && !isGeneralForStaff && !isTeamStaff) {
