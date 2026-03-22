@@ -875,7 +875,7 @@
                 </div>
 
                 <!-- Staff View -->
-                <div id="support-staff-layout" style="display: none; grid-template-columns: repeat(5, 1fr); gap: 15px; align-items: start;">
+                <div id="support-staff-layout" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 15px; align-items: start;">
                     <div class="card" style="padding: 12px; min-width: 0;">
                         <h4 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">Support</h4>
                         <div id="kanban-support" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
@@ -887,10 +887,6 @@
                     <div class="card" style="padding: 12px; min-width: 0;">
                         <h4 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">Rebrand</h4>
                         <div id="kanban-rebrand" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
-                    </div>
-                    <div class="card" style="padding: 12px; min-width: 0;">
-                        <h4 style="margin-top:0; color:var(--accent); border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">My Sales</h4>
-                        <div id="kanban-sales" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
                     </div>
                     <div class="card" style="padding: 12px; min-width: 0;">
                         <h4 style="margin-top:0; color:var(--text-dim); border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">Closed</h4>
@@ -1562,21 +1558,17 @@
 
                 // Dynamic columns for Sellers
                 const rebrandEl = document.getElementById('kanban-rebrand');
-                const salesEl = document.getElementById('kanban-sales');
                 const rebrandCol = rebrandEl ? rebrandEl.closest('.card') : null;
-                const salesCol = salesEl ? salesEl.closest('.card') : null;
                 
                 if (!isGlobalStaff && isSellerTeam) {
                     staffView.style.gridTemplateColumns = 'repeat(3, 1fr)';
                     if (rebrandCol) rebrandCol.style.display = 'none';
-                    if (salesCol) salesCol.style.display = 'none';
                     if (staffHeader && staffHeader.querySelector('h2')) {
                         staffHeader.querySelector('h2').innerText = 'Team Management (Kanban)';
                     }
                 } else {
-                    staffView.style.gridTemplateColumns = 'repeat(5, 1fr)';
+                    staffView.style.gridTemplateColumns = 'repeat(4, 1fr)';
                     if (rebrandCol) rebrandCol.style.display = 'block';
-                    if (salesCol) salesCol.style.display = 'block';
                     if (staffHeader && staffHeader.querySelector('h2')) {
                         staffHeader.querySelector('h2').innerText = 'Staff Management (Kanban)';
                     }
@@ -1591,7 +1583,6 @@
                 support: document.getElementById('kanban-support'),
                 buy: document.getElementById('kanban-buy'),
                 rebrand: document.getElementById('kanban-rebrand'),
-                sales: document.getElementById('kanban-sales'),
                 closed: document.getElementById('kanban-closed')
             };
 
@@ -1637,15 +1628,15 @@
                     </div>
                 `;
                 
-                const isAuthor = t.user_id === currentUserId;
-                const isForMyTeam = myTeamId && (t.seller_team_id === myTeamId);
+                const isAuthor = parseInt(t.user_id) === parseInt(currentUserId);
+                const isForMyTeam = myTeamId && (parseInt(t.seller_team_id) === parseInt(myTeamId));
                 // Marketplace/weight categories are team-private
                 const teamPrivateCategories = ['Sale', 'Model Support', 'Buy', 'Weights'];
                 const isTeamPrivate = teamPrivateCategories.includes(t.category) || !!t.model_id;
                 // Global staff see general tickets: no team, not a team-private category
                 const isGeneralForStaff = isGlobalStaff && !t.seller_team_id && !isTeamPrivate;
                 // Seller team members see tickets assigned to their team
-                const isTeamStaff = isSellerTeam && myTeamId && (t.seller_team_id === myTeamId);
+                const isTeamStaff = isSellerTeam && myTeamId && (parseInt(t.seller_team_id) === parseInt(myTeamId));
 
                 // STRICT FRONTEND FILTER (Layer 2)
                 if (!isAuthor && !isForMyTeam && !isGeneralForStaff && !isTeamStaff) {
@@ -1665,10 +1656,8 @@
                     if (t.status === 'closed' || t.status === 'pending_delete') {
                         if (containers.closed) containers.closed.appendChild(kDiv);
                     } else if (isGlobalStaff) {
-                        // Global Staff Routing (5 columns)
-                        if (t.seller_team_id) {
-                            if (containers.sales) containers.sales.appendChild(kDiv);
-                        } else if (t.category === 'Buy') {
+                        // Global Staff Routing (4 columns)
+                        if (t.category === 'Buy' || t.category === 'Weights') {
                             if (containers.buy) containers.buy.appendChild(kDiv);
                         } else if (t.category === 'Rebrand/Reseller') {
                             if (containers.rebrand) containers.rebrand.appendChild(kDiv);
@@ -1677,6 +1666,7 @@
                         }
                     } else {
                         // Team Seller Routing (3 columns: Buy, Support, Closed)
+                        // Note: Marketplace tickets (Sale) go to Support column for Sellers
                         if (t.category === 'Buy' || t.category === 'Weights') {
                             if (containers.buy) containers.buy.appendChild(kDiv);
                         } else {
