@@ -1875,13 +1875,17 @@
             }
         }
 
+        let isSendingTicketReply = false;
         async function sendTicketReply() {
+            if (!currentTicketId || isSendingTicketReply) return;
+            
             const input = document.getElementById('support-reply-input');
             const message = input.value.trim();
             if (!message && !selectedSupportFile) return;
             
             const btn = document.getElementById('ticket-reply-btn');
             const originalHtml = btn.innerHTML;
+            isSendingTicketReply = true;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
@@ -1915,10 +1919,14 @@
                     showNotification(data.error || 'Failed to send message', 'error');
                 }
             } catch (e) {
-                showNotification('Network error', 'error');
+                console.error("Failed to send reply", e);
             } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
+                isSendingTicketReply = false;
+                const sendBtn = document.getElementById('ticket-reply-btn');
+                if (sendBtn) {
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = '<i class="fas fa-level-down-alt" style="transform: rotate(90deg); font-size:18px;"></i>';
+                }
             }
         }
 
