@@ -257,6 +257,16 @@ def init_db():
             c.execute("ALTER TABLE models ADD COLUMN in_marketplace BOOLEAN DEFAULT 0")
         except: pass
 
+    if 'marketplace_name' not in model_columns:
+        try:
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_name TEXT")
+        except: pass
+
+    if 'marketplace_description' not in model_columns:
+        try:
+            c.execute("ALTER TABLE models ADD COLUMN marketplace_description TEXT")
+        except: pass
+
     # Migration: Check for last_hwid_reset in users
     if 'last_hwid_reset' not in columns:
         try:
@@ -2755,20 +2765,51 @@ def toggle_marketplace(model_id):
     conn.close()
     return jsonify({'message': f'Model {"added to" if new_val else "removed from"} marketplace', 'in_marketplace': bool(new_val)})
 
+@app.route('/api/models/<int:model_id>/marketplace_update', methods=['POST'])
+@login_required
+def update_marketplace_listing(model_id):
+    user_id = session['user_id']
+    data = request.json
+    m_name = data.get('marketplace_name', '').strip()
+    m_description = data.get('marketplace_description', '').strip()
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    model = c.execute("SELECT user_id, is_admin FROM users JOIN models ON users.id = models.user_id WHERE models.id=?", (model_id,)).fetchone()
+    # Need to check if user owns model OR is admin
+    user_info = c.execute("SELECT is_admin FROM users WHERE id=?", (user_id,)).fetchone()
+    
+    model_row = c.execute("SELECT user_id FROM models WHERE id=?", (model_id,)).fetchone()
+    if not model_row:
+        conn.close()
+        return jsonify({'error': 'Model not found'}), 404
+    
+    if model_row['user_id'] != user_id and not (user_info and user_info['is_admin']):
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    c.execute("UPDATE models SET marketplace_name=?, marketplace_description=? WHERE id=?", (m_name, m_description, model_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Marketplace listing updated'})
+
 @app.route('/api/marketplace/models', methods=['GET'])
 @login_required
 def get_marketplace_models():
     conn = get_db()
     c = conn.cursor()
+    # Return current user_id so frontend knows if it's the owner
+    curr_user_id = session['user_id']
     models = c.execute('''
-        SELECT m.id, m.name, u.username as seller_username
+        SELECT m.id, m.name, m.marketplace_name, m.marketplace_description, m.thumbnail_path, m.user_id, u.username as seller_username
         FROM models m
         JOIN users u ON m.user_id = u.id
         WHERE m.in_marketplace = 1
         ORDER BY m.name
     ''').fetchall()
     conn.close()
-    return jsonify([dict(m) for m in models])
+    return jsonify({'current_user_id': curr_user_id, 'models': [dict(m) for m in models]})
 
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
