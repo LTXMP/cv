@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exclusive Aim | Purchase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-deep: #050505;
+            --bg-card: #0d0d0d;
+            --primary: #00BFFF;
+            --primary-glow: rgba(0, 191, 255, 0.4);
+            --accent: #7000FF;
+            --text-main: #ffffff;
+            --text-dim: #a0a0a0;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --nav-bg: rgba(5, 5, 5, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        /* --- Background Effects --- */
+        .bg-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.08), transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(112, 0, 255, 0.08), transparent 40%);
+        }
+
+        /* --- Navigation --- */
+        nav {
+            width: 100%;
+            padding: 20px 8%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--nav-bg);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .logo, .footer-logo {
+            font-size: 24px;
+            font-weight: 800;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo span, .footer-logo span {
+            color: var(--primary);
+            text-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .nav-links {
+            display: flex; gap: 30px; align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none; color: var(--text-dim); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-main);
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        .cta-btn {
+            background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px); box-shadow: 0 6px 20px var(--primary-glow);
+        }
+
+        .login-outline {
+            background: transparent; color: var(--text-main); border: 1px solid var(--glass-border); padding: 9px 23px; border-radius: 8px; font-weight: 600; text-decoration: none; transition: 0.3s;
+        }
+
+        .login-outline:hover {
+            background: var(--glass); border-color: rgba(255,255,255,0.2);
+        }
+
+        /* --- Main Content --- */
+        main {
+            flex: 1;
+            padding: 80px 8%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .purchase-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 50px;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .purchase-card h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .purchase-card p {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+        }
+
+        .steps-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .step {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 30px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            text-align: center;
+            position: relative;
+        }
+
+        .step-num {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 30px;
+            background: var(--primary);
+            color: #000;
+            border-radius: 50%;
+            font-weight: 800;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .step i {
+            font-size: 2rem;
+            color: var(--accent);
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .step h3 {
+            font-size: 1.2rem;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .step p {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+            color: var(--text-dim);
+        }
+
+        /* --- Footer --- */
+        footer {
+            padding: 60px 8%;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.5);
+            margin-top: auto;
+        }
+
+        .footer-links {
+            display: flex; gap: 30px;
+        }
+
+        .footer-links a {
+            color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .steps-container { grid-template-columns: 1fr; }
+            footer { flex-direction: column; gap: 30px; text-align: center; }
+            .footer-links { flex-wrap: wrap; justify-content: center; }
+            .purchase-card { padding: 30px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+
+    <nav>
+        <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
+        <div class="nav-links">
+            <a href="/#features">Features</a>
+            <a href="/#tech">Technology</a>
+            <a href="/#pricing">Pricing</a>
+            <a href="/purchase" style="color: var(--text-main); text-shadow: 0 0 10px rgba(255,255,255,0.5);">Buy</a>
+        </div>
+        <div style="display: flex; gap: 15px;">
+            <a href="/login" class="login-outline">Log In</a>
+            <a href="/register" class="cta-btn">Register</a>
+        </div>
+    </nav>
+
+    <main>
+        <div class="purchase-card">
+            <h1>Purchase Access</h1>
+            <p>Ready to unlock the ultimate gaming advantage? Access is granted exclusively through our internal ticketing system.</p>
+            
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <i class="fas fa-user-plus"></i>
+                    <h3>Create an Account</h3>
+                    <p>Register or log in to access the private user dashboard.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <i class="fas fa-ticket-alt"></i>
+                    <h3>Open a Ticket</h3>
+                    <p>Navigate to the <b>Tickets</b> tab and create a new "Purchase" ticket.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <i class="fas fa-key"></i>
+                    <h3>Get Your Key</h3>
+                    <p>Our staff will guide you through the payment and issue your license key securely.</p>
+                </div>
+            </div>
+
+            <a href="/dashboard" class="cta-btn" style="font-size: 1.1rem; padding: 15px 40px; display: inline-block; margin-top: 10px;">Go to Dashboard</a>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-logo">EXCLUSIVE<span>AIM</span></div>
+        <div class="footer-links">
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
+            <a href="/refund">Refund Policy</a>
+            <a href="/reseller">Reseller & Rebrand</a>
+            <a href="https://discord.gg/jpRXXw3keR" target="_blank">Discord Support</a>
+        </div>
+    </footer>
+</body>
+</html>
