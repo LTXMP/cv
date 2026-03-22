@@ -685,7 +685,7 @@
                     Reseller Panel 
                     <span style="font-size: 12px; color: var(--warning); border: 1px solid var(--warning); padding: 2px 6px; border-radius: 4px;">AUTHORIZED</span>
                 </h1>
-                <p style="color: var(--text-dim); margin-bottom: 20px;">Manage and distribute your allocated license keys.</p>
+                <p style="color: var(--text-dim); margin-bottom: 20px;">Manage and distribute your allocated license keys. Looking for more information? Please open a Ticket in the <strong>Support Tickets</strong> tab, or reach out to us on Discord.</p>
 
                 <div class="card">
                     <h3 style="margin-bottom: 20px; color: var(--primary);">My Assigned Keys</h3>
@@ -750,6 +750,13 @@
     <div id="create-ticket-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; display:flex; align-items:center; justify-content:center;">
         <div class="card" style="width:100%; max-width:500px;">
             <h3 style="margin-bottom:20px;">Open New Ticket</h3>
+            <label style="color:var(--text-dim); font-size:13px;">Reason / Category</label>
+            <select id="new-ticket-category" style="width:100%; margin:8px 0;">
+                <option value="Support">General Support</option>
+                <option value="Buy">Purchasing & Billing</option>
+                <option value="Rebrand/Reseller">Rebrand / Reseller</option>
+            </select>
+            <br>
             <label style="color:var(--text-dim); font-size:13px;">Subject</label>
             <input type="text" id="new-ticket-subject" placeholder="e.g., HWID Reset Issue">
             <label style="color:var(--text-dim); font-size:13px;">Message</label>
@@ -1203,10 +1210,11 @@
                 
                 const statusColor = t.status === 'open' ? 'var(--success)' : 'var(--text-dim)';
                 const title = t.username ? `[${t.username}] ${t.subject}` : t.subject;
+                const catBadge = `<span style="border:1px solid var(--glass-border); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--primary);">${t.category || 'Support'}</span>`;
                 
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                        <strong style="color:white; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">${title}</strong>
+                        <strong style="color:white; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">${catBadge}${title}</strong>
                         <span style="color:${statusColor}; font-size:12px; font-weight:600; text-transform:uppercase;">${t.status}</span>
                     </div>
                     <div style="font-size:12px; color:var(--text-dim);">
@@ -1282,6 +1290,7 @@
 
         async function submitNewTicket() {
             const subject = document.getElementById('new-ticket-subject').value.trim();
+            const category = document.getElementById('new-ticket-category').value;
             const message = document.getElementById('new-ticket-message').value.trim();
             if (!subject || !message) { showNotification('Subject and message required', 'error'); return; }
             
@@ -1289,7 +1298,7 @@
                 const res = await fetch(`${API_URL}/support/tickets`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({subject, message})
+                    body: JSON.stringify({subject, category, message})
                 });
                 if (res.ok) {
                     showNotification('Ticket Created', 'success');
