@@ -124,6 +124,22 @@ def init_db():
             c.execute("ALTER TABLE users ADD COLUMN is_support BOOLEAN DEFAULT 0")
         except: pass
 
+    if 'is_weight_seller' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN is_weight_seller BOOLEAN DEFAULT 0")
+        except: pass
+
+    if 'seller_team_id' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN seller_team_id INTEGER DEFAULT NULL")
+        except: pass
+
+    # Seller Teams Table
+    c.execute('''CREATE TABLE IF NOT EXISTS seller_teams
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  name TEXT NOT NULL,
+                  created_at REAL)''')
+
     # Banned IPs Table
     c.execute('''CREATE TABLE IF NOT EXISTS banned_ips 
                  (ip TEXT PRIMARY KEY, 
@@ -160,6 +176,10 @@ def init_db():
     if 'category' not in t_cols:
         try:
             c.execute("ALTER TABLE tickets ADD COLUMN category TEXT DEFAULT 'Support'")
+        except: pass
+    if 'seller_team_id' not in t_cols:
+        try:
+            c.execute("ALTER TABLE tickets ADD COLUMN seller_team_id INTEGER DEFAULT NULL")
         except: pass
 
     # Ticket Messages Table
@@ -231,6 +251,11 @@ def init_db():
             c.execute("ALTER TABLE models ADD COLUMN unique_id TEXT")
         except Exception as e:
             print(f"Model Migration Failed: {e}")
+
+    if 'in_marketplace' not in model_columns:
+        try:
+            c.execute("ALTER TABLE models ADD COLUMN in_marketplace BOOLEAN DEFAULT 0")
+        except: pass
 
     # Migration: Check for last_hwid_reset in users
     if 'last_hwid_reset' not in columns:
@@ -1258,6 +1283,7 @@ def create_ticket():
     subject = data.get('subject', '').strip()
     category = data.get('category', 'Support').strip()
     message = data.get('message', '').strip()
+    model_id = data.get('model_id')  # For Weights tickets
     
     if not subject or not message:
         return jsonify({'error': 'Subject and message are required'}), 400
@@ -1265,9 +1291,16 @@ def create_ticket():
     conn = get_db()
     c = conn.cursor()
     
+    # Determine seller_team_id for Weights tickets
+    seller_team_id = None
+    if model_id:
+        model_row = c.execute("SELECT m.id, m.name, u.seller_team_id, u.username FROM models m JOIN users u ON m.user_id = u.id WHERE m.id = ? AND m.in_marketplace = 1", (model_id,)).fetchone()
+        if model_row and model_row['seller_team_id']:
+            seller_team_id = model_row['seller_team_id']
+    
     now = time.time()
-    c.execute("INSERT INTO tickets (user_id, subject, category, status, created_at, updated_at) VALUES (?, ?, ?, 'open', ?, ?)",
-              (user_id, subject, category, now, now))
+    c.execute("INSERT INTO tickets (user_id, subject, category, status, created_at, updated_at, seller_team_id) VALUES (?, ?, ?, 'open', ?, ?, ?)",
+              (user_id, subject, category, now, now, seller_team_id))
     ticket_id = c.lastrowid
     
     c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, created_at) VALUES (?, ?, ?, ?)",
@@ -1301,19 +1334,44 @@ def get_tickets():
     c.execute("DELETE FROM tickets WHERE status = 'pending_delete' AND updated_at < ?", (cutoff,))
     conn.commit()
     
+    # Get the current user's seller_team_id
+    user_row = c.execute("SELECT seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
+    my_team_id = user_row['seller_team_id'] if user_row else None
+    
     if is_staff:
-        # Return all tickets, ordered by latest updated
+        # Global staff: see tickets WITHOUT seller_team_id + tickets matching their own team
+        if my_team_id:
+            query = '''
+                SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
+                FROM tickets t
+                JOIN users u ON t.user_id = u.id
+                WHERE t.seller_team_id IS NULL OR t.seller_team_id = ?
+                ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+            '''
+            tickets = c.execute(query, (my_team_id,)).fetchall()
+        else:
+            query = '''
+                SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
+                FROM tickets t
+                JOIN users u ON t.user_id = u.id
+                WHERE t.seller_team_id IS NULL
+                ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+            '''
+            tickets = c.execute(query).fetchall()
+    elif my_team_id:
+        # Team member (not global staff): see own tickets + tickets routed to their team
         query = '''
-            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, u.username
+            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
             FROM tickets t
             JOIN users u ON t.user_id = u.id
-            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+            WHERE t.user_id = ? OR t.seller_team_id = ?
+            ORDER BY t.updated_at DESC
         '''
-        tickets = c.execute(query).fetchall()
+        tickets = c.execute(query, (user_id, my_team_id)).fetchall()
     else:
-        # Return only user's tickets
+        # Regular users: own tickets only
         query = '''
-            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at
+            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id
             FROM tickets t
             WHERE t.user_id = ?
             ORDER BY t.updated_at DESC
@@ -1323,6 +1381,7 @@ def get_tickets():
     conn.close()
     return jsonify({
         'is_staff': bool(is_staff),
+        'is_seller_team': bool(my_team_id),
         'tickets': [dict(row) for row in tickets]
     })
 
@@ -1335,14 +1394,24 @@ def get_ticket_details(ticket_id):
     conn = get_db()
     c = conn.cursor()
     
-    if is_staff:
-        ticket = c.execute("SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, u.username FROM tickets t JOIN users u ON t.user_id = u.id WHERE t.id = ?", (ticket_id,)).fetchone()
-    else:
-        ticket = c.execute("SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at FROM tickets t WHERE t.id = ? AND t.user_id = ?", (ticket_id, user_id)).fetchone()
-        
+    # Get user's team
+    user_row = c.execute("SELECT seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
+    my_team_id = user_row['seller_team_id'] if user_row else None
+    
+    ticket = c.execute("SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username FROM tickets t JOIN users u ON t.user_id = u.id WHERE t.id = ?", (ticket_id,)).fetchone()
+    
     if not ticket:
         conn.close()
-        return jsonify({'error': 'Ticket not found or unauthorized'}), 404
+        return jsonify({'error': 'Ticket not found'}), 404
+    
+    # Access check: staff, ticket owner, or team member for team-routed tickets
+    can_access = is_staff or ticket['user_id'] == user_id
+    if not can_access and my_team_id and ticket['seller_team_id'] == my_team_id:
+        can_access = True
+    
+    if not can_access:
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
         
     messages = c.execute("SELECT tm.id, tm.sender_id as user_id, tm.message, tm.created_at, u.username, u.is_admin, u.is_support FROM ticket_messages tm JOIN users u ON tm.sender_id = u.id WHERE tm.ticket_id = ? ORDER BY tm.created_at ASC", (ticket_id,)).fetchall()
     
@@ -1845,10 +1914,15 @@ from Crypto.Util.Padding import pad
 def get_models():
     """Get models owned by or shared with the current user"""
     user_id = session['user_id']
-    c = get_db().cursor()
+    conn = get_db()
+    c = conn.cursor()
     
-    # Get user's own models
-    c.execute('SELECT id, name, filename, model_size, image_size, thumbnail_path, unique_id FROM models WHERE user_id = ?', (user_id,))
+    # Check if user is a weight seller
+    user = c.execute("SELECT is_weight_seller FROM users WHERE id=?", (user_id,)).fetchone()
+    is_seller = bool(user['is_weight_seller']) if user else False
+    
+    # Get user's own models (include in_marketplace)
+    c.execute('SELECT id, name, filename, model_size, image_size, thumbnail_path, unique_id, in_marketplace FROM models WHERE user_id = ?', (user_id,))
     own_models = [dict(row) for row in c.fetchall()]
     
     # Get shared models
@@ -1860,9 +1934,11 @@ def get_models():
               (user_id, time.time()))
     shared_models = [dict(row) for row in c.fetchall()]
     
+    conn.close()
     return jsonify({
         'own': own_models,
-        'shared': shared_models
+        'shared': shared_models,
+        'is_weight_seller': is_seller
     })
 
 @app.route('/api/models/list', methods=['GET'])
@@ -2572,6 +2648,126 @@ def reseller_resume_license(key):
     conn.commit()
     conn.close()
     return jsonify({'success': True, 'message': 'Subscription resumed.'})
+
+# --- Routes: Seller Teams & Marketplace ---
+
+@app.route('/api/admin/seller_teams', methods=['POST'])
+@admin_required
+def create_seller_team():
+    data = request.json
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Team name is required'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT INTO seller_teams (name, created_at) VALUES (?, ?)", (name, time.time()))
+    team_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Team "{name}" created', 'id': team_id})
+
+@app.route('/api/admin/seller_teams', methods=['GET'])
+@admin_required
+def list_seller_teams():
+    conn = get_db()
+    c = conn.cursor()
+    teams = c.execute("SELECT * FROM seller_teams ORDER BY name").fetchall()
+    
+    result = []
+    for t in teams:
+        members = c.execute("SELECT id, username, is_weight_seller FROM users WHERE seller_team_id = ?", (t['id'],)).fetchall()
+        result.append({
+            'id': t['id'],
+            'name': t['name'],
+            'created_at': t['created_at'],
+            'members': [dict(m) for m in members]
+        })
+    
+    conn.close()
+    return jsonify(result)
+
+@app.route('/api/admin/users/<int:user_id>/weight_seller', methods=['POST'])
+@admin_required
+def admin_toggle_weight_seller(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("SELECT is_weight_seller, is_owner FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+    if user['is_owner']:
+        conn.close()
+        return jsonify({'error': 'Cannot modify Owner'}), 403
+    
+    new_val = 0 if user['is_weight_seller'] else 1
+    c.execute("UPDATE users SET is_weight_seller=? WHERE id=?", (new_val, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Weight seller {"enabled" if new_val else "disabled"}'})
+
+@app.route('/api/admin/users/<int:user_id>/seller_team', methods=['POST'])
+@admin_required
+def admin_assign_seller_team(user_id):
+    data = request.json
+    team_id = data.get('team_id')  # None to remove from team
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    if team_id:
+        team = c.execute("SELECT id FROM seller_teams WHERE id=?", (team_id,)).fetchone()
+        if not team:
+            conn.close()
+            return jsonify({'error': 'Team not found'}), 404
+    
+    c.execute("UPDATE users SET seller_team_id=? WHERE id=?", (team_id, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Team assignment updated'})
+
+@app.route('/api/models/<int:model_id>/marketplace', methods=['POST'])
+@login_required
+def toggle_marketplace(model_id):
+    user_id = session['user_id']
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    user = c.execute("SELECT is_weight_seller, is_admin FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user or (not user['is_weight_seller'] and not user['is_admin']):
+        conn.close()
+        return jsonify({'error': 'You must be a Weight Seller to manage marketplace listings'}), 403
+    
+    model = c.execute("SELECT id, user_id, in_marketplace FROM models WHERE id=?", (model_id,)).fetchone()
+    if not model:
+        conn.close()
+        return jsonify({'error': 'Model not found'}), 404
+    
+    if model['user_id'] != user_id and not user['is_admin']:
+        conn.close()
+        return jsonify({'error': 'You can only manage your own models'}), 403
+    
+    new_val = 0 if model['in_marketplace'] else 1
+    c.execute("UPDATE models SET in_marketplace=? WHERE id=?", (new_val, model_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'Model {"added to" if new_val else "removed from"} marketplace', 'in_marketplace': bool(new_val)})
+
+@app.route('/api/marketplace/models', methods=['GET'])
+@login_required
+def get_marketplace_models():
+    conn = get_db()
+    c = conn.cursor()
+    models = c.execute('''
+        SELECT m.id, m.name, u.username as seller_username
+        FROM models m
+        JOIN users u ON m.user_id = u.id
+        WHERE m.in_marketplace = 1
+        ORDER BY m.name
+    ''').fetchall()
+    conn.close()
+    return jsonify([dict(m) for m in models])
 
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
