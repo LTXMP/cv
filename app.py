@@ -1315,7 +1315,10 @@ def get_tickets():
         tickets = c.execute(query, (user_id,)).fetchall()
         
     conn.close()
-    return jsonify([dict(row) for row in tickets])
+    return jsonify({
+        'is_staff': bool(is_staff),
+        'tickets': [dict(row) for row in tickets]
+    })
 
 @app.route('/api/support/tickets/<int:ticket_id>/messages', methods=['GET'])
 @login_required
@@ -1446,6 +1449,40 @@ def close_ticket(ticket_id):
 
     conn.close()
     return jsonify({'message': 'Ticket closed successfully'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/reopen', methods=['POST'])
+@login_required
+def reopen_ticket(ticket_id):
+    is_staff = session.get('is_admin') or session.get('is_support')
+    if not is_staff:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    conn = get_db()
+    c = conn.cursor()
+    ticket = c.execute("SELECT id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found'}), 404
+        
+    c.execute("UPDATE tickets SET status = 'open', updated_at = ? WHERE id = ?", (time.time(), ticket_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Ticket reopened successfully'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/delete', methods=['POST'])
+@login_required
+def delete_ticket(ticket_id):
+    is_staff = session.get('is_admin') or session.get('is_support')
+    if not is_staff:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM ticket_messages WHERE ticket_id = ?", (ticket_id,))
+    c.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Ticket permanently deleted'})
 
 @app.route('/api/admin/adjust_time', methods=['POST'])
 @admin_required
