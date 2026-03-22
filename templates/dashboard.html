@@ -364,6 +364,33 @@
                 background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
             }
             .nav-auth-mobile { display: none; }
+            .status-invalid { background: rgba(244, 67, 54, 0.15); color: #f44336; }
+            
+            /* Description Truncation */
+            .model-desc-truncated {
+                display: -webkit-box;
+                -webkit-line-clamp: 10;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1.5;
+                font-size: 11px;
+                color: var(--text-dim);
+            }
+            .show-more-link {
+                color: var(--primary);
+                cursor: pointer;
+                font-size: 11px;
+                font-weight: 600;
+                margin-top: 4px;
+                display: block;
+                transition: 0.2s;
+                text-align: left;
+            }
+            .show-more-link:hover {
+                text-shadow: 0 0 10px var(--primary-glow);
+                opacity: 0.8;
+            }
 
             @media (max-width: 768px) {
                 nav {
@@ -3368,19 +3395,21 @@
                 card.style.gap = '10px';
                 
                 const displayName = m.marketplace_name || m.name;
-                const description = m.marketplace_description || 'No description provided.';
-                const isOwner = m.user_id === currentUserId;
+                const fullDescription = m.marketplace_description || 'No description provided.';
+                const parsedDescription = parseMarketplaceMarkdown(fullDescription);
                 
-                // Pricing display
-                let priceHtml = '';
-                if (m.marketplace_has_monthly) {
-                    priceHtml += `<span style="color:var(--accent); font-weight:bold;">${m.marketplace_price_monthly || '0'}€</span><span style="font-size:11px; color:var(--text-dim);">/mo</span>`;
+                // Truncation logic: Count lines or characters. User asked for 10 lines.
+                // Simple character-based truncation as a proxy for lines in a fixed-width container.
+                const lines = fullDescription.split('\n');
+                let displayedDescription = parsedDescription;
+                let showMore = false;
+                
+                if (lines.length > 10 || fullDescription.length > 300) {
+                    showMore = true;
+                    // Truncate to first ~300 chars or 10 lines
+                    const truncatedText = lines.slice(0, 10).join('\n').substring(0, 300);
+                    displayedDescription = parseMarketplaceMarkdown(truncatedText) + '...';
                 }
-                if (m.marketplace_has_lifetime) {
-                    if (priceHtml) priceHtml += ' <span style="color:var(--glass-border);">|</span> ';
-                    priceHtml += `<span style="color:var(--accent); font-weight:bold;">${m.marketplace_price_lifetime || '0'}€</span><span style="font-size:11px; color:var(--text-dim);"> Lifetime</span>`;
-                }
-                if (!priceHtml) priceHtml = '<span style="color:var(--text-dim); font-size:12px;">Contact seller for pricing</span>';
 
                 card.innerHTML = `
                     <div style="width:100%; height:140px; background:rgba(255,255,255,0.05); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
@@ -3396,9 +3425,10 @@
                     <div style="margin-top:4px; display:flex; align-items:baseline; gap:6px;">
                         ${priceHtml}
                     </div>
-                    <p style="font-size:11px; color:var(--text-dim); line-height:1.4; margin:4px 0; min-height:44px;">
-                        ${parseMarketplaceMarkdown(m.marketplace_description)}
-                    </p>
+                    <div style="font-size:11px; color:var(--text-dim); line-height:1.4; margin:4px 0; min-height:44px; overflow:hidden;">
+                        ${displayedDescription}
+                        ${showMore ? `<a href="javascript:void(0)" onclick='showFullDescription("${displayName.replace(/'/g, "\\'")}", ${JSON.stringify(fullDescription)})' style="color:var(--primary); margin-left:4px; font-weight:600;">Show More</a>` : ''}
+                    </div>
                     <div style="margin-top:auto; display:flex; gap:8px;">
                         ${isOwner ? `
                             <button onclick='openEditListingModal(${JSON.stringify(m)})' style="width:100%; margin:0; font-size:13px; padding:8px;">Edit Listing</button>
@@ -3488,7 +3518,8 @@
         async function marketplaceTicket(modelId, category, modelName) {
             showNotification('Creating ticket for ' + modelName + '...', 'info');
             
-            const subject = `${category}: ${modelName}`;
+            const categoryLabel = (category === 'Buy') ? 'Sale' : 'Model Support';
+            const subject = `${categoryLabel}: ${modelName}`;
             const message = `I would like to ${category.toLowerCase()} the model: ${modelName}.`;
             
             try {
@@ -3497,7 +3528,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         subject: subject,
-                        category: category,
+                        category: categoryLabel,
                         message: message,
                         model_id: modelId
                     })
@@ -3519,6 +3550,16 @@
                 console.error("Marketplace ticket error", e);
                 showNotification('Connection error during ticket creation', 'error');
             }
+        }
+
+        function showFullDescription(title, text) {
+            document.getElementById('desc-modal-title').innerText = title;
+            document.getElementById('desc-modal-body').innerHTML = parseMarketplaceMarkdown(text);
+            document.getElementById('marketplace-desc-modal').classList.remove('hidden');
+        }
+
+        function closeDescPopout() {
+            document.getElementById('marketplace-desc-modal').classList.add('hidden');
         }
 
         // Start interval
@@ -3595,6 +3636,24 @@
         </div>
     </div>
 
+    <!-- Modal: Marketplace Description Pop-out -->
+    <div id="marketplace-desc-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 600px; padding: 24px; max-height: 80vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+                <h2 id="desc-modal-title" style="margin:0; font-size: 20px;">Model Description</h2>
+                <button onclick="closeDescPopout()" style="background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:20px;"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div id="desc-modal-body" style="font-size:14px; color:var(--text-normal); line-height:1.6; white-space: pre-wrap;">
+                <!-- Full description injected here -->
+            </div>
+            
+            <div style="display:flex; justify-content: flex-end; margin-top:24px;">
+                <button onclick="closeDescPopout()" style="padding: 10px 24px; margin: 0;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Shooter Game Datalist -->
     <datalist id="game-list">
         <option value="Apex Legends"></option>
@@ -3603,7 +3662,6 @@
         <option value="Call of Duty: Warzone"></option>
         <option value="Call of Duty: MW3"></option>
         <option value="Call of Duty: Black Ops 6"></option>
-        <option value="Call of Duty: Black Ops 7"></option>
         <option value="Counter-Strike 2"></option>
         <option value="Destiny 2"></option>
         <option value="Escape from Tarkov"></option>
