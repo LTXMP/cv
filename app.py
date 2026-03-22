@@ -1767,9 +1767,8 @@ def admin_toggle_support(user_id):
     if not u:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
-    if u['is_owner']:
-        conn.close()
-        return jsonify({'error': 'Cannot toggle support role on Owner'}), 400
+    # Removed block to allow Owner to have Support role
+
         
     new_status = 0 if u['is_support'] else 1
     c.execute("UPDATE users SET is_support=? WHERE id=?", (new_status, user_id))
@@ -2398,9 +2397,8 @@ def admin_toggle_reseller(user_id):
         conn.close()
         return jsonify({'error': 'User not found'}), 404
         
-    if user['is_owner']:
-        conn.close()
-        return jsonify({'error': 'Cannot change owner status'}), 403
+    # Removed block to allow Owner to have Reseller role
+
         
     # Check if is_reseller column exists (safety fallback)
     c.execute("PRAGMA table_info(users)")
@@ -2700,9 +2698,8 @@ def admin_toggle_weight_seller(user_id):
     if not user:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
-    if user['is_owner']:
-        conn.close()
-        return jsonify({'error': 'Cannot modify Owner'}), 403
+    # Removed block to allow Owner to have Seller role
+
     
     new_val = 0 if user['is_weight_seller'] else 1
     c.execute("UPDATE users SET is_weight_seller=? WHERE id=?", (new_val, user_id))
