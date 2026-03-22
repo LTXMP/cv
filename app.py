@@ -750,9 +750,15 @@ def login():
 
         session['is_owner'] = is_owner
         
-        # Backward compatibility for is_reseller column if missing
         is_reseller = user['is_reseller'] if 'is_reseller' in user.keys() else 0
+        is_support = user['is_support'] if 'is_support' in user.keys() else 0
+        is_seller = user['is_weight_seller'] if 'is_weight_seller' in user.keys() else 0
+        my_team_id = user['seller_team_id'] if 'seller_team_id' in user.keys() else None
+
         session['is_reseller'] = is_reseller
+        session['is_support'] = is_support
+        session['is_weight_seller'] = is_seller
+        session['seller_team_id'] = my_team_id
 
         conn.close()
         return jsonify({
@@ -760,7 +766,9 @@ def login():
             'username': user['username'],
             'is_admin': bool(user['is_admin']),
             'is_owner': bool(is_owner),
-            'is_reseller': bool(is_reseller)
+            'is_reseller': bool(is_reseller),
+            'is_support': bool(is_support),
+            'is_weight_seller': bool(is_seller)
         })
     
     conn.close()
@@ -1369,27 +1377,27 @@ def create_ticket():
 @login_required
 def get_tickets():
     user_id = session['user_id']
-    is_admin = bool(session.get('is_admin'))
-    is_owner = bool(session.get('is_owner'))
-    is_support = bool(session.get('is_support'))
-    is_seller = bool(session.get('is_weight_seller'))
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Fetch latest roles and team from DB (Real-time update)
+    user_row = c.execute("SELECT is_admin, is_owner, is_support, is_weight_seller, seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
+    
+    if not user_row:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    is_admin = bool(user_row['is_admin'])
+    is_owner = bool(user_row['is_owner'])
+    is_support = bool(user_row['is_support'])
+    is_seller = bool(user_row['is_weight_seller'])
+    my_team_id = user_row['seller_team_id']
     
     # Global Staff = Owner, Admin, Support (See all general tickets)
     is_global_staff = is_admin or is_owner or is_support
     is_any_staff = is_global_staff or is_seller
 
-    conn = get_db()
-    c = conn.cursor()
-    
     # Lazy cleanup of tickets pending deletion or closed for > 24 hours
-    cutoff = time.time() - 86400
-    c.execute("DELETE FROM ticket_messages WHERE ticket_id IN (SELECT id FROM tickets WHERE (status = 'pending_delete' OR status = 'closed') AND updated_at < ?)", (cutoff,))
-    c.execute("DELETE FROM tickets WHERE (status = 'pending_delete' OR status = 'closed') AND updated_at < ?", (cutoff,))
-    conn.commit()
-    
-    # Get the current user's seller_team_id
-    user_row = c.execute("SELECT seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
-    my_team_id = user_row['seller_team_id'] if user_row else None
     
     if is_global_staff:
         # Sees EVERYTHING or General + Their Team
