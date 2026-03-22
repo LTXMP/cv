@@ -1369,8 +1369,15 @@ def create_ticket():
 @login_required
 def get_tickets():
     user_id = session['user_id']
-    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_weight_seller'])
+    is_admin = bool(session.get('is_admin'))
+    is_owner = bool(session.get('is_owner'))
+    is_support = bool(session.get('is_support'))
+    is_seller = bool(session.get('is_weight_seller'))
     
+    # Global Staff = Owner, Admin, Support (See all general tickets)
+    is_global_staff = is_admin or is_owner or is_support
+    is_any_staff = is_global_staff or is_seller
+
     conn = get_db()
     c = conn.cursor()
     
@@ -1384,28 +1391,40 @@ def get_tickets():
     user_row = c.execute("SELECT seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
     my_team_id = user_row['seller_team_id'] if user_row else None
     
-    if is_staff:
-        # Global staff: see tickets WITHOUT seller_team_id + tickets matching their own team
-        if my_team_id:
+    if is_global_staff:
+        # Sees EVERYTHING or General + Their Team
+        # Actually, per user request: "Support, admin, owner have access to all general tickets"
+        # We'll give admin/owner everything. Support sees General + Team if they have one.
+        if is_admin or is_owner:
             query = '''
                 SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
                 FROM tickets t
                 JOIN users u ON t.user_id = u.id
-                WHERE t.user_id = ? OR t.seller_team_id IS NULL OR t.seller_team_id = ?
                 ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
             '''
-            tickets = c.execute(query, (user_id, my_team_id,)).fetchall()
+            tickets = c.execute(query).fetchall()
         else:
-            query = '''
-                SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-                FROM tickets t
-                JOIN users u ON t.user_id = u.id
-                WHERE t.user_id = ? OR t.seller_team_id IS NULL
-                ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-            '''
-            tickets = c.execute(query, (user_id,)).fetchall()
-    elif my_team_id:
-        # Team member (not global staff): see own tickets + tickets routed to their team
+            # Support: Sees General (NULL) + Own + Their Team
+            if my_team_id:
+                query = '''
+                    SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
+                    FROM tickets t
+                    JOIN users u ON t.user_id = u.id
+                    WHERE t.seller_team_id IS NULL OR t.seller_team_id = ? OR t.user_id = ?
+                    ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+                '''
+                tickets = c.execute(query, (my_team_id, user_id)).fetchall()
+            else:
+                query = '''
+                    SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
+                    FROM tickets t
+                    JOIN users u ON t.user_id = u.id
+                    WHERE t.seller_team_id IS NULL OR t.user_id = ?
+                    ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+                '''
+                tickets = c.execute(query, (user_id,)).fetchall()
+    elif is_seller and my_team_id:
+        # Team seller (who isn't Support): See own tickets + tickets routed to their team ONLY
         query = '''
             SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
             FROM tickets t
@@ -1415,7 +1434,7 @@ def get_tickets():
         '''
         tickets = c.execute(query, (user_id, my_team_id)).fetchall()
     else:
-        # Regular users: own tickets only
+        # Regular users/resellers: own tickets only
         query = '''
             SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id
             FROM tickets t
@@ -1426,7 +1445,8 @@ def get_tickets():
         
     conn.close()
     return jsonify({
-        'is_staff': bool(is_staff),
+        'is_staff': bool(is_any_staff),
+        'is_global_staff': bool(is_global_staff),
         'is_seller_team': bool(my_team_id),
         'tickets': [dict(row) for row in tickets],
         'current_user_id': user_id
