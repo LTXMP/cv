@@ -1634,11 +1634,17 @@
                 
                 const isAuthor = t.user_id === currentUserId;
                 const isForMyTeam = myTeamId && (t.seller_team_id === myTeamId);
-                const isGeneralForStaff = isGlobalStaff && t.category === 'Support' && !t.seller_team_id;
+                // Marketplace/weight categories are team-private
+                const teamPrivateCategories = ['Sale', 'Model Support', 'Buy', 'Weights'];
+                const isTeamPrivate = teamPrivateCategories.includes(t.category) || !!t.model_id;
+                // Global staff see general tickets: no team, not a team-private category
+                const isGeneralForStaff = isGlobalStaff && !t.seller_team_id && !isTeamPrivate;
+                // Seller team members see tickets assigned to their team
+                const isTeamStaff = isSellerTeam && myTeamId && (t.seller_team_id === myTeamId);
 
                 // STRICT FRONTEND FILTER (Layer 2)
-                if (!isAuthor && !isForMyTeam && !isGeneralForStaff) {
-                    return; // Skip this ticket, user should NOT see it
+                if (!isAuthor && !isForMyTeam && !isGeneralForStaff && !isTeamStaff) {
+                    return; // Skip this ticket
                 }
                 
                 if (isAuthor) {
@@ -3420,6 +3426,19 @@
                     displayedDescription = parseMarketplaceMarkdown(truncatedText) + '...';
                 }
 
+                const isOwnerListing = m.user_id === currentUserId;
+                
+                // Pricing display
+                let priceHtml = '';
+                if (m.marketplace_has_monthly) {
+                    priceHtml += `<span style="color:var(--accent); font-weight:bold;">${m.marketplace_price_monthly || '0'}€</span><span style="font-size:11px; color:var(--text-dim);">/mo</span>`;
+                }
+                if (m.marketplace_has_lifetime) {
+                    if (priceHtml) priceHtml += ' <span style="color:var(--glass-border);">|</span> ';
+                    priceHtml += `<span style="color:var(--accent); font-weight:bold;">${m.marketplace_price_lifetime || '0'}€</span><span style="font-size:11px; color:var(--text-dim);"> Lifetime</span>`;
+                }
+                if (!priceHtml) priceHtml = '<span style="color:var(--text-dim); font-size:12px;">Contact seller for pricing</span>';
+
                 card.innerHTML = `
                     <div style="width:100%; height:140px; background:rgba(255,255,255,0.05); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
                         ${m.thumbnail_path ? `<img src="${m.thumbnail_path}" style="width:100%; height:100%; object-fit:cover;">` : '<i class="fas fa-brain" style="font-size:32px; color:var(--glass-border);"></i>'}
@@ -3439,7 +3458,7 @@
                         ${showMore ? `<a href="javascript:void(0)" onclick='showFullDescription("${displayName.replace(/'/g, "\\'")}", ${JSON.stringify(fullDescription)})' style="color:var(--primary); margin-left:4px; font-weight:600;">Show More</a>` : ''}
                     </div>
                     <div style="margin-top:auto; display:flex; gap:8px;">
-                        ${isOwner ? `
+                        ${isOwnerListing ? `
                             <button onclick='openEditListingModal(${JSON.stringify(m)})' style="width:100%; margin:0; font-size:13px; padding:8px;">Edit Listing</button>
                         ` : `
                             <button onclick="marketplaceTicket(${m.id}, 'Buy', '${displayName.replace(/'/g, "\\'")}')" style="flex:1; margin:0; font-size:13px; padding:8px;">Buy</button>
