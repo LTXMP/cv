@@ -1369,19 +1369,19 @@ def get_tickets():
                 SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
                 FROM tickets t
                 JOIN users u ON t.user_id = u.id
-                WHERE t.seller_team_id IS NULL OR t.seller_team_id = ?
+                WHERE t.user_id = ? OR t.seller_team_id IS NULL OR t.seller_team_id = ?
                 ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
             '''
-            tickets = c.execute(query, (my_team_id,)).fetchall()
+            tickets = c.execute(query, (user_id, my_team_id,)).fetchall()
         else:
             query = '''
                 SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
                 FROM tickets t
                 JOIN users u ON t.user_id = u.id
-                WHERE t.seller_team_id IS NULL
+                WHERE t.user_id = ? OR t.seller_team_id IS NULL
                 ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
             '''
-            tickets = c.execute(query).fetchall()
+            tickets = c.execute(query, (user_id,)).fetchall()
     elif my_team_id:
         # Team member (not global staff): see own tickets + tickets routed to their team
         query = '''
