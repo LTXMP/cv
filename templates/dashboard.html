@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg-deep: #050505;
@@ -874,7 +875,7 @@
                         <button id="support-reopen-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--primary); border-color:var(--primary);" onclick="reopenTicket()">Reopen</button>
                         <button id="support-close-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeActiveTicket()">Close</button>
                         <button id="support-delete-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--error); border-color:var(--error);" onclick="deleteTicketPermanent()">Delete</button>
-                        <button onclick="closeSupportTicketModal()" class="btn-secondary" style="margin:0; width:40px; height:40px; display:flex; align-items:center; justify-content:center; padding:0; background:rgba(255,255,255,0.05);"><i class="fas fa-times" style="font-size:18px;"></i></button>
+                        <button onclick="closeSupportTicketModal()" class="btn-secondary" style="margin:0; width:40px; height:40px; display:flex; align-items:center; justify-content:center; padding:0; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border);"><i class="fas fa-times" style="font-size:18px; color:white !important;"></i></button>
                     </div>
                 </div>
                 
@@ -897,7 +898,7 @@
                         <!-- Attach Button -->
                         <div style="position:relative;">
                             <label for="support-file-input" class="btn-secondary" style="margin:0; width:45px; height:45px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:8px; cursor:pointer; background:rgba(255,255,255,0.05);">
-                                <i class="fas fa-plus" style="font-size:18px;"></i>
+                                <i class="fas fa-plus" style="font-size:18px; color:white !important;"></i>
                                 <input type="file" id="support-file-input" style="display:none;" onchange="handleFileSelected()">
                             </label>
                         </div>
@@ -909,7 +910,7 @@
 
                         <!-- Send Button -->
                         <button id="ticket-reply-btn" onclick="sendTicketReply()" class="btn-primary" title="Press Enter to send (Shift+Enter for new line)" style="margin:0; height:45px; width:45px; display:flex; align-items:center; justify-content:center; border-radius:8px;">
-                            <i class="fas fa-level-down-alt" style="transform: rotate(90deg); font-size:18px;"></i>
+                            <i class="fas fa-level-down-alt" style="transform: rotate(90deg); font-size:18px; color:white !important;"></i>
                         </button>
                     </div>
                 </div>
@@ -1421,7 +1422,25 @@
                     }
                 });
             }
+            // Auto-update countdowns every second
+            setInterval(updateSupportCountdowns, 1000);
         });
+
+        function updateSupportCountdowns() {
+            const now = Math.floor(Date.now() / 1000);
+            document.querySelectorAll('.ticket-countdown').forEach(el => {
+                const updated = parseInt(el.getAttribute('data-updated'));
+                const secondsLeft = 86400 - (now - updated);
+                if (secondsLeft <= 0) {
+                    el.innerText = 'Deleting...';
+                } else {
+                    const h = String(Math.floor(secondsLeft / 3600)).padStart(2, '0');
+                    const m = String(Math.floor((secondsLeft % 3600) / 60)).padStart(2, '0');
+                    const s = String(secondsLeft % 60).padStart(2, '0');
+                    el.innerText = `Delete in ${h}:${m}:${s}`;
+                }
+            });
+        }
 
         async function loadSupportTickets() {
             try {
@@ -1484,15 +1503,14 @@
                 div.onclick = () => openSupportTicket(t.id, t.subject, t.status);
                 
                 const statusColor = t.status === 'open' ? 'var(--success)' : 'var(--text-dim)';
-                                    t.status === 'closed' ? 'var(--text-dim)' : 'var(--warning)';
-                let displayStatus = t.status;
-                if (t.status === 'pending_delete') {
-                    displayStatus = `<span class="ticket-countdown" data-updated="${t.updated_at}">Deleting...</span>`;
+                let displayStatus = t.status.toUpperCase();
+                if (t.status === 'pending_delete' || t.status === 'closed') {
+                    displayStatus = `<span class="ticket-countdown" data-updated="${t.updated_at}">Calculating...</span>`;
                 }
 
                 const title = t.username ? `[${t.username}] ${t.subject}` : t.subject;
                 const catBadge = !(isStaff || isSellerTeam) ? `<span style="border:1px solid var(--glass-border); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--primary);">${t.category || 'Support'}</span>` : '';
-                const closedBadge = t.status === 'closed' ? `<span style="border:1px solid var(--text-dim); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--text-dim);">Closed</span>` : '';
+                const closedBadge = (t.status === 'closed' || t.status === 'pending_delete') ? `<span style="border:1px solid var(--text-dim); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--text-dim);">Closing</span>` : '';
                 const salesBadge = t.seller_team_id ? `<span style="border:1px solid var(--accent); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--accent);">SALE</span>` : '';
                 
                 div.innerHTML = `
@@ -1526,11 +1544,10 @@
                         if (containers.buy) containers.buy.appendChild(kDiv);
                     } else if (t.category === 'Rebrand/Reseller') {
                         if (containers.rebrand) containers.rebrand.appendChild(kDiv);
-                    } else {
-                        if (containers.support) containers.support.appendChild(kDiv);
                     }
                 }
             });
+            setTimeout(updateSupportCountdowns, 100);
         }
 
         async function openSupportTicket(id, subject, status) {
