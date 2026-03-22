@@ -9,7 +9,7 @@ import string
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import Flask, request, jsonify, send_file, abort, session, render_template
+from flask import Flask, request, jsonify, send_file, abort, session, render_template, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import json
@@ -41,7 +41,7 @@ SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
 IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
 
 # Ensuring directories exist
-THUMBNAIL_FOLDER = os.path.join(BASE_DIR, 'static', 'img', 'thumbnails')
+THUMBNAIL_FOLDER = os.path.join(MODEL_DIR, 'thumbnails')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
 
@@ -1432,7 +1432,18 @@ def get_tickets():
     # Own tickets are always included (frontend routes them to 'My Tickets')
     # Staff Kanban shows OTHER people's tickets only (handled in frontend)
     
-    if is_global_staff and my_team_id:
+    if is_admin or is_owner:
+        # Full access for Admins/Owners
+        tickets = c.execute('''
+            SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, 
+                   u.username, m.user_id AS model_owner_id
+            FROM tickets t
+            JOIN users u ON t.user_id = u.id
+            LEFT JOIN models m ON t.model_id = m.id
+            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+        ''').fetchall()
+    elif is_global_staff and my_team_id:
         # Global staff WITH a team: own + team + general + models they own
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
@@ -1575,7 +1586,7 @@ def get_ticket_details(ticket_id):
     
     # Access Control Logic (Consistent with get_tickets)
     allowed = False
-    if ticket_user_id == user_id:
+    if is_admin or is_owner or ticket_user_id == user_id:
         allowed = True
     elif is_global_staff and not ticket_team_id and ticket['category'] == 'Support':
         allowed = True # General Support assigned to no team
@@ -1696,7 +1707,7 @@ def reply_to_ticket(ticket_id):
         return jsonify({'error': 'Ticket not found'}), 404
         
     can_access = False
-    if ticket['user_id'] == user_id:
+    if is_admin or is_owner or ticket['user_id'] == user_id:
         can_access = True
     elif my_team_id is not None and ticket['seller_team_id'] == my_team_id:
         can_access = True
@@ -1775,12 +1786,31 @@ def close_ticket(ticket_id):
     conn = get_db()
     c = conn.cursor()
     
-    if is_staff:
+    # Admin/Owner can close ANY ticket; staff can close visible ones; user can close OWN ones
+    u_r = c.execute("SELECT is_admin, is_owner, seller_team_id, is_support FROM users WHERE id=?", (user_id,)).fetchone()
+    is_admin = int(u_r['is_admin'] or 0) == 1 if u_r else False
+    is_owner = int(u_r['is_owner'] or 0) == 1 if u_r else False
+    
+    can_close = False
+    if is_admin or is_owner:
+        can_close = True
         ticket = c.execute("SELECT user_id, subject, category, status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    elif is_staff:
+        # Check team match if applicable
+        ticket = c.execute("SELECT user_id, subject, category, status, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+        if ticket:
+            m_t_i = u_r['seller_team_id'] if u_r else None
+            is_supp = int(u_r['is_support'] or 0) == 1 if u_r else False
+            
+            if is_supp and (ticket['seller_team_id'] is None or ticket['category'] == 'Support'):
+                 can_close = True
+            elif m_t_i is not None and ticket['seller_team_id'] == m_t_i:
+                 can_close = True
     else:
         ticket = c.execute("SELECT user_id, subject, category, status FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
+        if ticket: can_close = True
         
-    if not ticket:
+    if not can_close or not ticket:
         conn.close()
         return jsonify({'error': 'Ticket not found or unauthorized'}), 404
         
@@ -2344,13 +2374,12 @@ def upload_model():
     thumbnail_path = ""
     if 'thumbnail' in request.files:
         thumb = request.files['thumbnail']
-        if thumb.filename != '':
+        if thumb.filename != '' and allowed_file(thumb.filename):
             thumb_filename = secure_filename(f"thumb_{uuid.uuid4()}_{thumb.filename}")
-            # Ensure static/thumbnails exists
-            thumb_dir = os.path.join(os.path.dirname(__file__), 'static', 'thumbnails')
-            os.makedirs(thumb_dir, exist_ok=True)
-            thumb.save(os.path.join(thumb_dir, thumb_filename))
-            thumbnail_path = f"/static/thumbnails/{thumb_filename}"
+            # Ensure folder exists
+            os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
+            thumb.save(os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename))
+            thumbnail_path = f"/api/thumbnails/{thumb_filename}"
 
     # Generate 6-digit Unique ID
     unique_id = ''.join(secrets.choice(string.digits) for _ in range(6))
@@ -3164,9 +3193,11 @@ def upload_marketplace_thumbnail(model_id):
         ext = file.filename.rsplit('.', 1)[1].lower()
         thumb_filename = f"thumb_{model_id}_{int(time.time())}.{ext}"
         filepath = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
+        # Ensure folder exists
+        os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
         file.save(filepath)
         
-        thumb_path = f"/static/img/thumbnails/{thumb_filename}"
+        thumb_path = f"/api/thumbnails/{thumb_filename}"
         c.execute("UPDATE models SET thumbnail_path=? WHERE id=?", (thumb_path, model_id))
         conn.commit()
         conn.close()
@@ -3195,6 +3226,10 @@ def get_marketplace_models():
     ''').fetchall()
     conn.close()
     return jsonify({'current_user_id': curr_user_id, 'models': [dict(m) for m in models]})
+
+@app.route('/api/thumbnails/<filename>')
+def serve_thumbnail(filename):
+    return send_from_directory(app.config['THUMBNAIL_FOLDER'], filename)
 
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
