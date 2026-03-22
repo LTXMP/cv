@@ -1519,9 +1519,17 @@ def get_ticket_details(ticket_id):
         conn.close()
         return jsonify({'error': 'Ticket not found'}), 404
     
-    # Access check: staff, ticket owner, or team member for team-routed tickets
-    can_access = is_staff or ticket['user_id'] == user_id
-    if not can_access and my_team_id and ticket['seller_team_id'] == my_team_id:
+    # Strict Access Check: isolation between weight seller teams
+    can_access = False
+    
+    # Author always has access
+    if ticket['user_id'] == user_id:
+        can_access = True
+    # Team members see their team's tickets
+    elif my_team_id is not None and ticket['seller_team_id'] == my_team_id:
+        can_access = True
+    # Staff see General Support (no team assigned)
+    elif is_staff and ticket['category'] == 'Support' and ticket['seller_team_id'] is None:
         can_access = True
     
     if not can_access:
@@ -1574,7 +1582,8 @@ def grant_marketplace_access():
     user_row = c.execute("SELECT seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
     my_team_id = user_row['seller_team_id'] if user_row else None
     
-    if not session.get('is_admin') and ticket['seller_team_id'] != my_team_id:
+    # Strict Check: Must be the owner of the team or in the team the ticket is routed to
+    if ticket['seller_team_id'] != my_team_id:
         conn.close()
         return jsonify({'error': 'Unauthorized to grant access for this ticket'}), 403
         
@@ -1616,14 +1625,26 @@ def reply_to_ticket(ticket_id):
     conn = get_db()
     c = conn.cursor()
     
-    if is_staff or session.get('is_admin') or session.get('is_support'):
-        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
-    else:
-        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
-        
+    user_row = c.execute("SELECT seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
+    my_team_id = user_row['seller_team_id'] if user_row else None
+    is_staff = session.get('is_admin') or session.get('is_support')
+
+    ticket = c.execute("SELECT user_id, category, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     if not ticket:
         conn.close()
-        return jsonify({'error': 'Ticket not found or unauthorized'}), 404
+        return jsonify({'error': 'Ticket not found'}), 404
+        
+    can_access = False
+    if ticket['user_id'] == user_id:
+        can_access = True
+    elif my_team_id is not None and ticket['seller_team_id'] == my_team_id:
+        can_access = True
+    elif is_staff and ticket['category'] == 'Support' and ticket['seller_team_id'] is None:
+        can_access = True
+        
+    if not can_access:
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
     
     file_path = None
     is_image = False
