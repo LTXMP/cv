@@ -1406,7 +1406,8 @@ def get_tickets():
     return jsonify({
         'is_staff': bool(is_staff),
         'is_seller_team': bool(my_team_id),
-        'tickets': [dict(row) for row in tickets]
+        'tickets': [dict(row) for row in tickets],
+        'current_user_id': user_id
     })
 
 @app.route('/api/support/tickets/<int:ticket_id>/messages', methods=['GET'])
