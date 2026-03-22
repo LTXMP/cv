@@ -261,32 +261,21 @@ def init_db():
         except Exception as e:
             print(f"Model Migration Failed: {e}")
 
-    if 'in_marketplace' not in model_columns:
-        try:
-            c.execute("ALTER TABLE models ADD COLUMN in_marketplace BOOLEAN DEFAULT 0")
-        except: pass
-
-    if 'marketplace_name' not in model_columns:
-        try:
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_name TEXT")
-        except: pass
-
-    if 'marketplace_description' not in model_columns:
-        try:
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_description TEXT")
-        except: pass
-
-    if 'marketplace_price_monthly' not in model_columns:
-        try:
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_price_monthly TEXT")
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_price_lifetime TEXT")
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_has_monthly BOOLEAN DEFAULT 0")
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_has_lifetime BOOLEAN DEFAULT 1")
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_game TEXT")
-        except: pass
-        try:
-            c.execute("ALTER TABLE models ADD COLUMN marketplace_description TEXT")
-        except: pass
+    # Ensure all marketplace columns exist
+    for col, col_type in [
+        ('in_marketplace', 'BOOLEAN DEFAULT 0'),
+        ('marketplace_name', 'TEXT'),
+        ('marketplace_description', 'TEXT'),
+        ('marketplace_price_monthly', 'TEXT'),
+        ('marketplace_price_lifetime', 'TEXT'),
+        ('marketplace_has_monthly', 'BOOLEAN DEFAULT 0'),
+        ('marketplace_has_lifetime', 'BOOLEAN DEFAULT 1'),
+        ('marketplace_game', 'TEXT')
+    ]:
+        if col not in model_columns:
+            try:
+                c.execute(f"ALTER TABLE models ADD COLUMN {col} {col_type}")
+            except: pass
 
     # Migration: Check for last_hwid_reset in users
     if 'last_hwid_reset' not in columns:
