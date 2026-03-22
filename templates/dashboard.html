@@ -202,6 +202,27 @@
             box-shadow: none;
         }
 
+        /* Tab Header Hover Effect */
+        .page h1 {
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-block;
+            cursor: default;
+        }
+        .page h1:hover {
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--primary-glow);
+            transform: translateX(5px);
+        }
+
+        /* Dashboard Header Logo Hover */
+        #dashboard-header h1 {
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #dashboard-header h1:hover {
+            text-shadow: 0 0 25px var(--primary-glow);
+            transform: scale(1.02);
+        }
+
         /* Models Grid */
         .grid-models {
             display: grid;
@@ -3509,6 +3530,16 @@
             // Clear file input
             document.getElementById('edit-m-thumbnail').value = '';
             
+            // Thumbnail Preview
+            const previewContainer = document.getElementById('edit-m-thumbnail-preview-container');
+            const previewImg = document.getElementById('edit-m-thumbnail-preview');
+            if (m.thumbnail_path) {
+                previewImg.src = m.thumbnail_path;
+                previewContainer.style.display = 'block';
+            } else {
+                previewContainer.style.display = 'none';
+            }
+            
             document.getElementById('marketplace-edit-modal').classList.remove('hidden');
         }
 
@@ -3707,6 +3738,10 @@
 
             <div style="margin-bottom:16px;">
                 <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Marketplace Thumbnail</label>
+                <div id="edit-m-thumbnail-preview-container" style="margin-bottom:12px; display:none;">
+                    <div style="font-size:10px; color:var(--text-dim); margin-bottom:4px;">Current Thumbnail:</div>
+                    <img id="edit-m-thumbnail-preview" src="" style="width:120px; height:80px; object-fit:cover; border-radius:8px; border:1px solid var(--glass-border);">
+                </div>
                 <input type="file" id="edit-m-thumbnail" accept="image/*" style="width:100%; font-size:12px;">
             </div>
 
