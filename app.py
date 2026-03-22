@@ -1369,7 +1369,7 @@ def create_ticket():
 @login_required
 def get_tickets():
     user_id = session['user_id']
-    is_staff = session.get('is_admin') or session.get('is_support')
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_reseller', 'is_weight_seller'])
     
     conn = get_db()
     c = conn.cursor()
@@ -1569,11 +1569,11 @@ def grant_marketplace_access():
 @login_required
 def reply_to_ticket(ticket_id):
     user_id = session['user_id']
-    is_staff = session.get('is_admin') or session.get('is_support') or session.get('is_reseller') or session.get('is_weight_seller')
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_reseller', 'is_weight_seller'])
     
     message = ""
-    if request.is_json:
-        data = request.json
+    data = request.get_json(silent=True)
+    if data:
         message = data.get('message', '').strip()
     else:
         message = request.form.get('message', '').strip()
@@ -1636,9 +1636,42 @@ def reply_to_ticket(ticket_id):
             f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**User**: {session['username']} (ID: {user_id})\n**Message**: {message}",
             color=0xf39c12 # Orange
         )
-
     conn.close()
     return jsonify({'message': 'Reply added successfully'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/reopen', methods=['POST'])
+@login_required
+def reopen_ticket(ticket_id):
+    user_id = session['user_id']
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support', 'is_reseller', 'is_weight_seller'])
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    ticket = c.execute("SELECT user_id, status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    if not ticket or (not is_staff and ticket['user_id'] != user_id):
+        conn.close()
+        return jsonify({'error': 'Ticket not found or unauthorized'}), 404
+        
+    c.execute("UPDATE tickets SET status = 'open', updated_at = ? WHERE id = ?", (time.time(), ticket_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Ticket reopened'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/delete_permanent', methods=['POST'])
+@login_required
+def delete_ticket_permanent(ticket_id):
+    is_staff = any(session.get(role) for role in ['is_admin', 'is_support']) # Only Admins/Support can PERMANENTLY delete
+    if not is_staff:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM ticket_messages WHERE ticket_id = ?", (ticket_id,))
+    c.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Ticket deleted permanently'})
 
 @app.route('/api/support/tickets/<int:ticket_id>/close', methods=['POST'])
 @login_required
