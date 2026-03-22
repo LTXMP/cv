@@ -1451,7 +1451,8 @@ def get_tickets():
         # Seller/team member: own + team tickets
         tickets = c.execute('''
             SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, 
-                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
+                   t.created_at, t.updated_at, t.seller_team_id, t.model_id, 
+                   u.username, m.user_id AS model_owner_id
             FROM tickets t
             JOIN users u ON t.user_id = u.id
             LEFT JOIN models m ON t.model_id = m.id
@@ -3012,9 +3013,11 @@ def admin_assign_seller_team(user_id):
     
     c.execute("UPDATE users SET seller_team_id=? WHERE id=?", (team_id, user_id))
     conn.commit()
+    # Confirm it was saved
+    verify = c.execute("SELECT seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
-    print(f"[TEAM DEBUG] SUCCESS: User {user_id} assigned to team {team_id}", flush=True)
-    return jsonify({'message': 'Team assignment updated'})
+    print(f"[TEAM DEBUG] SUCCESS: User {user_id} now has team_id={verify['seller_team_id'] if verify else 'N/A'}", flush=True)
+    return jsonify({'message': 'Team assignment updated', 'new_team_id': team_id})
 
 @app.route('/api/models/<int:model_id>/marketplace', methods=['POST'])
 @login_required
