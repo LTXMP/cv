@@ -379,6 +379,7 @@
                 </div>
                 <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
+                <button class="nav-item" onclick="showPage('marketplace')" id="nav-marketplace">Marketplace</button>
                 <button class="nav-item" onclick="showPage('admin')" id="nav-admin"
                     style="display:none; color:var(--accent);">Admin Panel</button>
                 <button class="nav-item" onclick="showPage('reseller')" id="nav-reseller"
@@ -712,11 +713,10 @@
             <div id="page-support" class="page hidden">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
                     <h1 style="margin:0;">Support Tickets</h1>
-                    <button id="staff-create-ticket-btn" onclick="openCreateTicketModal()" style="width:auto; margin:0; display:none;">Create Ticket</button>
                 </div>
 
-                <!-- User View -->
-                <div id="support-user-layout" style="display: none; grid-template-columns: 1fr 2fr; gap: 24px;">
+                <!-- User View (Now always visible at top) -->
+                <div id="support-user-layout" style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-bottom: 40px;">
                     <div class="card" style="padding: 20px;">
                         <h3 style="margin-bottom:20px;">Open New Ticket</h3>
                         <label style="color:var(--text-dim); font-size:13px;">Reason / Category</label>
@@ -725,11 +725,10 @@
                             <option value="Buy">Purchasing & Billing</option>
                             <option value="Rebrand/Reseller">Rebrand / Reseller</option>
                         </select>
-                        <div id="user-subcategory-group" style="display:none;">
+                        <div id="user-subcategory-group">
                             <label style="color:var(--text-dim); font-size:13px;">Type</label>
-                            <select id="user-new-ticket-subcategory" onchange="onTicketSubcategoryChange('user')" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
+                            <select id="user-new-ticket-subcategory" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
                                 <option value="Program">Program (Subscription)</option>
-                                <option value="Weights">Weights (AI Models)</option>
                             </select>
                         </div>
                         <div id="user-item-group" style="display:none;">
@@ -756,6 +755,11 @@
                     </div>
                 </div>
 
+                <!-- Staff Header (Hidden if not staff) -->
+                <div id="support-staff-header" style="display: none; border-top: 1px solid var(--glass-border); padding-top: 30px; margin-top: 20px; margin-bottom: 20px;">
+                    <h2 style="margin:0;">Staff Management (Kanban)</h2>
+                </div>
+
                 <!-- Staff View -->
                 <div id="support-staff-layout" style="display: none; grid-template-columns: repeat(5, 1fr); gap: 20px; align-items: start;">
                     <div class="card" style="padding: 15px;">
@@ -778,6 +782,18 @@
                         <h3 style="margin-top:0; color:var(--text-dim); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">Closed</h3>
                         <div id="kanban-closed" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Tab: Marketplace -->
+            <div id="page-marketplace" class="page hidden">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+                    <h1 style="margin:0;">Model Marketplace</h1>
+                    <div style="font-size:14px; color:var(--text-dim);">Browse and purchase high-performance AI models</div>
+                </div>
+                
+                <div id="marketplace-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
+                    <!-- JS populates cards -->
                 </div>
             </div>
             
@@ -1284,7 +1300,7 @@
             try {
                 const res = await fetch(`${API_URL}/support/tickets`);
                 const data = await res.json();
-                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team);
+                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.current_user_id);
             } catch (e) {
                 console.error("Failed to load tickets", e);
             }
@@ -1293,21 +1309,22 @@
         let isCurrentUserStaff = false;
         let isCurrentUserSellerTeam = false;
 
-        function renderSupportTickets(list, isStaff, isSellerTeam) {
+        function renderSupportTickets(list, isStaff, isSellerTeam, currentUserId) {
             isCurrentUserStaff = isStaff;
             isCurrentUserSellerTeam = isSellerTeam;
             const userView = document.getElementById('support-user-layout');
             const staffView = document.getElementById('support-staff-layout');
+            const staffHeader = document.getElementById('support-staff-header');
             
-            // Show staff/team Kanban if staff OR seller team member
+            // Layout: Everyone sees UserView (for their own tickets)
+            userView.style.display = 'grid';
+            
             if (isStaff || isSellerTeam) {
-                userView.style.display = 'none';
                 staffView.style.display = 'grid';
-                document.getElementById('staff-create-ticket-btn').style.display = isStaff ? 'block' : 'none';
+                if (staffHeader) staffHeader.style.display = 'block';
             } else {
-                userView.style.display = 'grid';
                 staffView.style.display = 'none';
-                document.getElementById('staff-create-ticket-btn').style.display = 'none';
+                if (staffHeader) staffHeader.style.display = 'none';
             }
 
             const containers = {
@@ -1362,24 +1379,29 @@
                     </div>
                 `;
                 
-                if (!(isStaff || isSellerTeam)) {
+                if (t.user_id === currentUserId) {
                     if (containers.user) containers.user.appendChild(div);
-                } else {
-                    // Seller team tickets go to Sales column
+                }
+                
+                if (isStaff || isSellerTeam) {
+                    // Route to Kanban
+                    const kDiv = div.cloneNode(true);
+                    kDiv.onclick = div.onclick; // Ensure handler works on clone
+                    
                     if (t.seller_team_id) {
                         if (t.status === 'closed' || t.status === 'pending_delete') {
-                            if (containers.closed) containers.closed.appendChild(div);
+                            if (containers.closed) containers.closed.appendChild(kDiv);
                         } else {
-                            if (containers.sales) containers.sales.appendChild(div);
+                            if (containers.sales) containers.sales.appendChild(kDiv);
                         }
                     } else if (t.status === 'closed' || t.status === 'pending_delete') {
-                        if (containers.closed) containers.closed.appendChild(div);
+                        if (containers.closed) containers.closed.appendChild(kDiv);
                     } else if (t.category === 'Buy') {
-                        if (containers.buy) containers.buy.appendChild(div);
+                        if (containers.buy) containers.buy.appendChild(kDiv);
                     } else if (t.category === 'Rebrand/Reseller') {
-                        if (containers.rebrand) containers.rebrand.appendChild(div);
+                        if (containers.rebrand) containers.rebrand.appendChild(kDiv);
                     } else {
-                        if (containers.support) containers.support.appendChild(div);
+                        if (containers.support) containers.support.appendChild(kDiv);
                     }
                 }
             });
@@ -1551,19 +1573,14 @@
             // Build context prefix from subcategory/item
             const subGroup = document.getElementById('user-subcategory-group');
             const itemGroup = document.getElementById('user-item-group');
-            let model_id = null;
+            let model_id = window.activeMarketplaceModelId || null;
             
-            if (subGroup.style.display !== 'none') {
+            if (!model_id && subGroup.style.display !== 'none') {
                 const subcat = document.getElementById('user-new-ticket-subcategory').value;
                 const itemEl = document.getElementById('user-new-ticket-item');
                 if (itemGroup.style.display !== 'none' && itemEl.options.length > 0) {
                     const itemText = itemEl.options[itemEl.selectedIndex].text;
-                    if (subcat === 'Weights') {
-                        model_id = parseInt(itemEl.value);
-                        message = `[${category.toUpperCase()}: Weights - ${itemText}]\n\n${message}`;
-                    } else {
-                        message = `[${category.toUpperCase()}: Program - ${itemText}]\n\n${message}`;
-                    }
+                    message = `[${category.toUpperCase()}: ${subcat} - ${itemText}]\n\n${message}`;
                 }
             }
             
@@ -1580,10 +1597,7 @@
                     showNotification('Ticket Created', 'success');
                     document.getElementById('user-new-ticket-subject').value = '';
                     document.getElementById('user-new-ticket-message').value = '';
-                    // Reset subcategory
-                    document.getElementById('user-subcategory-group').style.display = 'none';
-                    document.getElementById('user-item-group').style.display = 'none';
-                    document.getElementById('user-new-ticket-category').value = 'Support';
+                    window.activeMarketplaceModelId = null; // Reset
                     loadSupportTickets();
                 } else {
                     showNotification('Failed to create ticket', 'error');
@@ -1610,55 +1624,25 @@
         }
 
         async function onTicketSubcategoryChange(prefix) {
-            const subcat = document.getElementById(prefix + '-new-ticket-subcategory').value;
             const itemGroup = document.getElementById(prefix + '-item-group');
             const itemSelect = document.getElementById(prefix + '-new-ticket-item');
             
             itemSelect.innerHTML = '';
             itemGroup.style.display = 'block';
             
-            if (subcat === 'Program') {
-                const plans = [
-                    {value: 'day', text: 'Day (4€)'},
-                    {value: 'week', text: 'Week (15€)'},
-                    {value: 'month', text: 'Month (40€)'},
-                    {value: 'lifetime', text: 'Lifetime'}
-                ];
-                plans.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.value;
-                    opt.textContent = p.text;
-                    itemSelect.appendChild(opt);
-                });
-            } else {
-                // Load marketplace models
-                try {
-                    if (cachedMarketplaceModels.length === 0) {
-                        const res = await fetch(`${API_URL}/marketplace/models`);
-                        cachedMarketplaceModels = await res.json();
-                    }
-                    if (cachedMarketplaceModels.length === 0) {
-                        const opt = document.createElement('option');
-                        opt.value = '';
-                        opt.textContent = 'No models available';
-                        opt.disabled = true;
-                        itemSelect.appendChild(opt);
-                    } else {
-                        cachedMarketplaceModels.forEach(m => {
-                            const opt = document.createElement('option');
-                            opt.value = m.id;
-                            opt.textContent = `${m.name} (by ${m.seller_username})`;
-                            itemSelect.appendChild(opt);
-                        });
-                    }
-                } catch (e) {
-                    const opt = document.createElement('option');
-                    opt.value = '';
-                    opt.textContent = 'Error loading models';
-                    opt.disabled = true;
-                    itemSelect.appendChild(opt);
-                }
-            }
+            // Current only "Program" is enabled in manual form
+            const plans = [
+                {value: 'day', text: 'Day (4€)'},
+                {value: 'week', text: 'Week (15€)'},
+                {value: 'month', text: 'Month (40€)'},
+                {value: 'lifetime', text: 'Lifetime'}
+            ];
+            plans.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.value;
+                opt.textContent = p.text;
+                itemSelect.appendChild(opt);
+            });
         }
 
         async function sendTicketReply() {
@@ -1868,6 +1852,8 @@
             }
             if (pageId === 'support') {
                 loadSupportTickets();
+            } else if (pageId === 'marketplace') {
+                loadMarketplaceModels();
             }
         }
 
@@ -2726,11 +2712,137 @@
             });
         }
 
+        // --- Marketplace Logic ---
+        async function loadMarketplaceModels() {
+            const grid = document.getElementById('marketplace-grid');
+            if (grid) grid.innerHTML = '<p style="color:var(--text-dim); text-align:center; grid-column:1/-1;">Loading marketplace...</p>';
+            
+            try {
+                const res = await fetch(`${API_URL}/marketplace/models`);
+                const data = await res.json();
+                renderMarketplaceModels(data.models, data.current_user_id);
+            } catch (e) {
+                console.error("Marketplace load failed", e);
+                if (grid) grid.innerHTML = '<p style="color:var(--error); text-align:center; grid-column:1/-1;">Failed to load marketplace.</p>';
+            }
+        }
+
+        function renderMarketplaceModels(models, currentUserId) {
+            const grid = document.getElementById('marketplace-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            
+            if (!models || models.length === 0) {
+                grid.innerHTML = '<p style="color:var(--text-dim); text-align:center; grid-column:1/-1;">No models in marketplace yet.</p>';
+                return;
+            }
+            
+            models.forEach(m => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.padding = '20px';
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.gap = '12px';
+                
+                const displayName = m.marketplace_name || m.name;
+                const description = m.marketplace_description || 'No description provided.';
+                const isOwner = m.user_id === currentUserId;
+                
+                card.innerHTML = `
+                    <div style="width:100%; height:160px; background:rgba(255,255,255,0.05); border-radius:12px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        ${m.thumbnail_path ? `<img src="${m.thumbnail_path}" style="width:100%; height:100%; object-fit:cover;">` : '<i class="fas fa-brain" style="font-size:40px; color:var(--glass-border);"></i>'}
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:18px;">${displayName}</h3>
+                        <div style="font-size:12px; color:var(--accent); margin-top:4px;">Seller: ${m.seller_username}</div>
+                    </div>
+                    <p style="font-size:13px; color:var(--text-dim); line-height:1.5; height:60px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;">
+                        ${description}
+                    </p>
+                    <div style="margin-top:auto; display:flex; gap:10px;">
+                        ${isOwner ? `
+                            <button onclick="openEditListingModal(${m.id}, '${displayName.replace(/'/g, "\\'")}', '${description.replace(/'/g, "\\'")}')" style="width:100%; margin:0;">Edit Listing</button>
+                        ` : `
+                            <button onclick="marketplaceTicket(${m.id}, 'Buy', '${displayName.replace(/'/g, "\\'")}')" style="flex:1; margin:0;">Buy</button>
+                            <button class="btn-secondary" onclick="marketplaceTicket(${m.id}, 'Support', '${displayName.replace(/'/g, "\\'")}')" style="flex:1; margin:0;">Support</button>
+                        `}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openEditListingModal(id, name, desc) {
+            document.getElementById('edit-m-id').value = id;
+            document.getElementById('edit-m-name').value = (name === 'null' || !name) ? '' : name;
+            document.getElementById('edit-m-description').value = (desc === 'null' || !desc) ? '' : desc;
+            document.getElementById('marketplace-edit-modal').classList.remove('hidden');
+        }
+
+        async function saveMarketplaceUpdate() {
+            const id = document.getElementById('edit-m-id').value;
+            const name = document.getElementById('edit-m-name').value;
+            const desc = document.getElementById('edit-m-description').value;
+            
+            try {
+                const res = await fetch(`${API_URL}/models/${id}/marketplace_update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ marketplace_name: name, marketplace_description: desc })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(data.message, 'success');
+                    document.getElementById('marketplace-edit-modal').classList.add('hidden');
+                    loadMarketplaceModels();
+                } else {
+                    showNotification(data.error, 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to update listing', 'error');
+            }
+        }
+
+        function marketplaceTicket(modelId, category, modelName) {
+            showPage('support');
+            // Populate form
+            document.getElementById('user-new-ticket-category').value = category;
+            document.getElementById('user-new-ticket-subject').value = `${category}: ${modelName}`;
+            document.getElementById('user-new-ticket-message').value = `I would like to ${category.toLowerCase()} the model: ${modelName}.`;
+            // Store model_id globally or in form for submission
+            window.activeMarketplaceModelId = modelId;
+            showNotification('Ticket form pre-filled for ' + modelName, 'info');
+        }
+
         // Start interval
         updateAllCountdowns(); // Initial call
         setInterval(updateAllCountdowns, 60000); // Every minute
         
     </script>
+
+    <!-- Modal: Edit Marketplace Listing -->
+    <div id="marketplace-edit-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2 id="edit-m-title">Edit Marketplace Listing</h2>
+            <p style="color:var(--text-dim); font-size:13px; margin-bottom:20px;">Customize how your model appears to potential buyers.</p>
+            
+            <input type="hidden" id="edit-m-id">
+            
+            <label style="color:var(--text-dim); font-size:12px;">Display Name (on Marketplace)</label>
+            <input type="text" id="edit-m-name" placeholder="Catchy Listing Name...">
+            
+            <label style="color:var(--text-dim); font-size:12px;">Description</label>
+            <textarea id="edit-m-description" placeholder="Describe what makes this model special..." style="width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:120px; font-family:inherit; outline:none; resize:vertical;"></textarea>
+            
+            <div style="display:flex; gap:12px; margin-top:20px;">
+                <button class="btn-secondary" onclick="document.getElementById('marketplace-edit-modal').classList.add('hidden')" style="flex:1; margin:0;">Cancel</button>
+                <button onclick="saveMarketplaceUpdate()" style="flex:2; margin:0;">Save Listing</button>
+            </div>
+        </div>
+    </div>
+
 </body>
+
 
 </html>
