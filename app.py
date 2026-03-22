@@ -832,7 +832,7 @@ def client_auth():
          return jsonify({'authorized': False, 'message': 'Subscription expired.'}), 403
 
     # Check paused state
-    is_paused = license.get('is_paused', 0) if 'is_paused' in license.keys() else 0
+    is_paused = license['is_paused'] if 'is_paused' in license.keys() else 0
     if is_paused:
         conn.close()
         return jsonify({'authorized': False, 'message': 'Subscription is paused. Contact your reseller.'}), 403
