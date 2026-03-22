@@ -485,7 +485,7 @@ def send_manual_email(to_email, subject, body):
         <html>
         <body style="font-family: sans-serif; background-color: #0d0d0d; color: #ffffff; padding: 20px;">
             <div style="max-width: 600px; margin: 0 auto; background: #121212; padding: 30px; border-radius: 10px; border: 1px solid #333;">
-                <h2 style="color: #00BFFF; border-bottom: 2px solid #00BFFF; padding-bottom: 10px;">Ticket Transcript</h2>
+                <h2 style="color: #4A90E2; border-bottom: 2px solid #4A90E2; padding-bottom: 10px;">{subject}</h2>
                 <div style="line-height: 1.6; color: #e0e0e0;">
                     {html_body}
                 </div>
@@ -590,6 +590,10 @@ def privacy():
 @app.route('/refund')
 def refund():
     return render_template('refund.html')
+
+@app.route('/purchase')
+def purchase():
+    return render_template('purchase.html')
 
 @app.route('/reseller')
 def reseller():
@@ -1392,7 +1396,7 @@ def create_ticket():
     username = user_row['username'] if user_row else f"User {user_id}"
 
     send_discord_notification(
-        "New Support Ticket",
+        "New Ticket",
         f"**User**: {username} (ID: {user_id})\n**Category**: {category}\n**Subject**: {subject}\n**Message**: {message}",
         color=0x3498db # Blue
     )
