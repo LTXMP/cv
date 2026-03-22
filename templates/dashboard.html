@@ -2973,15 +2973,40 @@
             }
         }
 
-        function marketplaceTicket(modelId, category, modelName) {
-            showPage('support');
-            // Populate form
-            document.getElementById('user-new-ticket-category').value = category;
-            document.getElementById('user-new-ticket-subject').value = `${category}: ${modelName}`;
-            document.getElementById('user-new-ticket-message').value = `I would like to ${category.toLowerCase()} the model: ${modelName}.`;
-            // Store model_id globally or in form for submission
-            window.activeMarketplaceModelId = modelId;
-            showNotification('Ticket form pre-filled for ' + modelName, 'info');
+        async function marketplaceTicket(modelId, category, modelName) {
+            showNotification('Creating ticket for ' + modelName + '...', 'info');
+            
+            const subject = `${category}: ${modelName}`;
+            const message = `I would like to ${category.toLowerCase()} the model: ${modelName}.`;
+            
+            try {
+                const res = await fetch(`${API_URL}/support/tickets`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        subject: subject,
+                        category: category,
+                        message: message,
+                        model_id: modelId
+                    })
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification('Ticket Created Successfully', 'success');
+                    showPage('support');
+                    loadSupportTickets();
+                    // Optional: open the ticket immediately
+                    if (data.ticket_id) {
+                        openSupportTicket(data.ticket_id, subject, 'open');
+                    }
+                } else {
+                    showNotification(data.error || 'Failed to create ticket', 'error');
+                }
+            } catch (e) {
+                console.error("Marketplace ticket error", e);
+                showNotification('Connection error during ticket creation', 'error');
+            }
         }
 
         // Start interval
