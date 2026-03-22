@@ -1639,8 +1639,6 @@ def reply_to_ticket(ticket_id):
     conn.close()
     return jsonify({'message': 'Reply added successfully'})
 
-@app.route('/api/support/tickets/<int:ticket_id>/reopen', methods=['POST'])
-@login_required
 @app.route('/api/support/tickets/<int:ticket_id>/delete_permanent', methods=['POST'])
 @login_required
 def delete_ticket_permanent(ticket_id):
