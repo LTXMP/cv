@@ -1399,56 +1399,36 @@ def get_tickets():
 
     # Lazy cleanup of tickets pending deletion or closed for > 24 hours
     
-    # Ticket Isolation Logic
-    if is_admin or is_owner or is_support:
-        # Global Staff/Admin/Owner: See General Support (NULL Team) + Their Own Assigned Team + Their Own Authored
-        if my_team_id:
-            query = '''
-                SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-                FROM tickets t
-                JOIN users u ON t.user_id = u.id
-                WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) 
-                   OR (t.seller_team_id = ?) 
-                   OR (t.user_id = ?)
-                ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-            '''
-            tickets = c.execute(query, (my_team_id, user_id)).fetchall()
-        else:
-            query = '''
-                SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-                FROM tickets t
-                JOIN users u ON t.user_id = u.id
-                WHERE (t.category = 'Support' AND t.seller_team_id IS NULL) 
-                   OR (t.user_id = ?)
-                ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-            '''
-            tickets = c.execute(query, (user_id,)).fetchall()
-    elif is_seller and my_team_id:
-        # Pure Sellers (not staff): Only their team + own
-        query = '''
-            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-            FROM tickets t
-            JOIN users u ON t.user_id = u.id
-            WHERE t.seller_team_id = ? OR t.user_id = ?
-            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-        '''
-        tickets = c.execute(query, (my_team_id, user_id)).fetchall()
-    else:
-        # Regular users/resellers: own tickets only
-        query = '''
-            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
-            FROM tickets t
-            JOIN users u ON t.user_id = u.id
-            WHERE t.user_id = ?
-            ORDER BY t.updated_at DESC
-        '''
-        tickets = c.execute(query, (user_id,)).fetchall()
+    # Dual-Layer Isolation Logic: Explicitly list allowed tickets via UNION
+    # 1. Author's own tickets
+    # 2. Tickets for user's assigned team (if any)
+    # 3. General Support tickets (NULL Team) IF user is Global Staff
+    
+    params = [user_id]
+    where_clauses = ["t.user_id = ?"]
+    
+    if my_team_id:
+        where_clauses.append("t.seller_team_id = ?")
+        params.append(my_team_id)
+        
+    if is_global_staff:
+        where_clauses.append("(t.category = 'Support' AND t.seller_team_id IS NULL)")
+
+    query = f'''
+        SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
+        FROM tickets t
+        JOIN users u ON t.user_id = u.id
+        WHERE {' OR '.join(where_clauses)}
+        ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+    '''
+    tickets = c.execute(query, params).fetchall()
         
     conn.close()
     return jsonify({
         'is_staff': bool(is_any_staff),
         'is_global_staff': bool(is_global_staff),
         'is_seller_team': bool(my_team_id),
+        'user_team_id': my_team_id, # Extra metadata for frontend validation
         'tickets': [dict(row) for row in tickets],
         'current_user_id': user_id
     })
