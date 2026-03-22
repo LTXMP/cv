@@ -436,74 +436,50 @@ def reseller_required(f):
     return wrapper
 
 def send_email(to_email, subject, body):
-    # SMTP Configuration (Set these in Render Env Vars)
+    # Automated notifications disabled per user request
+    return True
+
+def send_manual_email(to_email, subject, body):
+    """Actual email sending logic for manual requests (e.g. transcripts)"""
     smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
     smtp_port = int(os.environ.get('SMTP_PORT', 587))
-    # Support both old and new (Render screenshot) variable names
     smtp_user = os.environ.get('SMTP_EMAIL') or os.environ.get('SMTP_USER')
     smtp_pass = os.environ.get('SMTP_PASSWORD') or os.environ.get('SMTP_PASS')
     
     if not smtp_user or not smtp_pass:
-        print(f"Warning: SMTP credentials not set (User: {bool(smtp_user)}, Pass: {bool(smtp_pass)}). Email not sent.")
+        print(f"Error: SMTP credentials not set. Manual email to {to_email} failed.")
         return False
 
     try:
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        import smtplib
+        import datetime
+
         msg = MIMEMultipart('related')
         msg['From'] = smtp_user
         msg['To'] = to_email
         msg['Subject'] = subject
         
-        msg_alternative = MIMEMultipart('alternative')
-        msg.attach(msg_alternative)
-        
-        # Attach plain text
-        msg_alternative.attach(MIMEText(body, 'plain'))
-        
-        # Create HTML version
         html_body = body.replace('\n', '<br>')
-        html = """
+        html = f"""
         <html>
-        <head>
-            <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d0d0d; color: #ffffff; margin: 0; padding: 0; }
-                .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #121212; border-radius: 8px; border: 1px solid #1f1f1f; }
-                .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #00BFFF; margin-bottom: 30px; }
-                .content { font-size: 16px; line-height: 1.6; color: #e0e0e0; }
-                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #1f1f1f; text-align: center; font-size: 12px; color: #888888; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <img src="cid:logo" alt="Exclusive Aim" style="max-width: 250px; height: auto;">
-                </div>
-                <div class="content">
+        <body style="font-family: sans-serif; background-color: #0d0d0d; color: #ffffff; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #121212; padding: 30px; border-radius: 10px; border: 1px solid #333;">
+                <h2 style="color: #00BFFF; border-bottom: 2px solid #00BFFF; padding-bottom: 10px;">Ticket Transcript</h2>
+                <div style="line-height: 1.6; color: #e0e0e0;">
                     {html_body}
                 </div>
-                <div class="footer">
-                    <p>Exclusive Aim &copy; {year}. All rights reserved.</p>
-                    <p>This is an automated message, please do not reply directly to this email.</p>
+                <div style="margin-top: 30px; font-size: 12px; color: #888; border-top: 1px solid #333; padding-top: 10px;">
+                    Exclusive Aim &copy; {datetime.datetime.now().year}
                 </div>
             </div>
         </body>
         </html>
-        """.replace('{html_body}', html_body).replace('{year}', str(datetime.datetime.now().year))
+        """
         
-        msg_alternative.attach(MIMEText(html, 'html'))
+        msg.attach(MIMEText(html, 'html'))
         
-        # Attach logo
-        try:
-            logo_path = os.path.join(BASE_DIR, 'static', 'email_logo.png')
-            if os.path.exists(logo_path):
-                with open(logo_path, 'rb') as img:
-                    from email.mime.image import MIMEImage
-                    mime_img = MIMEImage(img.read())
-                    mime_img.add_header('Content-ID', '<logo>')
-                    mime_img.add_header('Content-Disposition', 'inline')
-                    msg.attach(mime_img)
-        except Exception as e:
-            print(f"Warning: Could not attach logo: {e}")
-
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(smtp_user, smtp_pass)
@@ -511,7 +487,7 @@ def send_email(to_email, subject, body):
         server.quit()
         return True
     except Exception as e:
-        print(f"Email Error: {e}")
+        print(f"Manual Email Error: {e}")
         return False
 
 def send_discord_notification(title, description, color=0x3498db):
@@ -1701,7 +1677,7 @@ def reply_to_ticket(ticket_id):
     
     is_global_staff = is_admin or is_owner or is_support
 
-    ticket = c.execute("SELECT user_id, category, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    ticket = c.execute("SELECT user_id, subject, category, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     if not ticket:
         conn.close()
         return jsonify({'error': 'Ticket not found'}), 404
@@ -1761,6 +1737,132 @@ def reply_to_ticket(ticket_id):
         )
     conn.close()
     return jsonify({'message': 'Reply added successfully'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/transcript', methods=['GET'])
+@login_required
+def get_ticket_transcript(ticket_id):
+    user_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check access (Similar to get_ticket_details)
+    user_row = c.execute("SELECT is_admin, is_owner, seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
+    my_team_id = user_row['seller_team_id'] if user_row else None
+    is_admin = int(user_row['is_admin'] or 0) == 1 if user_row else False
+    is_owner = int(user_row['is_owner'] or 0) == 1 if user_row else False
+    
+    ticket = c.execute("SELECT user_id, subject, category, seller_team_id, created_at FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found'}), 404
+        
+    allowed = (is_admin or is_owner or ticket['user_id'] == user_id or (my_team_id and ticket['seller_team_id'] == my_team_id))
+    if not allowed:
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    messages = c.execute('''
+        SELECT m.message, m.created_at, u.username, u.is_admin, u.is_support 
+        FROM ticket_messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.ticket_id = ?
+        ORDER BY m.created_at ASC
+    ''', (ticket_id,)).fetchall()
+    
+    # Build transcript string
+    lines = [
+        f"--- TICKET TRANSCRIPT #{ticket_id} ---",
+        f"Subject: {ticket['subject']}",
+        f"Category: {ticket['category']}",
+        f"Created: {datetime.datetime.fromtimestamp(ticket['created_at']).strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "-" * 30,
+        ""
+    ]
+    
+    for m in messages:
+        role = "[STAFF]" if (m['is_admin'] or m['is_support']) else "[USER]"
+        ts = datetime.datetime.fromtimestamp(m['created_at']).strftime('%Y-%m-%d %H:%M:%S')
+        lines.append(f"[{ts}] {role} {m['username']}:")
+        lines.append(m['message'])
+        lines.append("")
+        
+    conn.close()
+    return jsonify({'transcript': "\n".join(lines)})
+
+@app.route('/api/support/tickets/<int:ticket_id>/email_transcript', methods=['POST'])
+@login_required
+def email_ticket_transcript(ticket_id):
+    user_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check access
+    user_row = c.execute("SELECT is_admin, is_owner, seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
+    is_admin = int(user_row['is_admin'] or 0) == 1 if user_row else False
+    is_owner = int(user_row['is_owner'] or 0) == 1 if user_row else False
+    
+    ticket = c.execute("SELECT user_id, subject, category, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found'}), 404
+        
+    allowed = (is_admin or is_owner or ticket['user_id'] == user_id)
+    if not allowed:
+        # Check team access for staff
+        my_team_id = user_row['seller_team_id'] if user_row else None
+        if not (my_team_id and ticket['seller_team_id'] == my_team_id):
+            conn.close()
+            return jsonify({'error': 'Unauthorized'}), 403
+            
+    # Generate Transcript (Same logic as GET but internal)
+    messages = c.execute('''
+        SELECT m.message, m.created_at, u.username, u.is_admin, u.is_support 
+        FROM ticket_messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.ticket_id = ?
+        ORDER BY m.created_at ASC
+    ''', (ticket_id,)).fetchall()
+    
+    transcript_lines = [
+        f"Ticket #{ticket_id} - {ticket['subject']}",
+        f"Category: {ticket['category']}",
+        "-" * 30,
+        ""
+    ]
+    for m in messages:
+        role = "[STAFF]" if (m['is_admin'] or m['is_support']) else "[USER]"
+        ts = datetime.datetime.fromtimestamp(m['created_at']).strftime('%Y-%m-%d %H:%M:%S')
+        transcript_lines.append(f"[{ts}] {role} {m['username']}: {m['message']}\n")
+    
+    transcript_text = "\n".join(transcript_lines)
+    
+    # Send to recipients
+    recipients = []
+    
+    # 1. Ticket Owner (User)
+    owner = c.execute("SELECT email FROM users WHERE id=?", (ticket['user_id'],)).fetchone()
+    if owner and owner['email']:
+        recipients.append(owner['email'])
+        
+    # 2. Weight Seller (if applicable)
+    if ticket['category'] in ['Weights', 'Sale'] and ticket['seller_team_id']:
+        # Find team owner/members
+        seller = c.execute("SELECT email FROM users WHERE seller_team_id=? AND (is_owner=1 OR is_admin=1) LIMIT 1", (ticket['seller_team_id'],)).fetchone()
+        if seller and seller['email'] and seller['email'] not in recipients:
+            recipients.append(seller['email'])
+            
+    if not recipients:
+        conn.close()
+        return jsonify({'error': 'No recipients found'}), 400
+        
+    success_count = 0
+    for email in recipients:
+        if send_manual_email(email, f"Ticket Transcript #{ticket_id}: {ticket['subject']}", transcript_text):
+            success_count += 1
+            
+    conn.close()
+    return jsonify({'message': f'Transcript emailed to {success_count} recipients.'})
 
 @app.route('/api/support/tickets/<int:ticket_id>/delete_permanent', methods=['POST'])
 @login_required
