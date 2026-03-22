@@ -1295,6 +1295,12 @@ def get_tickets():
     conn = get_db()
     c = conn.cursor()
     
+    # Lazy cleanup of tickets pending deletion for > 24 hours
+    cutoff = time.time() - 86400
+    c.execute("DELETE FROM ticket_messages WHERE ticket_id IN (SELECT id FROM tickets WHERE status = 'pending_delete' AND updated_at < ?)", (cutoff,))
+    c.execute("DELETE FROM tickets WHERE status = 'pending_delete' AND updated_at < ?", (cutoff,))
+    conn.commit()
+    
     if is_staff:
         # Return all tickets, ordered by latest updated
         query = '''
@@ -1453,18 +1459,27 @@ def close_ticket(ticket_id):
 @app.route('/api/support/tickets/<int:ticket_id>/reopen', methods=['POST'])
 @login_required
 def reopen_ticket(ticket_id):
+    user_id = session['user_id']
     is_staff = session.get('is_admin') or session.get('is_support')
-    if not is_staff:
-        return jsonify({'error': 'Unauthorized'}), 403
-        
+    
     conn = get_db()
     c = conn.cursor()
-    ticket = c.execute("SELECT id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    
+    if is_staff:
+        ticket = c.execute("SELECT id, status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    else:
+        ticket = c.execute("SELECT id, status FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
+        
     if not ticket:
         conn.close()
-        return jsonify({'error': 'Ticket not found'}), 404
+        return jsonify({'error': 'Ticket not found or unauthorized'}), 404
         
     c.execute("UPDATE tickets SET status = 'open', updated_at = ? WHERE id = ?", (time.time(), ticket_id))
+    
+    # Notify staff or user if reopened by the other
+    c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, created_at) VALUES (?, ?, ?, ?)",
+              (ticket_id, user_id, "[System] Ticket was reopened by " + ("Staff" if is_staff else "User") + ".", time.time()))
+              
     conn.commit()
     conn.close()
     return jsonify({'message': 'Ticket reopened successfully'})
@@ -1478,11 +1493,16 @@ def delete_ticket(ticket_id):
         
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM ticket_messages WHERE ticket_id = ?", (ticket_id,))
-    c.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
+    ticket = c.execute("SELECT id, status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found'}), 404
+        
+    c.execute("UPDATE tickets SET status = 'pending_delete', updated_at = ? WHERE id = ?", (time.time(), ticket_id))
     conn.commit()
     conn.close()
-    return jsonify({'message': 'Ticket permanently deleted'})
+    return jsonify({'message': 'Ticket scheduled for deletion in 24 hours'})
 
 @app.route('/api/admin/adjust_time', methods=['POST'])
 @admin_required
