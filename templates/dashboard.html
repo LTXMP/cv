@@ -2050,7 +2050,7 @@
 
                     if (msg.file_path) {
                         if (msg.is_image) {
-                            content += `<div style="margin-top:10px;"><img src="${msg.file_path}" class="img-fade" loading="lazy" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${msg.file_path}')" onerror="this.src='/static/placeholder.png'; this.onerror=null;"></div>`;
+                            content += `<div style="margin-top:10px;"><img src="${msg.file_path}" class="img-fade" loading="lazy" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${msg.file_path}')" onerror="this.outerHTML='<div style=&quot;width:100%; height:100px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:#555; border-radius:8px; border:1px solid rgba(255,255,255,0.1);&quot;><i class=&quot;fas fa-image-slash&quot; style=&quot;font-size:32px;&quot;></i></div>';"></div>`;
                         } else {
                             const filename = msg.file_path.split('_').slice(2).join('_');
                             content += `
@@ -3527,7 +3527,7 @@
 
                 card.innerHTML = `
                     <div style="width:100%; height:140px; background:rgba(255,255,255,0.05); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
-                        ${m.thumbnail_path ? `<img src="${m.thumbnail_path}" class="img-fade" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='/static/placeholder.png';">` : '<i class="fas fa-brain" style="font-size:32px; color:var(--glass-border);"></i>'}
+                        ${m.thumbnail_path ? `<img src="${m.thumbnail_path}" class="img-fade" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.outerHTML='<i class=&quot;fas fa-brain&quot; style=&quot;font-size:32px; color:var(--glass-border);&quot;></i>';">` : '<i class="fas fa-brain" style="font-size:32px; color:var(--glass-border);"></i>'}
                         <div style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:6px; font-size:11px; backdrop-filter:blur(4px);">
                             ${m.marketplace_has_monthly ? 'Monthly' : ''} ${m.marketplace_has_monthly && m.marketplace_has_lifetime ? '&' : ''} ${m.marketplace_has_lifetime ? 'Lifetime' : ''}
                         </div>
