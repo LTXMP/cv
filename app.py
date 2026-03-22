@@ -1424,7 +1424,6 @@ def get_tickets():
             '''
             tickets = c.execute(query, (user_id,)).fetchall()
     elif is_seller and my_team_id:
-    elif is_seller and my_team_id:
         # Pure Sellers (not staff): Only their team + own
         query = '''
             SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
