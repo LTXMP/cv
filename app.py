@@ -3003,7 +3003,13 @@ def admin_toggle_weight_seller(user_id):
 def get_admin_sellers():
     conn = get_db()
     c = conn.cursor()
-    sellers = c.execute("SELECT id, username, seller_team_id FROM users WHERE is_weight_seller = 1 ORDER BY username").fetchall()
+    sellers = c.execute("""
+        SELECT u.id, u.username, u.seller_team_id, st.name as team_name 
+        FROM users u
+        LEFT JOIN seller_teams st ON u.seller_team_id = st.id
+        WHERE u.is_weight_seller = 1 
+        ORDER BY u.username
+    """).fetchall()
     conn.close()
     return jsonify([dict(s) for s in sellers])
 
