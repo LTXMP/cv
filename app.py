@@ -48,9 +48,10 @@ app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
 try:
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
-    SUPPORT_UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'support')
+    SUPPORT_UPLOAD_FOLDER = os.path.join(MODEL_DIR, 'support')
     SUPPORT_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'pdf', 'zip', 'rar'}
     os.makedirs(SUPPORT_UPLOAD_FOLDER, exist_ok=True)
+    app.config['SUPPORT_UPLOAD_FOLDER'] = SUPPORT_UPLOAD_FOLDER
 except Exception as e:
     print(f"Warning: Could not create storage directories: {e}")
 
@@ -100,6 +101,8 @@ def init_db():
     # Migration: Check for email, banned, last_ip
     # Fix old thumbnail paths in DB
     c.execute("UPDATE models SET thumbnail_path = REPLACE(thumbnail_path, '/static/thumbnails/', '/static/img/thumbnails/') WHERE thumbnail_path LIKE '/static/thumbnails/%'")
+    # Fix old ticket attachment paths
+    c.execute("UPDATE ticket_messages SET file_path = REPLACE(file_path, '/static/support/', '/api/support/attachments/') WHERE file_path LIKE '/static/support/%'")
     conn.commit()
     
     # Physically move files if they exist in the old folder
@@ -116,6 +119,22 @@ def init_db():
                     print(f"[BOOT] Moved thumbnail: {f}")
                 except Exception as e:
                     print(f"[BOOT] Failed to move {f}: {e}")
+
+    # Physically move ticket attachments if they exist in the old folder
+    old_support_dir = os.path.join(BASE_DIR, 'static', 'support')
+    new_support_dir = os.path.join(MODEL_DIR, 'support')
+    if os.path.exists(old_support_dir):
+        import shutil
+        os.makedirs(new_support_dir, exist_ok=True)
+        for f in os.listdir(old_support_dir):
+            src = os.path.join(old_support_dir, f)
+            dst = os.path.join(new_support_dir, f)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    shutil.move(src, dst)
+                    print(f"[BOOT] Moved attachment: {f}")
+                except Exception as e:
+                    print(f"[BOOT] Failed to move attachment {f}: {e}")
     
     c.execute("PRAGMA table_info(users)")
     columns = [info[1] for info in c.fetchall()]
@@ -3339,7 +3358,7 @@ def serve_thumbnail(filename):
 @login_required
 def serve_support_attachment(filename):
     # Ensure folder constant is available
-    folder = os.path.join(BASE_DIR, 'static', 'support')
+    folder = app.config.get('SUPPORT_UPLOAD_FOLDER', os.path.join(MODEL_DIR, 'support'))
     res = send_from_directory(folder, filename)
     res.headers['Cache-Control'] = 'public, max-age=31536000'
     return res
