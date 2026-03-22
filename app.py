@@ -149,10 +149,18 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   user_id INTEGER,
                   subject TEXT NOT NULL,
+                  category TEXT DEFAULT 'Support',
                   status TEXT DEFAULT 'open',
                   created_at REAL,
                   updated_at REAL,
                   FOREIGN KEY(user_id) REFERENCES users(id))''')
+
+    c.execute("PRAGMA table_info(tickets)")
+    t_cols = [r['name'] for r in c.fetchall()]
+    if 'category' not in t_cols:
+        try:
+            c.execute("ALTER TABLE tickets ADD COLUMN category TEXT DEFAULT 'Support'")
+        except: pass
 
     # Ticket Messages Table
     c.execute('''CREATE TABLE IF NOT EXISTS ticket_messages
@@ -1241,6 +1249,203 @@ def admin_ban_ip():
          )
 
     return jsonify({'message': f'IP {ip} banned'})
+
+@app.route('/api/support/tickets', methods=['POST'])
+@login_required
+def create_ticket():
+    user_id = session['user_id']
+    data = request.json
+    subject = data.get('subject', '').strip()
+    category = data.get('category', 'Support').strip()
+    message = data.get('message', '').strip()
+    
+    if not subject or not message:
+        return jsonify({'error': 'Subject and message are required'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    now = time.time()
+    c.execute("INSERT INTO tickets (user_id, subject, category, status, created_at, updated_at) VALUES (?, ?, ?, 'open', ?, ?)",
+              (user_id, subject, category, now, now))
+    ticket_id = c.lastrowid
+    
+    c.execute("INSERT INTO ticket_messages (ticket_id, user_id, message, created_at) VALUES (?, ?, ?, ?)",
+              (ticket_id, user_id, message, now))
+    conn.commit()
+
+    user_row = c.execute("SELECT username FROM users WHERE id=?", (user_id,)).fetchone()
+    username = user_row['username'] if user_row else f"User {user_id}"
+
+    send_discord_notification(
+        "New Support Ticket",
+        f"**User**: {username} (ID: {user_id})\n**Category**: {category}\n**Subject**: {subject}\n**Message**: {message}",
+        color=0x3498db # Blue
+    )
+    
+    conn.close()
+    return jsonify({'message': 'Ticket created successfully', 'ticket_id': ticket_id})
+
+@app.route('/api/support/tickets', methods=['GET'])
+@login_required
+def get_tickets():
+    user_id = session['user_id']
+    is_staff = session.get('is_admin') or session.get('is_support')
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    if is_staff:
+        # Return all tickets, ordered by latest updated
+        query = '''
+            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, u.username
+            FROM tickets t
+            JOIN users u ON t.user_id = u.id
+            ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
+        '''
+        tickets = c.execute(query).fetchall()
+    else:
+        # Return only user's tickets
+        query = '''
+            SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at
+            FROM tickets t
+            WHERE t.user_id = ?
+            ORDER BY t.updated_at DESC
+        '''
+        tickets = c.execute(query, (user_id,)).fetchall()
+        
+    conn.close()
+    return jsonify([dict(row) for row in tickets])
+
+@app.route('/api/support/tickets/<int:ticket_id>', methods=['GET'])
+@login_required
+def get_ticket_details(ticket_id):
+    user_id = session['user_id']
+    is_staff = session.get('is_admin') or session.get('is_support')
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    if is_staff:
+        ticket = c.execute("SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, u.username FROM tickets t JOIN users u ON t.user_id = u.id WHERE t.id = ?", (ticket_id,)).fetchone()
+    else:
+        ticket = c.execute("SELECT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at FROM tickets t WHERE t.id = ? AND t.user_id = ?", (ticket_id, user_id)).fetchone()
+        
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found or unauthorized'}), 404
+        
+    messages = c.execute("SELECT tm.id, tm.user_id, tm.message, tm.created_at, u.username FROM ticket_messages tm JOIN users u ON tm.user_id = u.id WHERE tm.ticket_id = ? ORDER BY tm.created_at ASC", (ticket_id,)).fetchall()
+    
+    conn.close()
+    
+    ticket_dict = dict(ticket)
+    ticket_dict['messages'] = [dict(msg) for msg in messages]
+    return jsonify(ticket_dict)
+
+@app.route('/api/support/tickets/<int:ticket_id>/reply', methods=['POST'])
+@login_required
+def reply_to_ticket(ticket_id):
+    user_id = session['user_id']
+    is_staff = session.get('is_admin') or session.get('is_support')
+    data = request.json
+    message = data.get('message', '').strip()
+    
+    if not message:
+        return jsonify({'error': 'Message is required'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    if is_staff:
+        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    else:
+        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
+        
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found or unauthorized'}), 404
+        
+    now = time.time()
+    c.execute("INSERT INTO ticket_messages (ticket_id, user_id, message, created_at) VALUES (?, ?, ?, ?)",
+              (ticket_id, user_id, message, now))
+    c.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (now, ticket_id))
+    conn.commit()
+
+    # Notify the other party
+    ticket_owner_id = ticket['user_id']
+    if user_id != ticket_owner_id: # Staff replying to user
+        owner_user = c.execute("SELECT username, email FROM users WHERE id=?", (ticket_owner_id,)).fetchone()
+        if owner_user and owner_user['email']:
+            send_email(
+                owner_user['email'],
+                f"Exclusive Aim - Reply to your Ticket #{ticket_id}",
+                f"Hello {owner_user['username']},\n\nThere's a new reply to your support ticket (Subject: {ticket['subject']}).\n\nMessage: {message}\n\nPlease log in to view the full conversation.\n\nBest regards,\nThe Exclusive Aim Team"
+            )
+        send_discord_notification(
+            "Ticket Replied (Staff)",
+            f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**Staff**: {session['username']} (ID: {user_id})\n**Message**: {message}",
+            color=0x1abc9c # Green
+        )
+    else: # User replying to their own ticket
+        send_discord_notification(
+            "Ticket Replied (User)",
+            f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**User**: {session['username']} (ID: {user_id})\n**Message**: {message}",
+            color=0xf39c12 # Orange
+        )
+
+    conn.close()
+    return jsonify({'message': 'Reply added successfully'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/close', methods=['POST'])
+@login_required
+def close_ticket(ticket_id):
+    user_id = session['user_id']
+    is_staff = session.get('is_admin') or session.get('is_support')
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    if is_staff:
+        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    else:
+        ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
+        
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found or unauthorized'}), 404
+        
+    if ticket['status'] == 'closed':
+        conn.close()
+        return jsonify({'error': 'Ticket is already closed'}), 400
+        
+    c.execute("UPDATE tickets SET status = 'closed', updated_at = ? WHERE id = ?", (time.time(), ticket_id))
+    conn.commit()
+
+    # Notify the other party
+    ticket_owner_id = ticket['user_id']
+    if user_id != ticket_owner_id: # Staff closing user's ticket
+        owner_user = c.execute("SELECT username, email FROM users WHERE id=?", (ticket_owner_id,)).fetchone()
+        if owner_user and owner_user['email']:
+            send_email(
+                owner_user['email'],
+                f"Exclusive Aim - Your Ticket #{ticket_id} Has Been Closed",
+                f"Hello {owner_user['username']},\n\nYour support ticket (Subject: {ticket['subject']}) has been closed by our staff.\n\nIf you have further questions, please open a new ticket.\n\nBest regards,\nThe Exclusive Aim Team"
+            )
+        send_discord_notification(
+            "Ticket Closed (Staff)",
+            f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**Closed By**: {session['username']} (ID: {user_id})",
+            color=0xe74c3c # Red
+        )
+    else: # User closing their own ticket
+        send_discord_notification(
+            "Ticket Closed (User)",
+            f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**Closed By**: {session['username']} (ID: {user_id})",
+            color=0x95a5a6 # Gray
+        )
+
+    conn.close()
+    return jsonify({'message': 'Ticket closed successfully'})
 
 @app.route('/api/admin/adjust_time', methods=['POST'])
 @admin_required
