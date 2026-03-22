@@ -1704,7 +1704,7 @@ def reply_to_ticket(ticket_id):
             
         filename = secure_filename(f"{int(time.time())}_{uuid.uuid4().hex[:8]}_{file.filename}")
         file.save(os.path.join(SUPPORT_UPLOAD_FOLDER, filename))
-        file_path = f"/static/support/{filename}"
+        file_path = f"/api/support/attachments/{filename}"
         if ext in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
             is_image = True
         
@@ -3331,7 +3331,18 @@ def get_marketplace_models():
 
 @app.route('/api/thumbnails/<filename>')
 def serve_thumbnail(filename):
-    return send_from_directory(app.config['THUMBNAIL_FOLDER'], filename)
+    res = send_from_directory(app.config['THUMBNAIL_FOLDER'], filename)
+    res.headers['Cache-Control'] = 'public, max-age=31536000' # 1 year
+    return res
+
+@app.route('/api/support/attachments/<filename>')
+@login_required
+def serve_support_attachment(filename):
+    # Ensure folder constant is available
+    folder = os.path.join(BASE_DIR, 'static', 'support')
+    res = send_from_directory(folder, filename)
+    res.headers['Cache-Control'] = 'public, max-age=31536000'
+    return res
 
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
