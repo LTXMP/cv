@@ -1446,14 +1446,14 @@
             try {
                 const res = await fetch(`${API_URL}/support/tickets`);
                 const data = await res.json();
-                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.current_user_id);
+                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.is_global_staff, data.current_user_id);
                 loadMacros(); // Load macros for staff/sellers
             } catch (e) {
                 console.error("Failed to load tickets", e);
             }
         }
 
-        function renderSupportTickets(list, isStaff, isSellerTeam, currentUserId) {
+        function renderSupportTickets(list, isStaff, isSellerTeam, isGlobalStaff, currentUserId) {
             isCurrentUserStaff = isStaff;
             isCurrentUserSellerTeam = isSellerTeam;
             supportCurrentUserId = currentUserId;
@@ -1467,6 +1467,22 @@
             if (isStaff || isSellerTeam) {
                 staffView.style.display = 'grid';
                 if (staffHeader) staffHeader.style.display = 'block';
+
+                // Dynamic columns for Sellers
+                const rebrandCol = document.getElementById('kanban-rebrand').closest('.card');
+                const salesCol = document.getElementById('kanban-sales').closest('.card');
+                
+                if (!isGlobalStaff && isSellerTeam) {
+                    staffView.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                    if (rebrandCol) rebrandCol.style.display = 'none';
+                    if (salesCol) salesCol.style.display = 'none';
+                    if (staffHeader) staffHeader.querySelector('h2').innerText = 'Team Management (Kanban)';
+                } else {
+                    staffView.style.gridTemplateColumns = 'repeat(5, 1fr)';
+                    if (rebrandCol) rebrandCol.style.display = 'block';
+                    if (salesCol) salesCol.style.display = 'block';
+                    if (staffHeader) staffHeader.querySelector('h2').innerText = 'Staff Management (Kanban)';
+                }
             } else {
                 staffView.style.display = 'none';
                 if (staffHeader) staffHeader.style.display = 'none';
@@ -1532,18 +1548,27 @@
                     const kDiv = div.cloneNode(true);
                     kDiv.onclick = div.onclick; // Ensure handler works on clone
                     
-                    if (t.seller_team_id) {
-                        if (t.status === 'closed' || t.status === 'pending_delete') {
-                            if (containers.closed) containers.closed.appendChild(kDiv);
-                        } else {
-                            if (containers.sales) containers.sales.appendChild(kDiv);
-                        }
-                    } else if (t.status === 'closed' || t.status === 'pending_delete') {
+                    if (t.status === 'closed' || t.status === 'pending_delete') {
                         if (containers.closed) containers.closed.appendChild(kDiv);
-                    } else if (t.category === 'Buy') {
-                        if (containers.buy) containers.buy.appendChild(kDiv);
-                    } else if (t.category === 'Rebrand/Reseller') {
-                        if (containers.rebrand) containers.rebrand.appendChild(kDiv);
+                    } else if (isGlobalStaff) {
+                        // Global Staff Routing (5 columns)
+                        if (t.seller_team_id) {
+                            if (containers.sales) containers.sales.appendChild(kDiv);
+                        } else if (t.category === 'Buy') {
+                            if (containers.buy) containers.buy.appendChild(kDiv);
+                        } else if (t.category === 'Rebrand/Reseller') {
+                            if (containers.rebrand) containers.rebrand.appendChild(kDiv);
+                        } else {
+                            if (containers.support) containers.support.appendChild(kDiv);
+                        }
+                    } else {
+                        // Team Seller Routing (3 columns: Buy, Support, Closed)
+                        if (t.category === 'Buy' || t.category === 'Weights') {
+                            if (containers.buy) containers.buy.appendChild(kDiv);
+                        } else {
+                            // Support for team
+                            if (containers.support) containers.support.appendChild(kDiv);
+                        }
                     }
                 }
             });
