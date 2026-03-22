@@ -143,6 +143,27 @@
             opacity: 0.95;
         }
 
+        .img-fade {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        img.loading {
+            background: var(--glass);
+            position: relative;
+        }
+        img.loading::after {
+            content: "\f110"; /* fa-spinner */
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-dim);
+        }
+
         button.secondary {
             background: var(--glass);
             border: 1px solid var(--glass-border);
@@ -2029,7 +2050,7 @@
 
                     if (msg.file_path) {
                         if (msg.is_image) {
-                            content += `<div style="margin-top:10px;"><img src="${msg.file_path}" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${msg.file_path}')"></div>`;
+                            content += `<div style="margin-top:10px;"><img src="${msg.file_path}" class="img-fade" loading="lazy" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${msg.file_path}')" onerror="this.src='/static/placeholder.png'; this.onerror=null;"></div>`;
                         } else {
                             const filename = msg.file_path.split('_').slice(2).join('_');
                             content += `
@@ -2710,12 +2731,7 @@
                     card.className = 'model-card';
                     
                     const thumb = m.thumbnail_path || '';
-                    let thumbHtml = '';
-                    if (thumb) {
-                        thumbHtml = `<img src="${thumb}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 15px; border: 1px solid var(--glass-border);">`;
-                    } else {
-                        thumbHtml = `<div style="width: 100%; height: 160px; background: rgba(255,255,255,0.03); border-radius: 12px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-dim); font-size:0.8em; margin-bottom: 15px; border: 1px solid var(--glass-border);"><span style="font-size: 24px; margin-bottom: 5px;">📦</span>No Preview</div>`;
-                    }
+                    const thumbHtml = thumb ? `<img src="${thumb}" class="img-fade" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.parentElement.innerHTML='<i class=\"fas fa-brain\" style=\"font-size:24px; color:var(--glass-border);\"></i>';">` : '<i class="fas fa-brain" style="font-size:24px; color:var(--glass-border);"></i>';
 
                     const marketplaceBadge = m.in_marketplace ? `<span style="font-size:0.7em; color:var(--accent); background: rgba(var(--accent-rgb,106,17,203),0.15); padding: 2px 8px; border-radius: 4px; margin-left:6px;">MARKETPLACE</span>` : '';
                     const marketplaceBtn = data.is_weight_seller ? `<button class="secondary" style="margin:0; padding: 8px; font-size: 11px; ${m.in_marketplace ? 'color:var(--error);border-color:var(--error);' : 'color:var(--accent);border-color:var(--accent);'}" onclick="toggleMarketplace(${m.id})">${m.in_marketplace ? '- Marketplace' : '+ Marketplace'}</button>` : '';
@@ -3511,7 +3527,7 @@
 
                 card.innerHTML = `
                     <div style="width:100%; height:140px; background:rgba(255,255,255,0.05); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
-                        ${m.thumbnail_path ? `<img src="${m.thumbnail_path}" style="width:100%; height:100%; object-fit:cover;">` : '<i class="fas fa-brain" style="font-size:32px; color:var(--glass-border);"></i>'}
+                        ${m.thumbnail_path ? `<img src="${m.thumbnail_path}" class="img-fade" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='/static/placeholder.png';">` : '<i class="fas fa-brain" style="font-size:32px; color:var(--glass-border);"></i>'}
                         <div style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:6px; font-size:11px; backdrop-filter:blur(4px);">
                             ${m.marketplace_has_monthly ? 'Monthly' : ''} ${m.marketplace_has_monthly && m.marketplace_has_lifetime ? '&' : ''} ${m.marketplace_has_lifetime ? 'Lifetime' : ''}
                         </div>
