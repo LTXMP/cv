@@ -1412,8 +1412,8 @@ def get_tickets():
         params.append(my_team_id)
         
     if is_global_staff:
-        # General Support = Tickets with NO team AND NO model_id
-        where_clauses.append("(t.category = 'Support' AND t.seller_team_id IS NULL AND t.model_id IS NULL)")
+        # Global staff see ALL general tickets (no team assigned)
+        where_clauses.append("(t.seller_team_id IS NULL)")
 
     query = f'''
         SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
