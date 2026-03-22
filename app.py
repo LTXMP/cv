@@ -750,9 +750,9 @@ def login():
 
         session['is_owner'] = is_owner
         
-        is_reseller = user['is_reseller'] if 'is_reseller' in user.keys() else 0
-        is_support = user['is_support'] if 'is_support' in user.keys() else 0
-        is_seller = user['is_weight_seller'] if 'is_weight_seller' in user.keys() else 0
+        is_reseller = int(user['is_reseller'] or 0) == 1
+        is_support = int(user['is_support'] or 0) == 1
+        is_seller = int(user['is_weight_seller'] or 0) == 1
         my_team_id = user['seller_team_id'] if 'seller_team_id' in user.keys() else None
 
         session['is_reseller'] = is_reseller
@@ -764,11 +764,11 @@ def login():
         return jsonify({
             'message': 'Login successful',
             'username': user['username'],
-            'is_admin': bool(user['is_admin']),
-            'is_owner': bool(is_owner),
-            'is_reseller': bool(is_reseller),
-            'is_support': bool(is_support),
-            'is_weight_seller': bool(is_seller)
+            'is_admin': int(user['is_admin'] or 0) == 1,
+            'is_owner': int(is_owner or 0) == 1,
+            'is_reseller': is_reseller,
+            'is_support': is_support,
+            'is_weight_seller': is_seller
         })
     
     conn.close()
@@ -863,7 +863,7 @@ def client_auth():
         'message': 'Authorized', 
         'expiry': license['expiry'],
         'duration': license['duration'],
-        'is_owner': bool(user['is_owner']),
+        'is_owner': int(user['is_owner'] or 0) == 1,
         'm_key': SECRET_KEY.decode('utf-8'),
         'm_iv': IV.decode('utf-8')
     })
@@ -1055,8 +1055,8 @@ def get_user_license():
     user = c.execute("SELECT email, total_time, is_admin, is_owner, created_at FROM users WHERE id=?", (user_id,)).fetchone()
     
     total_time = user['total_time'] if user else 0
-    is_admin = bool(user['is_admin']) if user else False
-    is_owner = bool(user['is_owner']) if user else False
+    is_admin = int(user['is_admin'] or 0) == 1 if user else False
+    is_owner = int(user['is_owner'] or 0) == 1 if user else False
 
     # Auto-promotion logic (in case registration was missed or DB manual update required)
     owner_email_env = os.environ.get('OWNER_EMAIL', 'philippcalka0@gmail.com').lower()
@@ -1214,7 +1214,7 @@ def reset_hwid():
     
     user = c.execute("SELECT last_hwid_reset, is_admin FROM users WHERE id=?", (user_id,)).fetchone()
     last_reset = user['last_hwid_reset'] or 0
-    is_admin = bool(user['is_admin'])
+    is_admin = int(user['is_admin'] or 0) == 1
     
     if not is_admin and (time.time() - last_reset < 3600): # 1 hour cooldown for users
         conn.close()
@@ -1387,10 +1387,10 @@ def get_tickets():
         conn.close()
         return jsonify({'error': 'User not found'}), 404
 
-    is_admin = bool(user_row['is_admin'])
-    is_owner = bool(user_row['is_owner'])
-    is_support = bool(user_row['is_support'])
-    is_seller = bool(user_row['is_weight_seller'])
+    is_admin = int(user_row['is_admin'] or 0) == 1
+    is_owner = int(user_row['is_owner'] or 0) == 1
+    is_support = int(user_row['is_support'] or 0) == 1
+    is_seller = int(user_row['is_weight_seller'] or 0) == 1
     my_team_id = user_row['seller_team_id']
     
     # Global Staff = Owner, Admin, Support (See all general tickets)
@@ -1412,7 +1412,8 @@ def get_tickets():
         params.append(my_team_id)
         
     if is_global_staff:
-        where_clauses.append("(t.category = 'Support' AND t.seller_team_id IS NULL)")
+        # General Support = Tickets with NO team AND NO model_id
+        where_clauses.append("(t.category = 'Support' AND t.seller_team_id IS NULL AND t.model_id IS NULL)")
 
     query = f'''
         SELECT DISTINCT t.id, t.user_id, t.subject, t.category, t.status, t.created_at, t.updated_at, t.seller_team_id, u.username
@@ -1437,13 +1438,20 @@ def get_tickets():
 @login_required
 def manage_macros():
     user_id = session['user_id']
-    is_authorized = any(session.get(role) for role in ['is_admin', 'is_support', 'is_weight_seller'])
-    
-    if not is_authorized:
-        return jsonify({'error': 'Unauthorized'}), 403
-        
     conn = get_db()
     c = conn.cursor()
+    
+    user_row = c.execute("SELECT is_admin, is_support, is_weight_seller FROM users WHERE id=?", (user_id,)).fetchone()
+    is_authorized = False
+    if user_row:
+        is_admin = int(user_row['is_admin'] or 0) == 1
+        is_support = int(user_row['is_support'] or 0) == 1
+        is_seller = int(user_row['is_weight_seller'] or 0) == 1
+        is_authorized = is_admin or is_support or is_seller
+
+    if not is_authorized:
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
     
     if request.method == 'POST':
         data = request.json
@@ -1485,9 +1493,9 @@ def get_ticket_details(ticket_id):
         conn.close()
         return jsonify({'error': 'User not found'}), 404
         
-    is_admin = bool(user_row['is_admin'])
-    is_owner = bool(user_row['is_owner'])
-    is_support = bool(user_row['is_support'])
+    is_admin = int(user_row['is_admin'] or 0) == 1
+    is_owner = int(user_row['is_owner'] or 0) == 1
+    is_support = int(user_row['is_support'] or 0) == 1
     my_team_id = user_row['seller_team_id']
     
     is_global_staff = is_admin or is_owner or is_support
@@ -1536,8 +1544,8 @@ def grant_marketplace_access():
     
     user_row = c.execute("SELECT is_admin, is_owner, seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
     
-    is_admin = bool(user_row['is_admin'])
-    is_owner = bool(user_row['is_owner'])
+    is_admin = int(user_row['is_admin'] or 0) == 1
+    is_owner = int(user_row['is_owner'] or 0) == 1
     my_team_id = user_row['seller_team_id']
     
     ticket = c.execute("SELECT user_id, model_id, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
@@ -1611,9 +1619,9 @@ def reply_to_ticket(ticket_id):
     
     user_row = c.execute("SELECT is_admin, is_owner, is_support, seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
     my_team_id = user_row['seller_team_id'] if user_row else None
-    is_admin = bool(user_row['is_admin']) if user_row else False
-    is_owner = bool(user_row['is_owner']) if user_row else False
-    is_support = bool(user_row['is_support']) if user_row else False
+    is_admin = int(user_row['is_admin'] or 0) == 1 if user_row else False
+    is_owner = int(user_row['is_owner'] or 0) == 1 if user_row else False
+    is_support = int(user_row['is_support'] or 0) == 1 if user_row else False
     
     is_global_staff = is_admin or is_owner or is_support
 
@@ -2140,7 +2148,7 @@ def get_models():
     
     # Check if user is a weight seller
     user = c.execute("SELECT is_weight_seller FROM users WHERE id=?", (user_id,)).fetchone()
-    is_seller = bool(user['is_weight_seller']) if user else False
+    is_seller = int(user['is_weight_seller'] or 0) == 1 if user else False
     
     # Get user's own models (include in_marketplace)
     c.execute('SELECT id, name, filename, model_size, image_size, thumbnail_path, unique_id, in_marketplace FROM models WHERE user_id = ?', (user_id,))
