@@ -455,8 +455,8 @@ def reseller_required(f):
     return wrapper
 
 def send_email(to_email, subject, body):
-    # Automated notifications disabled per user request
-    return True
+    # Route back to manual email implementation for essential notifications
+    return send_manual_email(to_email, subject, body)
 
 def send_manual_email(to_email, subject, body):
     """Actual email sending logic for manual requests (e.g. transcripts)"""
@@ -1738,11 +1738,13 @@ def reply_to_ticket(ticket_id):
     if user_id != ticket_owner_id: # Staff replying to user
         owner_user = c.execute("SELECT username, email FROM users WHERE id=?", (ticket_owner_id,)).fetchone()
         if owner_user and owner_user['email']:
-            send_email(
-                owner_user['email'],
-                f"Exclusive Aim - Reply to your Ticket #{ticket_id}",
-                f"Hello {owner_user['username']},\n\nThere's a new reply to your support ticket (Subject: {ticket['subject']}).\n\nMessage: {message}\n\nPlease log in to view the full conversation.\n\nBest regards,\nThe Exclusive Aim Team"
-            )
+            # Automated ticket notifications disabled per user request
+            pass
+            # send_email(
+            #     owner_user['email'],
+            #     f"Exclusive Aim - Reply to your Ticket #{ticket_id}",
+            #     f"Hello {owner_user['username']},\n\nThere's a new reply to your support ticket (Subject: {ticket['subject']}).\n\nMessage: {message}\n\nPlease log in to view the full conversation.\n\nBest regards,\nThe Exclusive Aim Team"
+            # )
         send_discord_notification(
             "Ticket Replied (Staff)",
             f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**Staff**: {session['username']} (ID: {user_id})\n**Message**: {message}",
@@ -1947,11 +1949,13 @@ def close_ticket(ticket_id):
     if user_id != ticket_owner_id: # Staff closing user's ticket
         owner_user = c.execute("SELECT username, email FROM users WHERE id=?", (ticket_owner_id,)).fetchone()
         if owner_user and owner_user['email']:
-            send_email(
-                owner_user['email'],
-                f"Exclusive Aim - Your Ticket #{ticket_id} Has Been Closed",
-                f"Hello {owner_user['username']},\n\nYour support ticket (Subject: {ticket['subject']}) has been closed by our staff.\n\nIf you have further questions, please open a new ticket.\n\nBest regards,\nThe Exclusive Aim Team"
-            )
+            # Automated ticket notifications disabled per user request
+            pass
+            # send_email(
+            #     owner_user['email'],
+            #     f"Exclusive Aim - Your Ticket #{ticket_id} Has Been Closed",
+            #     f"Hello {owner_user['username']},\n\nYour support ticket (Subject: {ticket['subject']}) has been closed by our staff.\n\nIf you have further questions, please open a new ticket.\n\nBest regards,\nThe Exclusive Aim Team"
+            # )
         send_discord_notification(
             "Ticket Closed (Staff)",
             f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**Closed By**: {session['username']} (ID: {user_id})",
