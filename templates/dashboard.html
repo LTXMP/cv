@@ -792,11 +792,13 @@
                     </div>
                 </div>
 
-                <!-- Seller Management Section -->
                 <div class="card" style="margin-top: 24px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                         <h3 style="margin:0; color: var(--accent);">Seller Management</h3>
-                        <button onclick="loadAdminSellers()" style="width:auto; padding:8px 15px; font-size:12px; margin:0;"><i class="fas fa-sync"></i> Refresh</button>
+                        <div style="display:flex; gap:10px;">
+                            <button onclick="adminCreateTeam()" style="width:auto; padding:8px 15px; font-size:12px; margin:0; background:var(--success);"><i class="fas fa-plus"></i> Create Team</button>
+                            <button onclick="loadAdminSellers()" style="width:auto; padding:8px 15px; font-size:12px; margin:0;"><i class="fas fa-sync"></i> Refresh</button>
+                        </div>
                     </div>
                     <div style="overflow-x:auto;">
                         <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
@@ -3612,13 +3614,33 @@
             document.getElementById('marketplace-desc-modal').classList.add('hidden');
         }
 
-        // Seller Management JS
         async function loadAdminSellers() {
             try {
                 const res = await fetch(`${API_URL}/admin/sellers`);
                 const sellers = await res.json();
                 renderAdminSellers(sellers);
             } catch (err) { console.error("Failed to load sellers:", err); }
+        }
+
+        async function adminCreateTeam() {
+            const name = prompt("Enter new team name (e.g. Team Gamma):");
+            if (!name) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/admin/seller_teams`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.error || 'Failed to create team', 'error');
+                }
+            } catch (err) {
+                showNotification('Connection error', 'error');
+            }
         }
 
         function renderAdminSellers(sellers) {
