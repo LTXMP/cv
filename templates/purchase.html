@@ -95,8 +95,7 @@
         }
 
         .nav-links a:hover {
-            color: var(--text-main);
-            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            color: var(--primary);
         }
 
         .cta-btn {
@@ -203,17 +202,19 @@
 
         /* --- Footer --- */
         footer {
-            padding: 60px 8%;
-            border-top: 1px solid var(--glass-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(0,0,0,0.5);
+            padding: 60px 10%; 
+            border-top: 1px solid var(--glass-border); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: #030303; 
+            flex-wrap: wrap;
+            gap: 20px;
             margin-top: auto;
         }
 
         .footer-links {
-            display: flex; gap: 30px;
+            display: flex; gap: 20px;
         }
 
         .footer-links a {
@@ -225,12 +226,28 @@
         }
 
         @media (max-width: 768px) {
-            .nav-links { display: none; }
-            .steps-container { grid-template-columns: 1fr; }
-            footer { flex-direction: column; gap: 30px; text-align: center; }
-            .footer-links { flex-wrap: wrap; justify-content: center; }
+            nav {
+                padding: 12px 5% !important;
+                padding-top: calc(12px + env(safe-area-inset-top)) !important;
+            }
+            .logo { font-size: 20px !important; }
+            .mobile-hide { display: none !important; }
+            .mobile-show { display: block !important; }
+            .nav-auth-mobile { display: flex !important; gap: 10px; }
+            footer {
+                flex-direction: column;
+                text-align: center;
+                padding: 40px 5%;
+            }
+            .footer-links {
+                flex-direction: column;
+                gap: 12px;
+                align-items: center;
+            }
             .purchase-card { padding: 30px 20px; }
+            .steps-container { grid-template-columns: 1fr; }
         }
+        .nav-auth-mobile { display: none; }
     </style>
 </head>
 <body>
@@ -238,15 +255,22 @@
 
     <nav>
         <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
-        <div class="nav-links">
+        
+        <!-- Desktop Links -->
+        <div class="nav-links mobile-hide">
             <a href="/#features">Features</a>
             <a href="/#tech">Technology</a>
             <a href="/#pricing">Pricing</a>
-            <a href="/purchase" style="color: var(--text-main); text-shadow: 0 0 10px rgba(255,255,255,0.5);">Buy</a>
+            <a href="/purchase" class="active">Buy</a>
+            <a href="/program">Program</a>
+            <a href="/reseller">Reseller</a>
+            <a href="/dashboard" class="mobile-hide">Dashboard</a>
+            <a href="/dashboard?action=register" class="cta-btn">Join Now</a>
         </div>
-        <div style="display: flex; gap: 15px;">
-            <a href="/login" class="login-outline">Log In</a>
-            <a href="/register" class="cta-btn">Register</a>
+
+        <!-- Mobile Quick Actions -->
+        <div class="nav-auth-mobile">
+            <a href="/dashboard" class="cta-btn" style="padding: 8px 15px; font-size: 13px;">Login</a>
         </div>
     </nav>
 
@@ -286,7 +310,7 @@
             <a href="/privacy">Privacy Policy</a>
             <a href="/terms">Terms of Service</a>
             <a href="/refund">Refund Policy</a>
-            <a href="/reseller">Reseller & Rebrand</a>
+            <a href="/reseller">Reseller &#38; Rebrand</a>
             <a href="https://discord.gg/jpRXXw3keR" target="_blank">Discord Support</a>
         </div>
     </footer>

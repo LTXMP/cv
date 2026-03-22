@@ -18,19 +18,31 @@
         .container { max-width: 800px; margin: 60px auto; background: rgba(255,255,255,0.02); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); }
         .back-link { display: none; }
         
+        
         nav {
             position: sticky; top: 0; width: 100%; padding: 20px 8%;
             display: flex; justify-content: space-between; align-items: center;
-            background: rgba(5, 5, 5, 0.8); backdrop-filter: blur(12px);
-            z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(12px);
+            z-index: 1000; border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.08));
         }
         .logo { font-size: 24px; font-weight: 800; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 10px; }
-        .logo span { color: #00BFFF; text-shadow: 0 0 15px rgba(0, 191, 255, 0.4); }
-        .nav-links a { text-decoration: none; color: #a0a0a0; font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        .logo span { color: var(--primary, #00BFFF); text-shadow: 0 0 15px rgba(0, 191, 255, 0.4); }
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-links a { text-decoration: none; color: var(--text-dim, #a0a0a0); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        .nav-links a:hover { color: var(--primary, #00BFFF); }
+        .nav-links a.active { color: var(--primary, #00BFFF); }
+        .cta-btn {
+            background: var(--primary, #00BFFF); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px rgba(0, 191, 255, 0.4);
+        }
+        .cta-btn:hover {
+            transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 191, 255, 0.4); color: #000;
+        }
 
+
+        
         footer { 
             padding: 60px 8%; 
-            border-top: 1px solid rgba(255,255,255,0.08); 
+            border-top: 1px solid var(--glass-border, rgba(255,255,255,0.08)); 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
@@ -40,25 +52,54 @@
             margin-top: 100px;
         }
         .footer-logo { font-size: 20px; font-weight: 800; color: #fff; }
-        .footer-logo span { color: #00BFFF; }
+        .footer-logo span { color: var(--primary, #00BFFF); }
         .footer-links { display: flex; gap: 20px; }
-        .footer-links a { color: #a0a0a0; text-decoration: none; font-size: 14px; transition: 0.3s; }
-        .footer-links a:hover { color: #00BFFF; }
+        .footer-links a { color: var(--text-dim, #a0a0a0); text-decoration: none; font-size: 14px; transition: 0.3s; }
+        .footer-links a:hover { color: var(--primary, #00BFFF); }
 
         @media (max-width: 768px) {
-            nav { padding: 12px 5% !important; }
+            nav {
+                padding: 12px 5% !important;
+                padding-top: calc(12px + env(safe-area-inset-top)) !important;
+            }
             .logo { font-size: 20px !important; }
-            footer { flex-direction: column; text-align: center; padding: 40px 5%; }
-            .footer-links { flex-direction: column; gap: 12px; align-items: center; }
+            .mobile-hide { display: none !important; }
+            .nav-auth-mobile { display: flex !important; gap: 10px; }
+            
+            footer {
+                flex-direction: column;
+                text-align: center;
+                padding: 40px 5%;
+            }
+            .footer-links {
+                flex-direction: column;
+                gap: 12px;
+                align-items: center;
+            }
+            .footer-links a { margin-left: 0; }
         }
-        p { color: #a0a0a0; margin-bottom: 20px; }
+        .nav-auth-mobile { display: none; }
     </style>
 </head>
 <body>
     <nav>
         <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
-        <div class="nav-links">
-            <a href="/">Home</a>
+        
+        <!-- Desktop Links -->
+        <div class="nav-links mobile-hide">
+            <a href="/#features">Features</a>
+            <a href="/#tech">Technology</a>
+            <a href="/#pricing">Pricing</a>
+            <a href="/purchase">Buy</a>
+            <a href="/program">Program</a>
+            <a href="/reseller">Reseller</a>
+            <a href="/dashboard" class="mobile-hide">Dashboard</a>
+            <a href="/dashboard?action=register" class="cta-btn">Join Now</a>
+        </div>
+
+        <!-- Mobile Quick Actions -->
+        <div class="nav-auth-mobile">
+            <a href="/dashboard" class="cta-btn" style="padding: 8px 15px; font-size: 13px;">Login</a>
         </div>
     </nav>
     <div class="container">
@@ -85,7 +126,8 @@
             <a href="/privacy">Privacy Policy</a>
             <a href="/terms">Terms of Service</a>
             <a href="/refund">Refund Policy</a>
-            <a href="/reseller">Reseller & Rebrand</a>
+            <a href="/reseller">Reseller &#38; Rebrand</a>
+            <a href="https://discord.gg/jpRXXw3keR" target="_blank">Discord Support</a>
         </div>
     </footer>
 </body>
