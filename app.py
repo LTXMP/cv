@@ -1374,10 +1374,10 @@ def get_tickets():
     conn = get_db()
     c = conn.cursor()
     
-    # Lazy cleanup of tickets pending deletion for > 24 hours
+    # Lazy cleanup of tickets pending deletion or closed for > 24 hours
     cutoff = time.time() - 86400
-    c.execute("DELETE FROM ticket_messages WHERE ticket_id IN (SELECT id FROM tickets WHERE status = 'pending_delete' AND updated_at < ?)", (cutoff,))
-    c.execute("DELETE FROM tickets WHERE status = 'pending_delete' AND updated_at < ?", (cutoff,))
+    c.execute("DELETE FROM ticket_messages WHERE ticket_id IN (SELECT id FROM tickets WHERE (status = 'pending_delete' OR status = 'closed') AND updated_at < ?)", (cutoff,))
+    c.execute("DELETE FROM tickets WHERE (status = 'pending_delete' OR status = 'closed') AND updated_at < ?", (cutoff,))
     conn.commit()
     
     # Get the current user's seller_team_id
