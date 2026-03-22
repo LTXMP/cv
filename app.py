@@ -190,6 +190,10 @@ def init_db():
         try:
             c.execute("ALTER TABLE tickets ADD COLUMN seller_team_id INTEGER DEFAULT NULL")
         except: pass
+    if 'model_id' not in t_cols:
+        try:
+            c.execute("ALTER TABLE tickets ADD COLUMN model_id INTEGER DEFAULT NULL")
+        except: pass
 
     # Ticket Messages Table
     c.execute('''CREATE TABLE IF NOT EXISTS ticket_messages
@@ -1319,8 +1323,8 @@ def create_ticket():
             seller_team_id = model_row['seller_team_id']
     
     now = time.time()
-    c.execute("INSERT INTO tickets (user_id, subject, category, status, created_at, updated_at, seller_team_id) VALUES (?, ?, ?, 'open', ?, ?, ?)",
-              (user_id, subject, category, now, now, seller_team_id))
+    c.execute("INSERT INTO tickets (user_id, subject, category, status, created_at, updated_at, seller_team_id, model_id) VALUES (?, ?, ?, 'open', ?, ?, ?, ?)",
+              (user_id, subject, category, now, now, seller_team_id, model_id))
     ticket_id = c.lastrowid
     
     c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, created_at) VALUES (?, ?, ?, ?)",
