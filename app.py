@@ -119,6 +119,11 @@ def init_db():
             c.execute("ALTER TABLE users ADD COLUMN is_reseller BOOLEAN DEFAULT 0")
         except: pass
 
+    if 'is_support' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN is_support BOOLEAN DEFAULT 0")
+        except: pass
+
     # Banned IPs Table
     c.execute('''CREATE TABLE IF NOT EXISTS banned_ips 
                  (ip TEXT PRIMARY KEY, 
@@ -138,6 +143,26 @@ def init_db():
                   user_id INTEGER, 
                   expiry REAL,
                   FOREIGN KEY(user_id) REFERENCES users(id))''')
+                  
+    # Support Tickets Table
+    c.execute('''CREATE TABLE IF NOT EXISTS tickets
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER,
+                  subject TEXT NOT NULL,
+                  status TEXT DEFAULT 'open',
+                  created_at REAL,
+                  updated_at REAL,
+                  FOREIGN KEY(user_id) REFERENCES users(id))''')
+
+    # Ticket Messages Table
+    c.execute('''CREATE TABLE IF NOT EXISTS ticket_messages
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  ticket_id INTEGER,
+                  sender_id INTEGER,
+                  message TEXT NOT NULL,
+                  created_at REAL,
+                  FOREIGN KEY(ticket_id) REFERENCES tickets(id),
+                  FOREIGN KEY(sender_id) REFERENCES users(id))''')
                   
     # Licenses Table
     c.execute('''CREATE TABLE IF NOT EXISTS licenses 
@@ -1382,6 +1407,8 @@ def admin_list_users():
     select_cols = "id, username, email, is_admin, is_owner, is_banned, last_ip, created_at"
     if 'is_reseller' in cols:
         select_cols += ", is_reseller"
+    if 'is_support' in cols:
+        select_cols += ", is_support"
 
     if search:
         # Search closest to the query, limit to 20 for better visibility
@@ -1394,6 +1421,29 @@ def admin_list_users():
     users = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify(users)
+
+@app.route('/api/admin/users/<int:user_id>/support', methods=['POST'])
+@admin_required
+def admin_toggle_support(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    # Cannot toggle owner
+    u = c.execute("SELECT is_owner, is_support FROM users WHERE id=?", (user_id,)).fetchone()
+    if not u:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+    if u['is_owner']:
+        conn.close()
+        return jsonify({'error': 'Cannot toggle support role on Owner'}), 400
+        
+    new_status = 0 if u['is_support'] else 1
+    c.execute("UPDATE users SET is_support=? WHERE id=?", (new_status, user_id))
+    conn.commit()
+    conn.close()
+    
+    role_str = "granted Support" if new_status else "removed from Support"
+    notify_mod_action(user_id, "Role Updated", f"Your account has been {role_str} role.")
+    return jsonify({'message': f'User support role set to {new_status}'})
 
 @app.route('/api/admin/users/<int:user_id>/promote', methods=['POST'])
 @owner_required
