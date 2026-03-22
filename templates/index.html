@@ -189,8 +189,41 @@
         .price-card .btn { width: 100%; display: block; padding: 15px; background: var(--glass); border: 1px solid var(--glass-border); color: #fff; text-decoration: none; border-radius: 12px; }
         .price-card.featured .btn { background: var(--primary); color: #000; border: none; }
 
-        footer { padding: 60px 10%; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; background: #030303; }
-        .footer-links a { margin-left: 20px; color: var(--text-dim); text-decoration: none; font-size: 14px; }
+        footer { 
+            padding: 60px 10%; 
+            border-top: 1px solid var(--glass-border); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: #030303; 
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .footer-links { 
+            display: flex; 
+            gap: 20px;
+        }
+        .footer-links a { 
+            color: var(--text-dim); 
+            text-decoration: none; 
+            font-size: 14px; 
+            transition: 0.3s;
+        }
+        .footer-links a:hover { color: var(--primary); }
+
+        @media (max-width: 768px) {
+            footer {
+                flex-direction: column;
+                text-align: center;
+                padding: 40px 5%;
+            }
+            .footer-links {
+                flex-direction: column;
+                gap: 12px;
+                align-items: center;
+            }
+            .footer-links a { margin-left: 0; }
+        }
 
     </style>
 </head>

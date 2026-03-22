@@ -324,14 +324,57 @@
     <div class="bg-glow"></div>
 
     <div class="container">
-        <header>
+        <header id="dashboard-header" style="display:none;">
             <div>
                 <a href="/" style="text-decoration:none;"><h1 style="color:white; margin:0; font-size: 24px;">EXCLUSIVE<span style="color: var(--primary); text-shadow: 0 0 15px var(--primary-glow);">AIM</span></h1></a>
             </div>
-            <div id="userInfo" style="display:none; align-items: center; gap: 15px;">
+            <div id="userInfo" style="display:flex; align-items: center; gap: 15px;">
                 <span id="usernameDisplay" style="color:var(--text-dim); font-weight: 600;">User</span>
             </div>
         </header>
+
+        <nav id="auth-nav">
+            <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
+            <div class="nav-links mobile-hide">
+                <a href="/#features">Features</a>
+                <a href="/#tech">Technology</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/program">Program</a>
+                <a href="/reseller">Reseller</a>
+                <a href="/dashboard" class="cta-btn">Dashboard</a>
+            </div>
+            <div class="nav-auth-mobile">
+                <a href="/" class="cta-btn" style="padding: 8px 15px; font-size: 13px;">Home</a>
+            </div>
+        </nav>
+
+        <style>
+            nav {
+                position: sticky; top: 0; width: 100%; padding: 20px 8%;
+                display: flex; justify-content: space-between; align-items: center;
+                background: var(--nav-bg); backdrop-filter: blur(12px);
+                z-index: 1000; border-bottom: 1px solid var(--glass-border);
+            }
+            .logo { font-size: 24px; font-weight: 800; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+            .logo span { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
+            .nav-links { display: flex; gap: 30px; align-items: center; }
+            .nav-links a { text-decoration: none; color: var(--text-dim); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+            .nav-links a:hover { color: var(--primary); }
+            .cta-btn {
+                background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
+            }
+            .nav-auth-mobile { display: none; }
+
+            @media (max-width: 768px) {
+                nav {
+                    padding: 12px 5% !important;
+                    padding-top: calc(12px + env(safe-area-inset-top)) !important;
+                }
+                .logo { font-size: 20px !important; }
+                .mobile-hide { display: none !important; }
+                .nav-auth-mobile { display: flex !important; gap: 10px; }
+            }
+        </style>
 
         <!-- Auth View -->
         <div id="auth-wrapper">
@@ -396,6 +439,23 @@
                 </div>
             </div>
         </div>
+
+        <footer id="auth-footer" style="padding: 60px 8%; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; background: #030303; margin-top: 60px; border-radius: 24px 24px 0 0;">
+            <div style="font-size: 20px; font-weight: 800; color: #fff;">EXCLUSIVE<span style="color: var(--primary);">AIM</span></div>
+            <div class="footer-links" style="display: flex; gap: 20px;">
+                <a href="/privacy" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Privacy Policy</a>
+                <a href="/terms" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Terms of Service</a>
+                <a href="/refund" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Refund Policy</a>
+                <a href="/reseller" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Reseller & Rebrand</a>
+            </div>
+        </footer>
+
+        <style>
+            @media (max-width: 768px) {
+                #auth-footer { flex-direction: column; text-align: center; padding: 40px 5% !important; }
+                .footer-links { flex-direction: column; gap: 12px; align-items: center; }
+            }
+        </style>
 
         <!-- Main Dashboard -->
         <div id="dashboard-wrapper">
@@ -2268,22 +2328,40 @@
             document.getElementById('register-section').classList.add('hidden');
             document.getElementById('reset-request-section').classList.add('hidden');
             document.getElementById('reset-perform-section').classList.add('hidden');
+            
+            // Header/Nav toggling
+            const authNav = document.getElementById('auth-nav');
+            const dashHeader = document.getElementById('dashboard-header');
+            const authFooter = document.getElementById('auth-footer');
+            if (authNav) authNav.style.display = 'none';
+            if (dashHeader) dashHeader.style.display = 'none';
+            if (authFooter) authFooter.style.display = 'none';
         }
 
         function showLogin() {
             hideAll();
+            const authNav = document.getElementById('auth-nav');
+            const authFooter = document.getElementById('auth-footer');
+            if (authNav) authNav.style.display = 'flex';
+            if (authFooter) authFooter.style.display = 'flex';
             document.getElementById('auth-wrapper').style.display = 'block';
             document.getElementById('login-section').classList.remove('hidden');
         }
 
         function showRegister() {
             hideAll();
+            const authNav = document.getElementById('auth-nav');
+            const authFooter = document.getElementById('auth-footer');
+            if (authNav) authNav.style.display = 'flex';
+            if (authFooter) authFooter.style.display = 'flex';
             document.getElementById('auth-wrapper').style.display = 'block';
             document.getElementById('register-section').classList.remove('hidden');
         }
 
         function showDashboard(username, isAdmin, isOwner, isReseller) {
             hideAll();
+            const dashHeader = document.getElementById('dashboard-header');
+            if (dashHeader) dashHeader.style.display = 'flex';
             document.getElementById('dashboard-wrapper').style.display = 'flex';
 
             document.getElementById('userInfo').style.display = 'block';
