@@ -1740,6 +1740,10 @@ def admin_list_users():
         select_cols += ", is_reseller"
     if 'is_support' in cols:
         select_cols += ", is_support"
+    if 'is_weight_seller' in cols:
+        select_cols += ", is_weight_seller"
+    if 'seller_team_id' in cols:
+        select_cols += ", seller_team_id"
 
     if search:
         # Search closest to the query, limit to 20 for better visibility
