@@ -41,7 +41,7 @@ SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
 IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
 
 # Ensuring directories exist
-THUMBNAIL_FOLDER = os.path.join(BASE_DIR, 'static', 'thumbnails')
+THUMBNAIL_FOLDER = os.path.join(BASE_DIR, 'static', 'img', 'thumbnails')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
 
@@ -98,6 +98,9 @@ def init_db():
                   created_at REAL)''')
 
     # Migration: Check for email, banned, last_ip
+    # Fix old thumbnail paths
+    c.execute("UPDATE models SET thumbnail_path = REPLACE(thumbnail_path, '/static/thumbnails/', '/static/img/thumbnails/') WHERE thumbnail_path LIKE '/static/thumbnails/%'")
+    conn.commit()
     c.execute("PRAGMA table_info(users)")
     columns = [info[1] for info in c.fetchall()]
     
@@ -1435,9 +1438,12 @@ def get_tickets():
                    t.created_at, t.updated_at, t.seller_team_id, t.model_id, u.username
             FROM tickets t
             JOIN users u ON t.user_id = u.id
-            WHERE t.user_id = ? OR t.seller_team_id = ?
+            LEFT JOIN models m ON t.model_id = m.id
+            WHERE t.user_id = ? 
+               OR t.seller_team_id = ?
+               OR m.user_id = ?
             ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.updated_at DESC
-        ''', (user_id, my_team_id)).fetchall()
+        ''', (user_id, my_team_id, user_id)).fetchall()
     else:
         # Regular user: own tickets ONLY
         tickets = c.execute('''
@@ -3094,7 +3100,7 @@ def upload_marketplace_thumbnail(model_id):
         filepath = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
         file.save(filepath)
         
-        thumb_path = f"/static/thumbnails/{thumb_filename}"
+        thumb_path = f"/static/img/thumbnails/{thumb_filename}"
         c.execute("UPDATE models SET thumbnail_path=? WHERE id=?", (thumb_path, model_id))
         conn.commit()
         conn.close()
