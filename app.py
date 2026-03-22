@@ -48,6 +48,9 @@ app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
 try:
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
+    SUPPORT_UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'support')
+    SUPPORT_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'pdf', 'zip', 'rar'}
+    os.makedirs(SUPPORT_UPLOAD_FOLDER, exist_ok=True)
 except Exception as e:
     print(f"Warning: Could not create storage directories: {e}")
 
@@ -200,10 +203,21 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   ticket_id INTEGER,
                   sender_id INTEGER,
-                  message TEXT NOT NULL,
+                  message TEXT,
+                  file_path TEXT,
+                  is_image BOOLEAN DEFAULT 0,
                   created_at REAL,
                   FOREIGN KEY(ticket_id) REFERENCES tickets(id),
                   FOREIGN KEY(sender_id) REFERENCES users(id))''')
+
+    c.execute("PRAGMA table_info(ticket_messages)")
+    tm_cols = [r['name'] for r in c.fetchall()]
+    if 'file_path' not in tm_cols:
+        try: c.execute("ALTER TABLE ticket_messages ADD COLUMN file_path TEXT")
+        except: pass
+    if 'is_image' not in tm_cols:
+        try: c.execute("ALTER TABLE ticket_messages ADD COLUMN is_image BOOLEAN DEFAULT 0")
+        except: pass
                   
     # Licenses Table
     c.execute('''CREATE TABLE IF NOT EXISTS licenses 
@@ -287,6 +301,14 @@ def init_db():
             c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
             conn.commit()
         except: pass
+
+    # Support Macros Table
+    c.execute('''CREATE TABLE IF NOT EXISTS support_macros
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER,
+                  title TEXT NOT NULL,
+                  content TEXT NOT NULL,
+                  FOREIGN KEY(user_id) REFERENCES users(id))''')
 
     # Shares Table
     c.execute('''CREATE TABLE IF NOT EXISTS shares 
@@ -1410,6 +1432,44 @@ def get_tickets():
         'current_user_id': user_id
     })
 
+@app.route('/api/support/macros', methods=['GET', 'POST'])
+@login_required
+def manage_macros():
+    user_id = session['user_id']
+    is_authorized = session.get('is_admin') or session.get('is_support') or session.get('is_reseller') or session.get('is_weight_seller')
+    
+    if not is_authorized:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    if request.method == 'POST':
+        data = request.json
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        if not title or not content:
+            return jsonify({'error': 'Title and content required'}), 400
+        
+        c.execute("INSERT INTO support_macros (user_id, title, content) VALUES (?, ?, ?)", (user_id, title, content))
+        conn.commit()
+        return jsonify({'message': 'Macro added'})
+    
+    macros = c.execute("SELECT id, title, content FROM support_macros WHERE user_id = ?", (user_id,)).fetchall()
+    conn.close()
+    return jsonify([dict(m) for m in macros])
+
+@app.route('/api/support/macros/<int:macro_id>', methods=['DELETE'])
+@login_required
+def delete_macro(macro_id):
+    user_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM support_macros WHERE id = ? AND user_id = ?", (macro_id, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Macro deleted'})
+
 @app.route('/api/support/tickets/<int:ticket_id>/messages', methods=['GET'])
 @login_required
 def get_ticket_details(ticket_id):
@@ -1438,7 +1498,7 @@ def get_ticket_details(ticket_id):
         conn.close()
         return jsonify({'error': 'Unauthorized'}), 403
         
-    messages = c.execute("SELECT tm.id, tm.sender_id as user_id, tm.message, tm.created_at, u.username, u.is_admin, u.is_support FROM ticket_messages tm JOIN users u ON tm.sender_id = u.id WHERE tm.ticket_id = ? ORDER BY tm.created_at ASC", (ticket_id,)).fetchall()
+    messages = c.execute("SELECT tm.id, tm.sender_id as user_id, tm.message, tm.file_path, tm.is_image, tm.created_at, u.username, u.is_admin, u.is_support FROM ticket_messages tm JOIN users u ON tm.sender_id = u.id WHERE tm.ticket_id = ? ORDER BY tm.created_at ASC", (ticket_id,)).fetchall()
     
     conn.close()
     
@@ -1446,21 +1506,87 @@ def get_ticket_details(ticket_id):
     ticket_dict['messages'] = [dict(msg) for msg in messages]
     return jsonify(ticket_dict)
 
-@app.route('/api/support/tickets/<int:ticket_id>/messages', methods=['POST'])
+@app.route('/api/marketplace/grant-access', methods=['POST'])
 @login_required
-def reply_to_ticket(ticket_id):
+def grant_marketplace_access():
     user_id = session['user_id']
-    is_staff = session.get('is_admin') or session.get('is_support')
+    is_seller = session.get('is_weight_seller') or session.get('is_admin')
+    if not is_seller:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
     data = request.json
-    message = data.get('message', '').strip()
+    ticket_id = data.get('ticket_id')
+    duration = data.get('duration', 'LIFETIME') # '30' or 'LIFETIME'
     
-    if not message:
-        return jsonify({'error': 'Message is required'}), 400
+    if not ticket_id:
+        return jsonify({'error': 'Ticket ID required'}), 400
         
     conn = get_db()
     c = conn.cursor()
     
-    if is_staff:
+    # Verify ticket exists and is a marketplace ticket (Buy/Support)
+    ticket = c.execute("SELECT user_id, model_id, seller_team_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found'}), 404
+        
+    model_id = ticket['model_id']
+    target_user_id = ticket['user_id']
+    
+    if not model_id:
+        conn.close()
+        return jsonify({'error': 'No model linked to this ticket'}), 400
+        
+    # Check if seller owns this model or team
+    model = c.execute("SELECT user_id FROM models WHERE id = ?", (model_id,)).fetchone()
+    # For now, if they are is_weight_seller we allow it if the ticket is routed to their team (or they are owner)
+    # Simple check: is this model's seller_team_id matching user's team?
+    user_row = c.execute("SELECT seller_team_id FROM users WHERE id = ?", (user_id,)).fetchone()
+    my_team_id = user_row['seller_team_id'] if user_row else None
+    
+    if not session.get('is_admin') and ticket['seller_team_id'] != my_team_id:
+        conn.close()
+        return jsonify({'error': 'Unauthorized to grant access for this ticket'}), 403
+        
+    expiry_date = None
+    if duration != 'LIFETIME':
+        expiry_date = time.time() + (int(duration) * 86400)
+    
+    # Add to shares
+    c.execute("INSERT INTO shares (model_id, target_user_id, expiry_date) VALUES (?, ?, ?)", (model_id, target_user_id, expiry_date))
+    
+    # Post a confirmation message in the ticket
+    now = time.time()
+    grant_msg = f"✅ Access granted: {duration if duration != 'LIFETIME' else 'Lifetime'}"
+    c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, created_at) VALUES (?, ?, ?, ?)", (ticket_id, user_id, grant_msg, now))
+    c.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (now, ticket_id))
+    
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Access granted successfully'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/messages', methods=['POST'])
+@login_required
+def reply_to_ticket(ticket_id):
+    user_id = session['user_id']
+    is_staff = session.get('is_admin') or session.get('is_support') or session.get('is_reseller') or session.get('is_weight_seller')
+    
+    message = ""
+    if request.is_json:
+        data = request.json
+        message = data.get('message', '').strip()
+    else:
+        message = request.form.get('message', '').strip()
+    
+    file = request.files.get('file')
+    
+    if not message and not file:
+        return jsonify({'error': 'Message or file is required'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    if is_staff or session.get('is_admin') or session.get('is_support'):
         ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     else:
         ticket = c.execute("SELECT user_id, subject, category FROM tickets WHERE id = ? AND user_id = ?", (ticket_id, user_id)).fetchone()
@@ -1468,10 +1594,24 @@ def reply_to_ticket(ticket_id):
     if not ticket:
         conn.close()
         return jsonify({'error': 'Ticket not found or unauthorized'}), 404
+    
+    file_path = None
+    is_image = False
+    if file and file.filename:
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if ext not in SUPPORT_ALLOWED_EXTENSIONS:
+            conn.close()
+            return jsonify({'error': 'File type not allowed'}), 400
+            
+        filename = secure_filename(f"{int(time.time())}_{uuid.uuid4().hex[:8]}_{file.filename}")
+        file.save(os.path.join(SUPPORT_UPLOAD_FOLDER, filename))
+        file_path = f"/static/support/{filename}"
+        if ext in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+            is_image = True
         
     now = time.time()
-    c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, created_at) VALUES (?, ?, ?, ?)",
-              (ticket_id, user_id, message, now))
+    c.execute("INSERT INTO ticket_messages (ticket_id, sender_id, message, file_path, is_image, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+              (ticket_id, user_id, message, file_path, int(is_image), now))
     c.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (now, ticket_id))
     conn.commit()
 
