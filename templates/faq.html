@@ -45,6 +45,10 @@
         .nav-links { display: flex; gap: 30px; align-items: center; }
         .nav-links a { text-decoration: none; color: var(--text-dim); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
         .nav-links a:hover, .nav-links a.active { color: var(--primary); }
+        .cta-btn {
+            background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
+        }
+        .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--primary-glow); color: #000; }
 
         .container { max-width: 900px; margin: 80px auto; padding: 0 5%; }
         
@@ -116,22 +120,35 @@
 
         @media (max-width: 768px) {
             .header h1 { font-size: 2.5rem; }
-            nav { padding: 15px 5%; }
-            .nav-links { display: none; }
+            nav { padding: 15px 5% !important; }
+            .mobile-hide { display: none !important; }
+            .nav-auth-mobile { display: flex !important; gap: 10px; }
         }
+        .nav-auth-mobile { display: none; }
     </style>
 </head>
 <body>
     <div class="bg-glow"></div>
 
     <nav>
-        <a href="/" class="logo">EXCLUSIVE <span>AIM</span></a>
-        <div class="nav-links">
-            <a href="/">Home</a>
-            <a href="/program">Features</a>
+        <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
+        
+        <!-- Desktop Links -->
+        <div class="nav-links mobile-hide">
+            <a href="/#features">Features</a>
+            <a href="/#tech">Technology</a>
+            <a href="/#pricing">Pricing</a>
+            <a href="/purchase">Buy</a>
+            <a href="/program">Program</a>
             <a href="/faq" class="active">FAQ</a>
-            <a href="/purchase">Purchase</a>
-            <a href="/dashboard">Dashboard</a>
+            <a href="/reseller">Reseller</a>
+            <a href="/dashboard" class="mobile-hide">Dashboard</a>
+            <a href="/dashboard?action=register" class="cta-btn">Join Now</a>
+        </div>
+
+        <!-- Mobile Quick Actions -->
+        <div class="nav-auth-mobile">
+            <a href="/dashboard" class="cta-btn" style="padding: 8px 15px; font-size: 13px;">Login</a>
         </div>
     </nav>
 
@@ -176,9 +193,7 @@
             <div class="faq-item">
                 <div class="faq-question">What is the "Macku" device? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
-                    <div class="faq-answer-inner">
-                        Macku is our proprietary hardware injection solution. It supports 1000Hz polling, ultra-smooth tracking, anti-recoil, and rapid fire. It is a premium alternative to the Titan Two, built specifically for high-performance CV aiming.
-                    </div>
+                        Macku is a hardware injection solution that supports 1000Hz polling, ultra-smooth tracking, anti-recoil, and rapid fire. It is an alternative to the Titan Two, built for high-performance CV aiming. <em>(Note: For console use, Macku always requires a XIM)</em>.
                 </div>
             </div>
             <div class="faq-item">
@@ -206,7 +221,7 @@
                 <div class="faq-question">Can I use it with a XIM? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Absolutely. We have full support for XIM + Titan Two or XIM + Macku combos. This allows you to combine the best movement of a XIM with our advanced AI target tracking.
+                        Absolutely. We have full support for XIM + Titan Two or XIM + Macku combos. For console usage, <strong>Macku always requires a XIM</strong> to function correctly. This allows you to combine the best movement of a XIM with our advanced AI target tracking.
                     </div>
                 </div>
             </div>
