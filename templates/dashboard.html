@@ -532,6 +532,7 @@
                 <button class="nav-item" onclick="showPage('reseller')" id="nav-reseller"
                     style="display:none; color:var(--warning);">Reseller Panel</button>
                 <button class="nav-item" onclick="showPage('support')" id="nav-support"><i class="fas fa-headset" style="margin-right: 10px;"></i>Tickets</button>
+                <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads"><i class="fas fa-download" style="margin-right: 10px;"></i>Downloads</button>
                 <div style="flex-grow:1"></div>
                 <button class="nav-item" onclick="location.href='/'" style="opacity: 0.7; font-size: 0.85em; margin-bottom: 10px;">&larr; Back to Website</button>
                 <button class="nav-item" onclick="logout()" style="color: var(--error);">Logout</button>
@@ -587,6 +588,67 @@
                                 <input type="password" id="update-pass" placeholder="New Password">
                                 <button onclick="updateProfile()" style="margin-top: 15px;">Update Profile</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Downloads -->
+                <div id="page-downloads" class="page hidden">
+                    <h1 style="margin-bottom: 30px;">Downloads</h1>
+
+                    <!-- Main Software Card -->
+                    <div class="card" style="background: linear-gradient(135deg, rgba(0, 191, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <div>
+                                <h2 style="color: var(--primary); margin: 0;">Exclusive Aim Build</h2>
+                                <p style="color: var(--text-dim); margin: 5px 0 0 0;">Latest stable release for Windows 10/11</p>
+                            </div>
+                            <i class="fas fa-box-open" style="font-size: 40px; color: rgba(255,255,255,0.1);"></i>
+                        </div>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <a href="/api/release/download" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; padding: 12px 25px;">
+                                <i class="fas fa-cloud-download-alt"></i> Download Latest (.zip)
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Owner-Only Upload Section -->
+                    <div id="admin-upload-section" class="card" style="display: none; border: 1px dashed var(--primary); margin-top: 30px;">
+                        <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-upload" style="margin-right: 10px;"></i>Owner: Upload New Build</h3>
+                        <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 20px;">Uploading a new file will automatically <strong>delete the previous version</strong>. Only .zip files are accepted.</p>
+                        
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="file" id="release-upload-input" accept=".zip" style="margin: 0; background: rgba(0,0,0,0.3); padding: 8px;">
+                            <button onclick="uploadNewRelease()" class="btn-primary" style="width: auto; padding: 0 20px; white-space: nowrap;">Upload Build</button>
+                        </div>
+                        <div id="upload-status" style="margin-top: 15px; font-size: 13px;"></div>
+                    </div>
+
+                    <!-- Prerequisites Grid -->
+                    <h3 style="margin: 40px 0 20px 0; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-tools" style="color: var(--primary);"></i> Prerequisites & Required Software
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                        <div class="card" style="padding: 20px;">
+                            <h4 style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                                <i class="fab fa-windows" style="color: #0078d4;"></i> Visual C++
+                            </h4>
+                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Required for running the C++ engine logic.</p>
+                            <a href="https://aka.ms/vs/17/release/vc_redist.x64.exe" target="_blank" style="color: var(--primary); font-size: 13px; text-decoration: none;">Download Redistributable &rarr;</a>
+                        </div>
+                        <div class="card" style="padding: 20px;">
+                            <h4 style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-gamepad" style="color: #4CAF50;"></i> Gtuner IV
+                            </h4>
+                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Setup software for Titan Two hardware configuration.</p>
+                            <a href="https://www.consoletuner.com/titan-two-downloads/" target="_blank" style="color: var(--primary); font-size: 13px; text-decoration: none;">Gtuner IV Website &rarr;</a>
+                        </div>
+                        <div class="card" style="padding: 20px;">
+                            <h4 style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-microchip" style="color: #FF9800;"></i> Macku Drivers
+                            </h4>
+                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Essential drivers for Macku hardware spoofing.</p>
+                            <a href="#" style="color: var(--text-dim); font-size: 13px; text-decoration: none; cursor: not-allowed;">Coming Soon &hellip;</a>
                         </div>
                     </div>
                 </div>
@@ -2452,6 +2514,47 @@
 
         // ...
 
+        async function uploadNewRelease() {
+            const fileInput = document.getElementById('release-upload-input');
+            const statusEl = document.getElementById('upload-status');
+            
+            if (!fileInput.files || !fileInput.files[0]) {
+                showNotification("Please select a file.", "error");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading build...';
+            statusEl.style.color = 'var(--primary)';
+
+            try {
+                const res = await fetch('/api/release/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showNotification("Build uploaded successfully!", "success");
+                    statusEl.innerText = "Build uploaded successfully!";
+                    statusEl.style.color = "var(--success)";
+                    fileInput.value = "";
+                } else {
+                    showNotification(data.message || "Upload failed", "error");
+                    statusEl.innerText = data.message || "Upload failed";
+                    statusEl.style.color = "var(--error)";
+                }
+            } catch (e) {
+                console.error("Upload error:", e);
+                showNotification("Network error during upload.", "error");
+                statusEl.innerText = "Network error.";
+                statusEl.style.color = "var(--error)";
+            }
+        }
+
         // --- UI Navigation Helper Functions (Restoring Missing Code) ---
 
         function hideAll() {
@@ -2511,6 +2614,11 @@
 
             if (isReseller || isOwner) {
                 document.getElementById('nav-reseller').style.display = 'block';
+            }
+
+            if (isOwner) {
+                const adminUpload = document.getElementById('admin-upload-section');
+                if (adminUpload) adminUpload.style.display = 'block';
             }
 
             // Initial load
