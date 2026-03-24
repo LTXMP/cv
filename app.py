@@ -654,9 +654,9 @@ def upload_release():
     conn.close()
     return jsonify({"success": True, "message": f"Build uploaded successfully. New version: {new_v}"})
 
-@app.route('/api/release/download')
+@app.route('/api/release/download', methods=['GET'])
 def download_release():
-    if 'user' not in session:
+    if 'user_id' not in session:
         return redirect(url_for('login'))
     
     target_path = os.path.join(app.root_path, 'release', 'ExclusiveAim.zip')
