@@ -599,9 +599,58 @@ def purchase():
 def reseller():
     return render_template('reseller.html')
 
+@app.route('/api/release/upload', methods=['POST'])
+def upload_release():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    
+    user_email = session['user']
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE email = ?', (user_email,)).fetchone()
+    conn.close()
+
+    if not user or user['role'] != 'owner':
+        return jsonify({"success": False, "message": "Permission denied"}), 403
+
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "No file part"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"success": False, "message": "No selected file"}), 400
+
+    # Ensure release directory exists
+    release_dir = os.path.join(app.root_path, 'release')
+    if not os.path.exists(release_dir):
+        os.makedirs(release_dir)
+
+    target_path = os.path.join(release_dir, 'ExclusiveAim.zip')
+    
+    # Wipe previous zip if it exists
+    if os.path.exists(target_path):
+        os.remove(target_path)
+
+    file.save(target_path)
+    return jsonify({"success": True, "message": "Build uploaded successfully"})
+
+@app.route('/api/release/download')
+def download_release():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    
+    target_path = os.path.join(app.root_path, 'release', 'ExclusiveAim.zip')
+    if not os.path.exists(target_path):
+        return "No release available yet.", 404
+
+    return send_file(target_path, as_attachment=True)
+
 @app.route('/program')
 def program():
     return render_template('program.html')
+
+@app.route('/faq')
+def faq():
+    return render_template('faq.html')
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
