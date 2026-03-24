@@ -600,7 +600,7 @@
                     <div class="card" style="background: linear-gradient(135deg, rgba(0, 191, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
                             <div>
-                                <h2 style="color: var(--primary); margin: 0;">Exclusive Aim Build</h2>
+                                <h2 style="color: var(--primary); margin: 0;">Exclusive Aim Build <span id="current-build-version" style="font-size: 14px; opacity: 0.6; margin-left: 10px;">...</span></h2>
                                 <p style="color: var(--text-dim); margin: 5px 0 0 0;">Latest stable release for Windows 10/11</p>
                             </div>
                             <i class="fas fa-box-open" style="font-size: 40px; color: rgba(255,255,255,0.1);"></i>
@@ -1357,6 +1357,12 @@
                     btn.innerText = trialEnabled ? 'ENABLED' : 'DISABLED';
                     btn.style.background = trialEnabled ? 'var(--primary)' : '#333';
                     btn.style.color = trialEnabled ? '#000' : '#fff';
+                }
+                
+                // Display version
+                const versionEl = document.getElementById('current-build-version');
+                if (versionEl && d.current_version) {
+                    versionEl.innerText = d.current_version;
                 }
             } catch (e) {
                 console.error("Failed to load settings:", e);
@@ -2539,9 +2545,16 @@
                 
                 if (res.ok) {
                     showNotification("Build uploaded successfully!", "success");
-                    statusEl.innerText = "Build uploaded successfully!";
+                    statusEl.innerText = data.message || "Build uploaded successfully!";
                     statusEl.style.color = "var(--success)";
                     fileInput.value = "";
+                    
+                    // Refresh version display if elements exist
+                    const versionEl = document.getElementById('current-build-version');
+                    if (versionEl && data.message.includes('New version:')) {
+                        const newV = data.message.split('New version: ')[1];
+                        versionEl.innerText = newV;
+                    }
                 } else {
                     showNotification(data.message || "Upload failed", "error");
                     statusEl.innerText = data.message || "Upload failed";
