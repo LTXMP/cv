@@ -9,7 +9,7 @@ import string
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import Flask, request, jsonify, send_file, abort, session, render_template, send_from_directory
+from flask import Flask, request, jsonify, send_file, abort, session, render_template, send_from_directory, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import json
@@ -79,6 +79,7 @@ def init_db():
     
     # Initialize free trial setting if not exists
     c.execute("INSERT OR IGNORE INTO global_settings (key, value) VALUES ('free_trial_enabled', '0')")
+    c.execute("INSERT OR IGNORE INTO global_settings (key, value) VALUES ('current_version', 'v1.0.0')")
 
     # Trial Claims Table (Anti-Abuse)
     c.execute('''CREATE TABLE IF NOT EXISTS trial_claims 
@@ -602,15 +603,10 @@ def reseller():
 
 @app.route('/api/release/upload', methods=['POST'])
 def upload_release():
-    if 'user' not in session:
+    if 'user_id' not in session:
         return jsonify({"success": False, "message": "Unauthorized"}), 401
     
-    user_email = session['user']
-    conn = get_db_connection()
-    user = conn.execute('SELECT role FROM users WHERE email = ?', (user_email,)).fetchone()
-    conn.close()
-
-    if not user or user['role'] != 'owner':
+    if not session.get('is_owner'):
         return jsonify({"success": False, "message": "Permission denied"}), 403
 
     if 'file' not in request.files:
@@ -632,7 +628,31 @@ def upload_release():
         os.remove(target_path)
 
     file.save(target_path)
-    return jsonify({"success": True, "message": "Build uploaded successfully"})
+    
+    # Update Version
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT value FROM global_settings WHERE key='current_version'").fetchone()
+    current_v = row['value'] if row else 'v1.0.0'
+    
+    # Simple increment: v1.0.x -> v1.0.x+1
+    try:
+        parts = current_v.lstrip('v').split('.')
+        if len(parts) == 3:
+            parts[2] = str(int(parts[2]) + 1)
+            new_v = 'v' + '.'.join(parts)
+        elif len(parts) == 1:
+            new_v = f"v{parts[0]}.0.1"
+        else:
+            new_v = current_v + ".1"
+            
+        c.execute("UPDATE global_settings SET value=? WHERE key='current_version'", (new_v,))
+        conn.commit()
+    except:
+        new_v = current_v # Fallback
+
+    conn.close()
+    return jsonify({"success": True, "message": f"Build uploaded successfully. New version: {new_v}"})
 
 @app.route('/api/release/download')
 def download_release():
@@ -657,10 +677,16 @@ def faq():
 def get_settings():
     conn = get_db()
     c = conn.cursor()
-    row = c.execute("SELECT value FROM global_settings WHERE key='free_trial_enabled'").fetchone()
+    rows = c.execute("SELECT key, value FROM global_settings").fetchall()
     conn.close()
-    enabled = row['value'] == '1' if row else False
-    return jsonify({'free_trial_enabled': enabled})
+    
+    settings = {row['key']: row['value'] for row in rows}
+    
+    # Format response for frontend compatibility
+    return jsonify({
+        'free_trial_enabled': settings.get('free_trial_enabled') == '1',
+        'current_version': settings.get('current_version', 'v1.0.0')
+    })
 
 @app.route('/api/admin/settings', methods=['POST'])
 @admin_required
@@ -668,7 +694,7 @@ def admin_update_settings():
     data = request.json
     key = data.get('key')
     value = data.get('value')
-    if key not in ['free_trial_enabled']:
+    if key not in ['free_trial_enabled', 'current_version']:
         return jsonify({'error': 'Invalid setting'}), 400
     
     conn = get_db()
