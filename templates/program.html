@@ -7,25 +7,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
+            --bg-deep: #050505;
+            --bg-card: #0d0d0d;
             --primary: #00BFFF;
             --primary-glow: rgba(0, 191, 255, 0.4);
             --accent: #7000FF;
-            --bg: #050505;
-            --bg-card: rgba(13, 13, 13, 0.7);
+            --text-main: #ffffff;
+            --text-dim: #a0a0a0;
             --glass: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.08);
-            --text: #ffffff;
-            --text-dim: #a0a0a0;
+            --nav-bg: rgba(5, 5, 5, 0.8);
             --success: #2ecc71;
             --warning: #FFC107;
             --error: #ff4757;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
             font-family: 'Outfit', sans-serif;
+            scroll-behavior: smooth;
+        }
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
             overflow-x: hidden;
             line-height: 1.7;
         }
@@ -176,11 +182,11 @@
                 justify-content: center;
                 align-items: center;
                 transition: 0.4s;
-                z-index: 1005;
+                z-index: 2000;
                 border-left: 1px solid var(--glass-border);
             }
             .nav-links.active { right: 0; }
-            .hamburger { display: flex; }
+            .hamburger { display: flex; z-index: 2001; }
             .hero-mini h1 { font-size: 32px; }
             .feature-header h2 { font-size: 1.5rem; }
         }
