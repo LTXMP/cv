@@ -79,6 +79,46 @@
             .footer-links a { margin-left: 0; }
         }
         .nav-auth-mobile { display: none; }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            z-index: 1002;
+            padding: 10px;
+        }
+        .hamburger span {
+            display: block;
+            width: 25px;
+            height: 2px;
+            background: #fff;
+            transition: 0.3s;
+        }
+        .hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger.active span:nth-child(2) { opacity: 0; }
+        .hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                position: fixed;
+                top: 0;
+                right: -100%;
+                width: 80%;
+                height: 100vh;
+                background: #050505;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                transition: 0.4s;
+                z-index: 1001;
+                border-left: 1px solid rgba(255,255,255,0.08);
+            }
+            .nav-links.active { right: 0; }
+            .hamburger { display: flex; }
+            nav { padding: 15px 5% !important; }
+        }
         .container { max-width: 800px; margin: 60px auto; background: rgba(255,255,255,0.02); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); }
         h1, h2 { font-family: 'Outfit', sans-serif; color: var(--primary, #00BFFF); }
         h1 { margin-bottom: 10px; }
@@ -90,8 +130,14 @@
     <nav>
         <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
         
-        <!-- Desktop Links -->
-        <div class="nav-links mobile-hide">
+        <div class="hamburger" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+        <!-- Desktop & Mobile Links -->
+        <div class="nav-links" id="nav-links">
             <a href="/#features">Features</a>
             <a href="/#tech">Technology</a>
             <a href="/#pricing">Pricing</a>
@@ -99,13 +145,8 @@
             <a href="/program">Program</a>
             <a href="/faq">FAQ</a>
             <a href="/reseller">Reseller</a>
-            <a href="/dashboard" class="mobile-hide">Dashboard</a>
+            <a href="/dashboard">Dashboard</a>
             <a href="/dashboard?action=register" class="cta-btn">Join Now</a>
-        </div>
-
-        <!-- Mobile Quick Actions -->
-        <div class="nav-auth-mobile">
-            <a href="/dashboard" class="cta-btn" style="padding: 8px 15px; font-size: 13px;">Login</a>
         </div>
     </nav>
     <div class="container">
@@ -137,5 +178,15 @@
             <a href="https://discord.gg/jpRXXw3keR" target="_blank">Discord Support</a>
         </div>
     </footer>
+    <script>
+        function toggleMenu() {
+            const nav = document.getElementById('nav-links');
+            const burger = document.querySelector('.hamburger');
+            if (window.innerWidth <= 768) {
+                nav.classList.toggle('active');
+                burger.classList.toggle('active');
+            }
+        }
+    </script>
 </body>
 </html>
