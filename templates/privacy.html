@@ -97,26 +97,29 @@
             transition: 0.3s;
         }
         .hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); background: var(--primary); }
         .hamburger.active span:nth-child(2) { opacity: 0; }
-        .hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+        .hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); background: var(--primary); }
 
         @media (max-width: 768px) {
             .nav-links {
                 position: fixed;
                 top: 0;
                 right: -100%;
-                width: 80%;
+                width: 100%;
                 height: 100vh;
-                background: #050505;
+                background: rgba(5, 5, 5, 0.98);
+                backdrop-filter: blur(20px);
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                transition: 0.4s;
+                transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
                 z-index: 2000;
-                border-left: 1px solid rgba(255,255,255,0.08);
+                gap: 25px;
             }
             .nav-links.active { right: 0; }
-            .hamburger { display: flex; z-index: 2001; }
+            .nav-links a { font-size: 1.2rem; }
+            .hamburger { display: flex; z-index: 2005; }
             nav { padding: 15px 5% !important; }
         }
         .container { max-width: 800px; margin: 60px auto; background: rgba(255,255,255,0.02); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); }
@@ -179,14 +182,22 @@
         </div>
     </footer>
     <script>
-        function toggleMenu() {
-            const nav = document.getElementById('nav-links');
-            const burger = document.querySelector('.hamburger');
-            if (window.innerWidth <= 768) {
-                nav.classList.toggle('active');
-                burger.classList.toggle('active');
-            }
-        }
+        const menuBtn = document.getElementById('menu-toggle');
+        const navMenu = document.getElementById('nav-menu');
+
+        menuBtn.addEventListener('click', () => {
+            menuBtn.classList.toggle('active');
+            navMenu.classList.toggle('active');
+            document.body.style.overflow = navMenu.classList.contains('active') ? 'hidden' : '';
+        });
+
+        navMenu.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                menuBtn.classList.remove('active');
+                navMenu.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        });
     </script>
 </body>
 </html>
