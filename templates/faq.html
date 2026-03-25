@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -36,43 +37,123 @@
         }
 
         .bg-glow {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-            background: 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background:
                 radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.06), transparent 40%),
                 radial-gradient(circle at 20% 80%, rgba(112, 0, 255, 0.06), transparent 40%);
         }
 
         nav {
-            position: sticky; top: 0; width: 100%; padding: 20px 8%;
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(12px);
-            z-index: 1000; border-bottom: 1px solid var(--glass-border);
+            position: sticky;
+            top: 0;
+            width: 100%;
+            padding: 20px 8%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(5, 5, 5, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            border-bottom: 1px solid var(--glass-border);
         }
-        .logo { font-size: 24px; font-weight: 800; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 10px; }
-        .logo span { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
-        .nav-links { display: flex; gap: 30px; align-items: center; }
-        .nav-links a { text-decoration: none; color: var(--text-dim); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
-        .nav-links a:hover, .nav-links a.active { color: var(--primary); }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo span {
+            color: var(--primary);
+            text-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-dim);
+            font-weight: 600;
+            font-size: 14px;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary);
+        }
+
         .cta-btn {
-            background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
+            background: var(--primary);
+            color: #000;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px var(--primary-glow);
         }
-        .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--primary-glow); color: #000; }
 
-        .container { max-width: 900px; margin: 80px auto; padding: 0 5%; }
-        
-        .header { text-align: center; margin-bottom: 60px; }
-        .header h1 { 
-            font-size: 3.5rem; font-weight: 800; margin-bottom: 15px;
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--primary-glow);
+            color: #000;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 80px auto;
+            padding: 0 5%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 15px;
             background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
-            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        .header p { color: var(--text-dim); font-size: 1.1rem; }
 
-        .faq-section { margin-bottom: 40px; }
-        .faq-section h2 { 
-            font-size: 1.5rem; margin-bottom: 20px; color: var(--primary); 
-            display: flex; align-items: center; gap: 10px;
-            text-transform: uppercase; letter-spacing: 2px;
+        .header p {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+        }
+
+        .faq-section {
+            margin-bottom: 40px;
+        }
+
+        .faq-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         .faq-item {
@@ -83,7 +164,10 @@
             overflow: hidden;
             transition: 0.3s;
         }
-        .faq-item:hover { border-color: rgba(0, 191, 255, 0.3); }
+
+        .faq-item:hover {
+            border-color: rgba(0, 191, 255, 0.3);
+        }
 
         .faq-question {
             padding: 20px 25px;
@@ -95,8 +179,9 @@
             font-size: 1.05rem;
             user-select: none;
         }
-        .faq-question i { 
-            font-size: 14px; 
+
+        .faq-question i {
+            font-size: 14px;
             transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             color: var(--primary);
         }
@@ -107,6 +192,7 @@
             transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             background: rgba(255, 255, 255, 0.01);
         }
+
         .faq-answer-inner {
             padding: 0 25px 25px;
             color: var(--text-dim);
@@ -114,19 +200,47 @@
             line-height: 1.8;
         }
 
-        .faq-item.active { border-color: var(--primary); background: rgba(0, 191, 255, 0.02); }
-        .faq-item.active .faq-answer { max-height: 500px; }
-        .faq-item.active .faq-question i { transform: rotate(180deg); }
+        .faq-item.active {
+            border-color: var(--primary);
+            background: rgba(0, 191, 255, 0.02);
+        }
+
+        .faq-item.active .faq-answer {
+            max-height: 500px;
+        }
+
+        .faq-item.active .faq-question i {
+            transform: rotate(180deg);
+        }
 
         footer {
-            padding: 60px 8% 40px; border-top: 1px solid var(--glass-border);
-            text-align: center; color: var(--text-dim); font-size: 14px;
+            padding: 60px 8% 40px;
+            border-top: 1px solid var(--glass-border);
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 14px;
         }
-        .footer-links { display: flex; justify-content: center; gap: 25px; margin-bottom: 20px; }
-        .footer-links a { color: var(--text-dim); text-decoration: none; transition: 0.3s; }
-        .footer-links a:hover { color: var(--primary); }
 
-        .nav-auth-mobile { display: none; }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin-bottom: 20px;
+        }
+
+        .footer-links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .nav-auth-mobile {
+            display: none;
+        }
 
         /* Hamburger Menu */
         .hamburger {
@@ -137,16 +251,28 @@
             z-index: 1002;
             padding: 10px;
         }
+
         .hamburger span {
             display: block;
             width: 25px;
             height: 2px;
-            background: #fff;
+            background: rgb(106, 109, 110);
             transition: 0.3s;
         }
-        .hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); background: var(--primary); }
-        .hamburger.active span:nth-child(2) { opacity: 0; }
-        .hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); background: var(--primary); }
+
+        .hamburger.active span:nth-child(1) {
+            transform: translateY(7px) rotate(45deg);
+            background: var(--primary);
+        }
+
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active span:nth-child(3) {
+            transform: translateY(-7px) rotate(-45deg);
+            background: var(--primary);
+        }
 
         @media (max-width: 768px) {
             .nav-links {
@@ -155,7 +281,7 @@
                 right: -100%;
                 width: 100%;
                 height: 100vh;
-                background: rgba(5, 5, 5, 0.98);
+                background: rgba(26, 26, 26, 0.98);
                 backdrop-filter: blur(20px);
                 flex-direction: column;
                 justify-content: center;
@@ -164,20 +290,37 @@
                 z-index: 2000;
                 gap: 25px;
             }
-            .nav-links.active { right: 0; }
-            .nav-links a { font-size: 1.2rem; }
-            .hamburger { display: flex; z-index: 2005; }
-            .header h1 { font-size: 2.2rem; }
-            .container { margin-top: 40px; }
+
+            .nav-links.active {
+                right: 0;
+            }
+
+            .nav-links a {
+                font-size: 1.2rem;
+            }
+
+            .hamburger {
+                display: flex;
+                z-index: 2005;
+            }
+
+            .header h1 {
+                font-size: 2.2rem;
+            }
+
+            .container {
+                margin-top: 40px;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="bg-glow"></div>
 
     <nav>
         <a href="/" class="logo">EXCLUSIVE<span>AIM</span></a>
-        
+
         <button class="hamburger" id="menu-toggle" aria-label="Toggle Menu">
             <span></span>
             <span></span>
@@ -200,8 +343,8 @@
 
     <div class="container">
         <div class="header">
-            <h1>Frequently Asked <br><span>Questions</span></h1>
-            <p>Everything you need to know about the most advanced CV software.</p>
+            <h1>Expert Gaming <br><span>Assistance</span></h1>
+            <p>Frequently Asked Questions about our Neural Precision Suite.</p>
         </div>
 
         <!-- General Section -->
@@ -211,7 +354,9 @@
                 <div class="faq-question">What is Exclusive Aim? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Exclusive Aim is a highly advanced computer vision (CV) based assistance software written primarily in C++. It uses real-time AI to detect targets and provide smooth, human-like aim assistance without ever injecting code into your game.
+                        Exclusive Aim is a professional gaming enhancement suite powered by neural computer vision (CV).
+                        It uses real-time AI to assist with target tracking and precision movement, providing a more
+                        fluid and efficient gaming experience without modified game files.
                     </div>
                 </div>
             </div>
@@ -219,7 +364,9 @@
                 <div class="faq-question">Is it safe to use? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Yes. Because we use Computer Vision and external hardware injection (Titan Two/Macku), the software is completely external. It does not read or write game memory, making it virtually undetectable to standard anti-cheats (Ricochet, Vanguard, BattlEye, EAC).
+                        Yes. Because we use Computer Vision and external hardware injection (Titan Two/Macku), the
+                        software is completely external. It does not read or write game memory, making it virtually
+                        undetectable to standard anti-cheats (Ricochet, Vanguard, BattlEye, EAC).
                     </div>
                 </div>
             </div>
@@ -232,21 +379,28 @@
                 <div class="faq-question">Do I need specific hardware? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        For Console or Dual-PC setups, a <strong>Capture Card</strong> is required to feed the video to the AI. For output, we support <strong>Titan Two</strong> and <strong>Macku</strong> devices for 100% undetectable hardware-level spoofing.
+                        For Console or Dual-PC setups, a <strong>Capture Card</strong> is used to process the video
+                        feed. For output, we support <strong>Titan Two</strong> and <strong>Macku</strong> devices for
+                        professional-grade hardware-level input isolation.
                     </div>
                 </div>
             </div>
             <div class="faq-item">
                 <div class="faq-question">What is the "Macku" device? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
-                        Macku is a hardware injection solution that supports 1000Hz polling, ultra-smooth tracking, anti-recoil, and rapid fire. It is an alternative to the Titan Two, built for high-performance CV aiming. <em>(Note: For console use, Macku always requires a XIM)</em>.
+                    Macku is a hardware injection solution that supports 1000Hz polling, ultra-smooth tracking,
+                    anti-recoil, and rapid fire. It is an alternative to the Titan Two, built for high-performance CV
+                    aiming. <em>(Note: For console use, Macku always requires a XIM)</em>.
                 </div>
             </div>
             <div class="faq-item">
-                <div class="faq-question">Is a Capture Card required for Single PC? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-question">Is a Capture Card required for Single PC? <i class="fas fa-chevron-down"></i>
+                </div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        No. Single PC users can use direct window capture. However, using a <strong>Titan Two or Macku</strong> is still highly recommended for Single PC to avoid direct software mouse manipulation, which is safer.
+                        No. Single PC users can utilize direct secure capture. However, using a <strong>Titan Two or
+                            Macku</strong> is still recommended to maintain complete hardware isolation, which is the
+                        gold standard for secure implementation.
                     </div>
                 </div>
             </div>
@@ -259,7 +413,9 @@
                 <div class="faq-question">Does it work on PS5 and Xbox? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Yes! It works on all consoles. For PlayStation 5 specifically, a bypass device like the <strong>XIM Matrix, FCG2, or P5Mate</strong> is required to handle the console's controller authentication.
+                        Yes! It works on all consoles. For PlayStation 5 specifically, a bypass device like the
+                        <strong>XIM Matrix, FCG2, or P5Mate</strong> is required to handle the console's controller
+                        authentication.
                     </div>
                 </div>
             </div>
@@ -267,7 +423,9 @@
                 <div class="faq-question">Can I use it with a XIM? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Absolutely. We have full support for XIM + Titan Two or XIM + Macku combos. For console usage, <strong>Macku always requires a XIM</strong> to function correctly. This allows you to combine the best movement of a XIM with our advanced AI target tracking.
+                        Absolutely. We have full support for XIM + Titan Two or XIM + Macku combos. For console usage,
+                        <strong>Macku always requires a XIM</strong> to function correctly. This allows you to combine
+                        the best movement of a XIM with our advanced AI target tracking.
                     </div>
                 </div>
             </div>
@@ -280,7 +438,9 @@
                 <div class="faq-question">What are the PC requirements? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        To run the AI at high frame rates, we recommend at least an <strong>RTX 2070</strong> for Console/Dual-PC and an <strong>RTX 3060</strong> for Single-PC setups. The faster your GPU, the lower the input lag.
+                        To run the AI at high frame rates, we recommend at least an <strong>RTX 2070</strong> for
+                        Console/Dual-PC and an <strong>RTX 3060</strong> for Single-PC setups. The faster your GPU, the
+                        lower the input lag.
                     </div>
                 </div>
             </div>
@@ -288,7 +448,9 @@
                 <div class="faq-question">Does it support all games? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Our Universal models work on almost any FPS. We also provide game-specific models for Call of Duty, Apex Legends, Overwatch 2, and more via our Marketplace.
+                        Yes! We have a wide variety of free-to-use models for many different games. You can also find
+                        specialized, high-performance models for Call of Duty, Apex Legends, Overwatch 2, and others via
+                        our Marketplace.
                     </div>
                 </div>
             </div>
@@ -301,7 +463,9 @@
                 <div class="faq-question">How do I get my license key? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        After purchasing on the <strong>Purchase</strong> page, your license key will be available in your <strong>Dashboard</strong> immediately. You can then download the software from the "Downloads" tab.
+                        After purchasing on the <strong>Purchase</strong> page, your license key will be available in
+                        your <strong>Dashboard</strong> immediately. You can then download the software from the
+                        "Downloads" tab.
                     </div>
                 </div>
             </div>
@@ -309,7 +473,9 @@
                 <div class="faq-question">What is the refund policy? <i class="fas fa-chevron-down"></i></div>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Because this is a digital product, all sales are final. We highly recommend reviewing the system requirements before purchasing. Check our <a href="/refund" style="color:var(--primary);">Refund Policy</a> page for more details.
+                        Because this is a digital product, all sales are final. We highly recommend reviewing the system
+                        requirements before purchasing. Check our <a href="/refund" style="color:var(--primary);">Refund
+                            Policy</a> page for more details.
                     </div>
                 </div>
             </div>
@@ -354,4 +520,5 @@
         });
     </script>
 </body>
+
 </html>
