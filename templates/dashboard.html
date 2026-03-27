@@ -1505,10 +1505,9 @@
         async function unlinkDiscord() {
             if (!confirm("Are you sure you want to unlink your Discord account? You will not be able to open new tickets until it is relinked.")) return;
             try {
-                const res = await fetch(`${API_URL}/user/link_discord`, {
+                const res = await fetch(`${API_URL}/user/unlink_discord`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ discord_id: null })
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 if (res.ok) {
                     showNotification('Discord unlinked', 'success');
@@ -1516,8 +1515,12 @@
                     delete userData.discord_id;
                     localStorage.setItem('userData', JSON.stringify(userData));
                     loadSettings();
+                } else {
+                    showNotification('Failed to unlink Discord', 'error');
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error("Unlink error:", e);
+            }
         }
 
         async function assignUserRole() {
@@ -2078,6 +2081,11 @@
                     if (data.ticket_id) {
                         openSupportTicket(data.ticket_id, subject, 'open');
                     }
+                } else if (res.status === 403) {
+                    // Force the linking modal
+                    const modal = document.getElementById('mandatory-discord-modal');
+                    if (modal) modal.classList.remove('hidden');
+                    showNotification('Discord linking required', 'warning');
                 } else {
                     const data = await res.json().catch(() => ({error: 'Failed to create ticket'}));
                     showNotification(data.error || 'Failed to create ticket', 'error');
