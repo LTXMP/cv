@@ -1398,7 +1398,7 @@ def discord_callback():
         conn.close()
         
         print(f"[Discord] Successfully linked {discord_id}")
-        return redirect('/dashboard#settings?linked=success')
+        return redirect('/dashboard?linked=success#settings')
     except Exception as e:
         print(f"[Discord] Callback Exception: {str(e)}")
         return redirect(f'/dashboard#settings?linked=error&reason=callback_exception_{str(e)[:50]}')
@@ -1407,6 +1407,19 @@ def discord_callback():
 @login_required
 def link_discord():
     return jsonify({"error": "OAuth2 Required"}), 400
+
+@app.route('/api/user/unlink_discord', methods=['POST'])
+@login_required
+def unlink_discord():
+    try:
+        user_id = session['user_id']
+        conn = get_db()
+        conn.execute("UPDATE users SET discord_id=NULL WHERE id=?", (user_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "Discord unlinked successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/support/tickets/<int:ticket_id>/assign_role', methods=['POST'])
 @admin_required

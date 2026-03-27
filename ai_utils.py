@@ -137,13 +137,13 @@ def get_ai_support_response(user_query):
     try:
         # Try primary model
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
             prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
             response = model.generate_content(prompt)
         except Exception as e:
             if "404" in str(e) or "not found" in str(e).lower():
-                print(f"[AI] gemini-1.5-flash not found, falling back to gemini-pro...")
-                model = genai.GenerativeModel('gemini-pro')
+                print(f"[AI] gemini-1.5-flash-latest not found, falling back to gemini-1.5-flash...")
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
                 response = model.generate_content(prompt)
             else:
