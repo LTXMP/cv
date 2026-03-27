@@ -2,3 +2,5 @@ flask
 pycryptodome
 gunicorn
 werkzeug
+discord.py
+google-generativeai
