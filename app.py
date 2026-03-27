@@ -15,8 +15,10 @@ from werkzeug.utils import secure_filename
 import json
 import urllib.request
 import threading
+from bot import bot, run_bot
 
 app = Flask(__name__)
+app.discord_bot = bot
 # Use persistent key if available, else random (invalidates sessions on restart)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 
@@ -141,6 +143,16 @@ def init_db():
     c.execute("PRAGMA table_info(users)")
     columns = [info[1] for info in c.fetchall()]
     
+    if 'discord_id' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN discord_id TEXT UNIQUE DEFAULT NULL")
+        except: pass
+            
+    if 'last_hwid_reset' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL DEFAULT 0")
+        except: pass
+            
     if 'email' not in columns:
         try:
             c.execute("ALTER TABLE users ADD COLUMN email TEXT")
@@ -1312,6 +1324,55 @@ def update_profile():
     conn.close()
     return jsonify({'message': 'Profile updated'})
 
+@app.route('/api/user/link_discord', methods=['POST'])
+@login_required
+def link_discord():
+    data = request.json
+    discord_id = data.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Missing Discord ID'}), 400
+    
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET discord_id=? WHERE id=?", (discord_id, session['user_id']))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({'error': 'Discord ID already linked to another account'}), 409
+    conn.close()
+    return jsonify({'message': 'Discord account linked successfully'})
+
+@app.route('/api/support/tickets/<int:ticket_id>/assign_role', methods=['POST'])
+@admin_required
+def assign_discord_role(ticket_id):
+    # This will be used by Weight Sellers/Admins to trigger a role assignment in Discord
+    data = request.json
+    role_id = data.get('role_id')
+    if not role_id:
+        return jsonify({'error': 'Missing Role ID'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    ticket = c.execute("SELECT user_id FROM tickets WHERE id=?", (ticket_id,)).fetchone()
+    if not ticket:
+        conn.close()
+        return jsonify({'error': 'Ticket not found'}), 404
+        
+    user = c.execute("SELECT discord_id FROM users WHERE id=?", (ticket['user_id'],)).fetchone()
+    conn.close()
+    
+    if not user or not user['discord_id']:
+        return jsonify({'error': 'User has not linked their Discord account'}), 400
+        
+    # We signal the background bot thread via a global queue or similar
+    # For now, let's assume the bot will pick it up or we call a bot method if accessible
+    if hasattr(app, 'discord_bot') and app.discord_bot:
+        # discord_bot.assign_role is a hypothetical method we'll implement
+        threading.Thread(target=app.discord_bot.assign_role, args=(user['discord_id'], role_id)).start()
+        return jsonify({'message': 'Role assignment triggered'})
+    else:
+        return jsonify({'error': 'Discord bot not active'}), 503
+
 @app.route('/api/user/reset_hwid', methods=['POST'])
 @login_required
 def reset_hwid():
@@ -1451,6 +1512,12 @@ def create_ticket():
         
     conn = get_db()
     c = conn.cursor()
+    
+    # Check for Discord Linking (Mandatory)
+    user = c.execute("SELECT discord_id, is_admin, is_owner FROM users WHERE id=?", (user_id,)).fetchone()
+    if not (user['discord_id'] or user['is_admin'] or user['is_owner']):
+        conn.close()
+        return jsonify({'error': 'Discord link required before opening tickets.'}), 403
     
     # Determine seller_team_id for Weights tickets
     seller_team_id = None
@@ -3446,6 +3513,13 @@ def serve_support_attachment(filename):
     res = send_from_directory(folder, filename)
     res.headers['Cache-Control'] = 'public, max-age=31536000'
     return res
+
+# Start Discord Bot in Background
+import threading
+try:
+    threading.Thread(target=run_bot, daemon=True).start()
+except Exception as e:
+    print(f"FAILED to start Discord Bot: {e}")
 
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
