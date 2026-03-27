@@ -1032,7 +1032,7 @@
                         <label style="color:var(--text-dim); font-size:13px;">Message</label>
                         <textarea id="user-new-ticket-message" placeholder="Describe your issue..." style="width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
                         <div style="display:flex; justify-content:flex-end; margin-top:20px;">
-                            <button style="width:100%; margin:0;" onclick="submitNewTicketUser()">Submit Ticket</button>
+                            <button style="width:100%; margin:0;" onclick="submitNewTicket()">Submit Ticket</button>
                         </div>
                     </div>
                     <div class="card" style="padding: 0; display:flex; flex-direction:column; height: 600px;">
@@ -1189,21 +1189,47 @@
     <!-- Create Ticket Modal -->
     <div id="create-ticket-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; display:flex; align-items:center; justify-content:center;">
         <div class="card" style="width:100%; max-width:500px;">
-            <h3 style="margin-bottom:20px;">Open New Ticket</h3>
-            <label style="color:var(--text-dim); font-size:13px;">Reason / Category</label>
-            <select id="new-ticket-category" style="width:100%; margin:8px 0;">
-                <option value="Support">General Support</option>
-                <option value="Buy">Purchasing & Billing</option>
-                <option value="Rebrand/Reseller">Rebrand / Reseller</option>
-            </select>
-            <br>
-            <label style="color:var(--text-dim); font-size:13px;">Subject</label>
-            <input type="text" id="new-ticket-subject" placeholder="e.g., HWID Reset Issue">
-            <label style="color:var(--text-dim); font-size:13px;">Message</label>
-            <textarea id="new-ticket-message" placeholder="Describe your issue..." style="width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                <button class="secondary" style="width:auto; margin:0;" onclick="closeCreateTicketModal()">Cancel</button>
-                <button style="width:auto; margin:0;" onclick="submitNewTicket()">Submit Ticket</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0;">Open New Ticket</h3>
+                <button onclick="closeCreateTicketModal()" style="background:none; border:none; color:var(--text-dim); cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Reason / Category</label>
+                <select id="new-ticket-category" onchange="onTicketCategoryChange('')" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+                    <option value="Support">General Support</option>
+                    <option value="Buy">Purchasing & Billing</option>
+                    <option value="Rebrand/Reseller">Rebrand / Reseller</option>
+                </select>
+            </div>
+
+            <div id="subcategory-group" style="display:none; margin-bottom:15px;">
+                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Type</label>
+                <select id="new-ticket-subcategory" onchange="onTicketSubcategoryChange('')" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+                    <option value="Program">Program (Subscription)</option>
+                </select>
+            </div>
+
+            <div id="item-group" style="display:none; margin-bottom:15px;">
+                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Item / Plan</label>
+                <select id="new-ticket-item" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+                    <!-- Populated via JS -->
+                </select>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Subject</label>
+                <input type="text" id="new-ticket-subject" placeholder="e.g., HWID Reset Issue" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Message</label>
+                <textarea id="new-ticket-message" placeholder="Describe your issue..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+                <button class="secondary" style="width:auto; margin:0; padding:10px 20px;" onclick="closeCreateTicketModal()">Cancel</button>
+                <button style="width:auto; margin:0; padding:10px 20px;" onclick="submitNewTicket('')">Submit Ticket</button>
             </div>
         </div>
     </div>
@@ -1961,99 +1987,6 @@
             setTimeout(updateSupportCountdowns, 100);
         }
 
-        async function openSupportTicket(id, subject, status) {
-            currentTicketId = id;
-            document.getElementById('support-active-subject').innerText = `#${id} - ${subject}`;
-            document.getElementById('support-ticket-modal').classList.remove('hidden');
-            
-            const msgContainer = document.getElementById('support-messages');
-            msgContainer.innerHTML = '<p style="color:var(--text-dim); text-align:center;">Loading...</p>';
-            
-            try {
-                const res = await fetch(`${API_URL}/support/tickets/${id}/messages`);
-                const ticketData = await res.json();
-                
-                msgContainer.innerHTML = '';
-                if (ticketData.messages) {
-                    ticketData.messages.forEach(m => {
-                        const isStaff = m.is_admin || m.is_support;
-                        const bubbleAlign = isStaff ? 'flex-start' : 'flex-end';
-                        const bubbleColor = isStaff ? 'rgba(52, 152, 219, 0.2)' : 'rgba(255,255,255,0.05)';
-                        const bubbleBorder = isStaff ? 'var(--accent)' : 'var(--glass-border)';
-                        const authorName = m.username + (isStaff ? ' <span style="color:var(--accent);font-size:10px;">[STAFF]</span>' : '');
-                        
-                        const div = document.createElement('div');
-                        div.style.alignSelf = bubbleAlign;
-                        div.style.background = bubbleColor;
-                        div.style.border = `1px solid ${bubbleBorder}`;
-                        div.style.padding = '12px 16px';
-                        div.style.borderRadius = '12px';
-                        div.style.maxWidth = '80%';
-                        div.innerHTML = `
-                            <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px;">${authorName} &bull; ${new Date(m.created_at * 1000).toLocaleString()}</div>
-                            <div style="color:white; font-size:14px; white-space:pre-wrap;">${m.message}</div>
-                        `;
-                        msgContainer.appendChild(div);
-                    });
-                }
-                msgContainer.scrollTop = msgContainer.scrollHeight;
-                
-                const replyArea = document.getElementById('support-reply-area');
-                const closeBtn = document.getElementById('support-close-btn');
-                const reopenBtn = document.getElementById('support-reopen-btn');
-                const deleteBtn = document.getElementById('support-delete-btn');
-                
-                if (status === 'open') {
-                    replyArea.style.display = 'flex';
-                    closeBtn.classList.remove('hidden');
-                    reopenBtn.classList.add('hidden');
-                    if (isCurrentUserStaff) deleteBtn.classList.remove('hidden'); else deleteBtn.classList.add('hidden');
-                } else if (status === 'pending_delete') {
-                    replyArea.style.display = 'none';
-                    closeBtn.classList.add('hidden');
-                    
-                    reopenBtn.classList.remove('hidden');
-                    deleteBtn.classList.add('hidden');
-                    
-                    const msg = document.createElement('div');
-                    msg.innerHTML = '<p style="background:var(--warning); color:black; padding:10px; border-radius:8px; text-align:center; font-weight:bold; margin-top:10px;">This ticket is scheduled for permanent deletion. You can reopen it if you still need help.</p>';
-                    msgContainer.appendChild(msg);
-                } else {
-                    replyArea.style.display = 'none';
-                    closeBtn.classList.add('hidden');
-                    
-                    if (isCurrentUserStaff) {
-                        reopenBtn.classList.remove('hidden');
-                        deleteBtn.classList.remove('hidden');
-                    } else {
-                        reopenBtn.classList.add('hidden');
-                        deleteBtn.classList.add('hidden');
-                    }
-                    
-                    const msg = document.createElement('div');
-                    msg.innerHTML = '<p style="color:var(--error); text-align:center; margin-top:10px;">This ticket is closed.</p>';
-                    msgContainer.appendChild(msg);
-                }
-            } catch (e) {
-                console.error("Failed to load messages", e);
-                msgContainer.innerHTML = '<p style="color:var(--error); text-align:center;">Error loading messages.</p>';
-            }
-        }
-
-        setInterval(() => {
-            document.querySelectorAll('.ticket-countdown').forEach(el => {
-                const updated = parseFloat(el.getAttribute('data-updated'));
-                const rem = Math.max(0, 86400 - (Date.now()/1000 - updated));
-                if (rem <= 0) {
-                    el.innerText = 'Deleting soon...';
-                } else {
-                    const h = Math.floor(rem/3600);
-                    const m = Math.floor((rem%3600)/60).toString().padStart(2, '0');
-                    const s = Math.floor(rem%60).toString().padStart(2, '0');
-                    el.innerText = `DEL IN ${h}h ${m}m ${s}s`;
-                }
-            });
-        }, 1000);
 
         function closeSupportTicketModal() {
             document.getElementById('support-ticket-modal').classList.add('hidden');
@@ -2096,29 +2029,8 @@
             document.getElementById('create-ticket-modal').classList.add('hidden');
         }
 
-        async function submitNewTicket() {
-            const subject = document.getElementById('new-ticket-subject').value.trim();
-            const category = document.getElementById('new-ticket-category').value;
-            const message = document.getElementById('new-ticket-message').value.trim();
-            if (!subject || !message) { showNotification('Subject and message required', 'error'); return; }
-            
-            try {
-                const res = await fetch(`${API_URL}/support/tickets`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({subject, category, message})
-                });
-                if (res.ok) {
-                    showNotification('Ticket Created', 'success');
-                    closeCreateTicketModal();
-                    loadSupportTickets();
-                } else {
-                    showNotification('Failed to create ticket', 'error');
-                }
-            } catch (e) {}
-        }
-
-        async function submitNewTicketUser() {
+        async function submitNewTicket(p = 'user') {
+            const prefix = p ? p + '-' : '';
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
             if (!userData.discord_id && !localStorage.getItem('isAdmin')) {
                const modal = document.getElementById('mandatory-discord-modal');
@@ -2126,20 +2038,20 @@
                return;
             }
 
-            const subject = document.getElementById('user-new-ticket-subject').value.trim();
-            const category = document.getElementById('user-new-ticket-category').value;
-            let message = document.getElementById('user-new-ticket-message').value.trim();
+            const subject = document.getElementById(prefix + 'new-ticket-subject').value.trim();
+            const category = document.getElementById(prefix + 'new-ticket-category').value;
+            let message = document.getElementById(prefix + 'new-ticket-message').value.trim();
             if (!subject || !message) { showNotification('Subject and message required', 'error'); return; }
             
             // Build context prefix from subcategory/item
-            const subGroup = document.getElementById('user-subcategory-group');
-            const itemGroup = document.getElementById('user-item-group');
+            const subGroup = document.getElementById(prefix + 'subcategory-group');
+            const itemGroup = document.getElementById(prefix + 'item-group');
             let model_id = window.activeMarketplaceModelId || null;
             
-            if (!model_id && subGroup.style.display !== 'none') {
-                const subcat = document.getElementById('user-new-ticket-subcategory').value;
-                const itemEl = document.getElementById('user-new-ticket-item');
-                if (itemGroup.style.display !== 'none' && itemEl.options.length > 0) {
+            if (!model_id && subGroup && subGroup.style.display !== 'none') {
+                const subcat = document.getElementById(prefix + 'new-ticket-subcategory').value;
+                const itemEl = document.getElementById(prefix + 'new-ticket-item');
+                if (itemGroup && itemGroup.style.display !== 'none' && itemEl.options.length > 0) {
                     const itemText = itemEl.options[itemEl.selectedIndex].text;
                     message = `[${category.toUpperCase()}: ${subcat} - ${itemText}]\n\n${message}`;
                 }
@@ -2154,54 +2066,69 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(body)
                 });
+                
                 if (res.ok) {
+                    const data = await res.json();
                     showNotification('Ticket Created', 'success');
-                    document.getElementById('user-new-ticket-subject').value = '';
-                    document.getElementById('user-new-ticket-message').value = '';
+                    document.getElementById(prefix + 'new-ticket-subject').value = '';
+                    document.getElementById(prefix + 'new-ticket-message').value = '';
                     window.activeMarketplaceModelId = null; // Reset
+                    if (prefix === '') closeCreateTicketModal();
                     loadSupportTickets();
+                    if (data.ticket_id) {
+                        openSupportTicket(data.ticket_id, subject, 'open');
+                    }
                 } else {
-                    showNotification('Failed to create ticket', 'error');
+                    const data = await res.json().catch(() => ({error: 'Failed to create ticket'}));
+                    showNotification(data.error || 'Failed to create ticket', 'error');
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error("Ticket creation error:", e);
+                showNotification('Connection error during ticket creation', 'error');
+            }
         }
 
         // --- Dynamic Ticket Form Helpers ---
 
-        function onTicketCategoryChange(prefix) {
-            const cat = document.getElementById(prefix + '-new-ticket-category').value;
-            const subGroup = document.getElementById(prefix + '-subcategory-group');
-            const itemGroup = document.getElementById(prefix + '-item-group');
+        function onTicketCategoryChange(p) {
+            const prefix = p ? p + '-' : '';
+            const cat = document.getElementById(prefix + 'new-ticket-category').value;
+            const subGroup = document.getElementById(prefix + 'subcategory-group');
+            const itemGroup = document.getElementById(prefix + 'item-group');
             
             if (cat === 'Buy' || cat === 'Support') {
-                subGroup.style.display = 'block';
+                if (subGroup) subGroup.style.display = 'block';
                 // Reset subcategory to Program
-                document.getElementById(prefix + '-new-ticket-subcategory').value = 'Program';
-                onTicketSubcategoryChange(prefix);
+                const subEl = document.getElementById(prefix + 'new-ticket-subcategory');
+                if (subEl) {
+                    subEl.value = 'Program';
+                    onTicketSubcategoryChange(p);
+                }
             } else {
-                subGroup.style.display = 'none';
-                itemGroup.style.display = 'none';
+                if (subGroup) subGroup.style.display = 'none';
+                if (itemGroup) itemGroup.style.display = 'none';
             }
         }
 
-        async function onTicketSubcategoryChange(prefix) {
-            const itemGroup = document.getElementById(prefix + '-item-group');
-            const itemSelect = document.getElementById(prefix + '-new-ticket-item');
+        async function onTicketSubcategoryChange(p) {
+            const prefix = p ? p + '-' : '';
+            const itemGroup = document.getElementById(prefix + 'item-group');
+            const itemSelect = document.getElementById(prefix + 'new-ticket-item');
             
+            if (!itemGroup || !itemSelect) return;
             itemSelect.innerHTML = '';
             itemGroup.style.display = 'block';
             
-            // Current only "Program" is enabled in manual form
             const plans = [
                 {value: 'day', text: 'Day (4€)'},
                 {value: 'week', text: 'Week (15€)'},
                 {value: 'month', text: 'Month (40€)'},
                 {value: 'lifetime', text: 'Lifetime'}
             ];
-            plans.forEach(p => {
+            plans.forEach(plan => {
                 const opt = document.createElement('option');
-                opt.value = p.value;
-                opt.textContent = p.text;
+                opt.value = plan.value;
+                opt.textContent = plan.text;
                 itemSelect.appendChild(opt);
             });
         }
@@ -3946,6 +3873,13 @@
         }
 
         async function marketplaceTicket(modelId, category, modelName) {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (!userData.discord_id && !localStorage.getItem('isAdmin')) {
+               const modal = document.getElementById('mandatory-discord-modal');
+               if (modal) modal.classList.remove('hidden');
+               return;
+            }
+
             showNotification('Creating ticket for ' + modelName + '...', 'info');
             
             const categoryLabel = (category === 'Buy') ? 'Sale' : 'Model Support';
@@ -3964,8 +3898,8 @@
                     })
                 });
                 
-                const data = await res.json();
                 if (res.ok) {
+                    const data = await res.json();
                     showNotification('Ticket Created Successfully', 'success');
                     showPage('support');
                     loadSupportTickets();
@@ -3974,6 +3908,7 @@
                         openSupportTicket(data.ticket_id, subject, 'open');
                     }
                 } else {
+                    const data = await res.json().catch(() => ({error: 'Failed to create ticket'}));
                     showNotification(data.error || 'Failed to create ticket', 'error');
                 }
             } catch (e) {
