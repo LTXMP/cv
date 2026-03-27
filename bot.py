@@ -13,12 +13,15 @@ from ai_utils import get_ai_support_response
 TOKEN = os.environ.get('DISCORD_TOKEN')
 SUPPORT_CHANNEL_ID = 1487170317834125402
 COMMANDS_CHANNEL_ID = 1487170450659479603
-DB_PATH = os.path.join(os.environ.get('MODEL_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')), 'database.db')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.environ.get('MODEL_DIR', os.path.join(BASE_DIR, 'models'))
 
-# Ensure DB path is correct (match app.py logic)
-if not os.path.exists(DB_PATH):
-    # Fallback if MODEL_DIR logic is different
-    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')
+# FIX: If the user forgot the leading slash in Render Env Vars, fix it.
+if MODEL_DIR.startswith('opt/'):
+    MODEL_DIR = '/' + MODEL_DIR
+
+MODEL_DIR = os.path.abspath(MODEL_DIR)
+DB_PATH = os.path.join(MODEL_DIR, 'database.db')
 
 class DiscordBot(commands.Bot):
     def __init__(self):

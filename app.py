@@ -41,8 +41,14 @@ MODEL_DIR = os.path.abspath(MODEL_DIR)
 DB_PATH = os.path.join(MODEL_DIR, 'database.db')
 
 print(f"Server starting. ROOT: {BASE_DIR}")
-print(f"Model Storage: {MODEL_DIR}")
-print(f"Database: {DB_PATH}")
+print(f"[BOOT] Model Storage: {MODEL_DIR}")
+print(f"[BOOT] Database: {DB_PATH}")
+
+# Persistent Storage Verification
+if '/opt/render/' in MODEL_DIR:
+    print("[BOOT] Persistent Render Disk detected.")
+else:
+    print("[WARNING] DATABASE MAY BE EPHEMERAL. Ensure MODEL_DIR environment variable is set to a persistent mount point.")
 
 SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
 IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
@@ -1327,6 +1333,23 @@ def update_profile():
     conn.commit()
     conn.close()
     return jsonify({'message': 'Profile updated'})
+
+@app.route('/api/user/profile', methods=['GET'])
+@login_required
+def get_user_profile():
+    try:
+        user_id = session['user_id']
+        conn = get_db()
+        c = conn.cursor()
+        user = c.execute("SELECT id, username, email, discord_id, is_admin, is_owner, is_verified FROM users WHERE id=?", (user_id,)).fetchone()
+        conn.close()
+        
+        if user:
+            # Return as dictionary
+            return jsonify(dict(user))
+        return jsonify({'error': 'User not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # --- Discord OAuth2 Handling ---
 DISCORD_CLIENT_ID = os.environ.get('DISCORD_CLIENT_ID')
