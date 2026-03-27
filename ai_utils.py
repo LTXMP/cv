@@ -1,4 +1,5 @@
 import os
+import time
 import google.generativeai as genai
 
 # Configure Gemini API
@@ -137,7 +138,30 @@ def get_ai_support_response(user_query):
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
         response = model.generate_content(prompt)
-        return response.text
+        
+        # Check if response was blocked
+        if not response.candidates:
+            return "I'm sorry, I cannot process that request (Blocked by safety filters)."
+            
+        try:
+            return response.text
+        except ValueError:
+            # If the response was blocked, we can't access .text
+            return "I'm sorry, I cannot process that request (Response content blocked)."
+            
     except Exception as e:
-        print(f"AI Error: {e}")
-        return "Sorry, I encountered an error while processing your request."
+        error_msg = str(e)
+        print(f"AI Error: {error_msg}")
+        # Log to a file for investigation if available
+        try:
+            with open("ai_error_log.txt", "a") as f:
+                f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {error_msg}\n")
+        except:
+            pass
+            
+        # If API key is obviously missing or short
+        if not GENAI_API_KEY:
+            return "AI Support is currently unavailable (GENAI_API_KEY environment variable is MISSING on Render/your server)."
+        
+        # Return a snippet of the actual error to help the user debug since they can't see the filesystem
+        return f"Sorry, the AI bot hit an error. Please check your GENAI_API_KEY on Render.\nError details: `{error_msg[:100]}`"
