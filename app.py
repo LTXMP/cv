@@ -21,7 +21,10 @@ from bot import bot, run_bot
 app = Flask(__name__)
 app.discord_bot = bot
 # Use persistent key if available, else random (invalidates sessions on restart)
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key_change_me')
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Absolute path to models directory (Better for Render Disks)
 # Persistent Pathing for Render
@@ -1361,28 +1364,44 @@ def discord_callback():
     }
     
     try:
+        print(f"[Discord] Callback received with code. Exchanging for token...")
         response = requests.post('https://discord.com/api/oauth2/token', data=data, headers=headers)
-        response.raise_for_status()
+        if not response.ok:
+            print(f"[Discord] Token Exchange Failed: {response.status_code} - {response.text}")
+            return redirect(f'/dashboard#settings?linked=error&reason=token_exchange_failed_{response.status_code}')
+            
         token_data = response.json()
-        access_token = token_data['access_token']
+        access_token = token_data.get('access_token')
+        if not access_token:
+            print(f"[Discord] No access token in response: {token_data}")
+            return redirect('/dashboard#settings?linked=error&reason=no_access_token')
         
+        print(f"[Discord] Fetching user info...")
         user_response = requests.get('https://discord.com/api/users/@me', headers={
             'Authorization': f'Bearer {access_token}'
         })
-        user_response.raise_for_status()
+        if not user_response.ok:
+            print(f"[Discord] User Info Fetch Failed: {user_response.status_code} - {user_response.text}")
+            return redirect(f'/dashboard#settings?linked=error&reason=user_info_failed_{user_response.status_code}')
+            
         discord_user_data = user_response.json()
-        discord_id = discord_user_data['id']
+        discord_id = discord_user_data.get('id')
+        if not discord_id:
+            print(f"[Discord] No Discord ID in user data: {discord_user_data}")
+            return redirect('/dashboard#settings?linked=error&reason=no_discord_id')
         
         # Update Database
+        print(f"[Discord] Linking Discord ID {discord_id} to User {session.get('user_id')}")
         conn = get_db()
         conn.execute("UPDATE users SET discord_id=? WHERE id=?", (discord_id, session['user_id']))
         conn.commit()
         conn.close()
         
+        print(f"[Discord] Successfully linked {discord_id}")
         return redirect('/dashboard#settings?linked=success')
     except Exception as e:
-        print(f"Discord Callback Error: {e}")
-        return redirect('/dashboard#settings?linked=error&reason=api_failure')
+        print(f"[Discord] Callback Exception: {str(e)}")
+        return redirect(f'/dashboard#settings?linked=error&reason=callback_exception_{str(e)[:50]}')
 
 @app.route('/api/user/link_discord', methods=['POST'])
 @login_required

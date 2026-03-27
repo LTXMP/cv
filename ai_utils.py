@@ -135,9 +135,19 @@ def get_ai_support_response(user_query):
         return "AI Support is currently unavailable (API Key missing)."
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
-        response = model.generate_content(prompt)
+        # Try primary model
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
+            response = model.generate_content(prompt)
+        except Exception as e:
+            if "404" in str(e) or "not found" in str(e).lower():
+                print(f"[AI] gemini-1.5-flash not found, falling back to gemini-pro...")
+                model = genai.GenerativeModel('gemini-pro')
+                prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
+                response = model.generate_content(prompt)
+            else:
+                raise e
         
         # Check if response was blocked
         if not response.candidates:
