@@ -1198,6 +1198,23 @@
             </select>
             <br>
             <label style="color:var(--text-dim); font-size:13px;">Subject</label>
+        </div>
+    </div>
+
+    <!-- Mandatory Discord Link Modal -->
+    <div id="mandatory-discord-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:5000; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+        <div class="card" style="width:100%; max-width:400px; text-align:center; padding:40px; border:2px solid #5865F2;">
+            <i class="fab fa-discord" style="font-size:60px; color:#5865F2; margin-bottom:20px;"></i>
+            <h2 style="margin-bottom:15px; color:white;">Discord Link Required</h2>
+            <p style="color:var(--text-dim); font-size:14px; line-height:1.6; margin-bottom:30px;">
+                To open support tickets or buy models, you MUST link your Discord account. This is for secure account management and staff interaction.
+            </p>
+            <button onclick="promptDiscordLink()" style="background:#5865F2; color:white; border:none; width:100%; padding:15px; font-weight:bold; font-size:15px; cursor:pointer; border-radius:10px; transition:transform 0.2s;">
+                <i class="fab fa-discord"></i> Connect with Discord
+            </button>
+            <button onclick="document.getElementById('mandatory-discord-modal').classList.add('hidden')" style="background:none; border:none; color:var(--text-dim); margin-top:15px; cursor:pointer; font-size:12px;">Maybe later</button>
+        </div>
+    </div>
             <input type="text" id="new-ticket-subject" placeholder="e.g., HWID Reset Issue">
             <label style="color:var(--text-dim); font-size:13px;">Message</label>
             <textarea id="new-ticket-message" placeholder="Describe your issue..." style="width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
@@ -1472,30 +1489,8 @@
         }
 
         async function promptDiscordLink() {
-            const discordId = prompt("Please enter your Discord User ID (e.g. 123456789012345678):\nYou can get this by enabling Developer Mode in Discord and right-clicking your profile.");
-            if (!discordId) return;
-            
-            try {
-                const res = await fetch(`${API_URL}/user/link_discord`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ discord_id: discordId })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showNotification(data.message, 'success');
-                    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-                    userData.discord_id = discordId;
-                    localStorage.setItem('userData', JSON.stringify(userData));
-                    loadSettings();
-                    const modal = document.getElementById('mandatory-discord-modal');
-                    if (modal) modal.classList.add('hidden');
-                } else {
-                    showNotification(data.error || 'Failed to link', 'error');
-                }
-            } catch (e) {
-                showNotification('Network error', 'error');
-            }
+            // Redirect to the OAuth2 start endpoint
+            window.location.href = '/api/user/link_discord/auth';
         }
 
         async function unlinkDiscord() {
@@ -3601,6 +3596,29 @@
                 const resetToken = urlParams.get('reset_token');
                 if (resetToken) {
                     showResetPerform(resetToken);
+                }
+
+                // Check for Discord Link Callback
+                const linked = urlParams.get('linked');
+                if (linked === 'success') {
+                    showNotification('Discord linked successfully!', 'success');
+                    // Re-fetch user data to update localStorage
+                    try {
+                        const res = await fetch(`${API_URL}/user/profile`);
+                        const data = await res.json();
+                        if (res.ok) {
+                            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                            userData.discord_id = data.discord_id;
+                            localStorage.setItem('userData', JSON.stringify(userData));
+                            loadSettings();
+                        }
+                    } catch (e) {}
+                    // Remove param from URL without reload
+                    window.history.replaceState({}, document.title, "/dashboard" + window.location.hash);
+                } else if (linked === 'error') {
+                    const reason = urlParams.get('reason') || 'Unknown error';
+                    showNotification('Failed to link Discord: ' + reason, 'error');
+                    window.history.replaceState({}, document.title, "/dashboard" + window.location.hash);
                 }
             } catch (err) {
                 alert("CRITICAL STARTUP ERROR: " + err);
