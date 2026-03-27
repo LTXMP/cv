@@ -1,4 +1,5 @@
 import os
+import requests
 import sqlite3
 import time
 import datetime
@@ -1324,23 +1325,69 @@ def update_profile():
     conn.close()
     return jsonify({'message': 'Profile updated'})
 
+# --- Discord OAuth2 Handling ---
+DISCORD_CLIENT_ID = os.environ.get('DISCORD_CLIENT_ID')
+DISCORD_CLIENT_SECRET = os.environ.get('DISCORD_CLIENT_SECRET')
+DISCORD_REDIRECT_URI = os.environ.get('DISCORD_REDIRECT_URI', 'https://xentweaks.uk/api/user/link_discord/callback')
+
+@app.route('/api/user/link_discord/auth')
+@login_required
+def discord_auth():
+    auth_url = (
+        f"https://discord.com/api/oauth2/authorize"
+        f"?client_id={DISCORD_CLIENT_ID}"
+        f"&redirect_uri={DISCORD_REDIRECT_URI}"
+        f"&response_type=code"
+        f"&scope=identify"
+    )
+    return redirect(auth_url)
+
+@app.route('/api/user/link_discord/callback')
+@login_required
+def discord_callback():
+    code = request.args.get('code')
+    if not code:
+        return redirect('/dashboard#settings?linked=error&reason=no_code')
+        
+    data = {
+        'client_id': DISCORD_CLIENT_ID,
+        'client_secret': DISCORD_CLIENT_SECRET,
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': DISCORD_REDIRECT_URI
+    }
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    
+    try:
+        response = requests.post('https://discord.com/api/oauth2/token', data=data, headers=headers)
+        response.raise_for_status()
+        token_data = response.json()
+        access_token = token_data['access_token']
+        
+        user_response = requests.get('https://discord.com/api/users/@me', headers={
+            'Authorization': f'Bearer {access_token}'
+        })
+        user_response.raise_for_status()
+        discord_user_data = user_response.json()
+        discord_id = discord_user_data['id']
+        
+        # Update Database
+        conn = get_db()
+        conn.execute("UPDATE users SET discord_id=? WHERE id=?", (discord_id, session['user_id']))
+        conn.commit()
+        conn.close()
+        
+        return redirect('/dashboard#settings?linked=success')
+    except Exception as e:
+        print(f"Discord Callback Error: {e}")
+        return redirect('/dashboard#settings?linked=error&reason=api_failure')
+
 @app.route('/api/user/link_discord', methods=['POST'])
 @login_required
 def link_discord():
-    data = request.json
-    discord_id = data.get('discord_id')
-    if not discord_id:
-        return jsonify({'error': 'Missing Discord ID'}), 400
-    
-    conn = get_db()
-    try:
-        conn.execute("UPDATE users SET discord_id=? WHERE id=?", (discord_id, session['user_id']))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        conn.close()
-        return jsonify({'error': 'Discord ID already linked to another account'}), 409
-    conn.close()
-    return jsonify({'message': 'Discord account linked successfully'})
+    return jsonify({"error": "OAuth2 Required"}), 400
 
 @app.route('/api/support/tickets/<int:ticket_id>/assign_role', methods=['POST'])
 @admin_required
