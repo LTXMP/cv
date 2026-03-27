@@ -24,7 +24,7 @@ app.discord_bot = bot
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key_change_me')
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None' # Required for cross-site redirects on Render
 
 # Absolute path to models directory (Better for Render Disks)
 # Persistent Pathing for Render
@@ -1401,12 +1401,7 @@ def discord_callback():
         return redirect('/dashboard?linked=success#settings')
     except Exception as e:
         print(f"[Discord] Callback Exception: {str(e)}")
-        return redirect(f'/dashboard#settings?linked=error&reason=callback_exception_{str(e)[:50]}')
-
-@app.route('/api/user/link_discord', methods=['POST'])
-@login_required
-def link_discord():
-    return jsonify({"error": "OAuth2 Required"}), 400
+        return redirect(f'/dashboard#settings?linked=error&reason=callback_exception_{str(e)[0:50]}')
 
 @app.route('/api/user/unlink_discord', methods=['POST'])
 @login_required

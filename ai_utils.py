@@ -135,20 +135,35 @@ def get_ai_support_response(user_query):
         return "AI Support is currently unavailable (API Key missing)."
     
     try:
-        # Try primary model
+        # Dynamic model discovery for maximum robustness
+        available_models = []
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
-            response = model.generate_content(prompt)
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    available_models.append(m.name)
         except Exception as e:
-            if "404" in str(e) or "not found" in str(e).lower():
-                print(f"[AI] gemini-1.5-flash-latest not found, falling back to gemini-1.5-flash...")
-                model = genai.GenerativeModel('gemini-1.5-flash')
+            print(f"[AI] Model listing failed: {e}")
+            # Fallback to hardcoded list if listing fails
+            available_models = ['models/gemini-1.5-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro-latest', 'models/gemini-pro']
+
+        response = None
+        tried_models = []
+        
+        for model_id in available_models:
+            try:
+                tried_models.append(model_id)
+                model = genai.GenerativeModel(model_id)
                 prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
                 response = model.generate_content(prompt)
-            else:
-                raise e
-        
+                if response:
+                    break
+            except Exception as e:
+                print(f"[AI] Attempt with {model_id} failed: {e}")
+                continue
+                
+        if not response:
+            return f"AI Support Error: No compatible models found in your region. Tried: {', '.join(tried_models[:3])}"
+
         # Check if response was blocked
         if not response.candidates:
             return "I'm sorry, I cannot process that request (Blocked by safety filters)."
@@ -156,22 +171,9 @@ def get_ai_support_response(user_query):
         try:
             return response.text
         except ValueError:
-            # If the response was blocked, we can't access .text
             return "I'm sorry, I cannot process that request (Response content blocked)."
             
     except Exception as e:
         error_msg = str(e)
-        print(f"AI Error: {error_msg}")
-        # Log to a file for investigation if available
-        try:
-            with open("ai_error_log.txt", "a") as f:
-                f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {error_msg}\n")
-        except:
-            pass
-            
-        # If API key is obviously missing or short
-        if not GENAI_API_KEY:
-            return "AI Support is currently unavailable (GENAI_API_KEY environment variable is MISSING on Render/your server)."
-        
-        # Return a snippet of the actual error to help the user debug since they can't see the filesystem
-        return f"Sorry, the AI bot hit an error. Please check your GENAI_API_KEY on Render.\nError details: `{error_msg[:100]}`"
+        print(f"AI Global Error: {error_msg}")
+        return f"Sorry, the AI bot hit a critical error. Details: `{error_msg[:100]}`"
