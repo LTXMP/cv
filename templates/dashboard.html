@@ -629,6 +629,19 @@
                                 <input type="email" id="update-email" placeholder="New Email">
                                 <input type="password" id="update-pass" placeholder="New Password">
                                 <button onclick="updateProfile()" style="margin-top: 15px;">Update Profile</button>
+                                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                                    <h3 style="margin-bottom: 10px; font-size: 16px;">Social Integration</h3>
+                                    <div id="discord-link-container" style="display: flex; align-items: center; justify-content: space-between; background: rgba(88, 101, 242, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(88, 101, 242, 0.3);">
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <i class="fab fa-discord" style="font-size: 24px; color: #5865F2;"></i>
+                                            <div>
+                                                <div id="discord-link-name" style="font-weight: 600; font-size: 14px;">Discord Account</div>
+                                                <div id="discord-link-status" style="font-size: 11px; color: var(--text-dim);">Not Linked</div>
+                                            </div>
+                                        </div>
+                                        <button onclick="promptDiscordLink()" id="btn-link-discord" style="width: auto; margin: 0; padding: 8px 16px; font-size: 12px; background: #5865F2; color: #fff; box-shadow: none;">Link Discord</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1115,6 +1128,14 @@
                         <div id="support-grant-tools" style="display:none; margin-top:10px; gap:10px;">
                             <button onclick="grantModelAccess('30')" class="btn-primary" style="padding:5px 12px; font-size:12px; background:var(--accent); border-color:var(--accent);">Grant Monthly</button>
                             <button onclick="grantModelAccess('LIFETIME')" class="btn-primary" style="padding:5px 12px; font-size:12px; background:var(--success); border-color:var(--success);">Grant Lifetime</button>
+                            <div id="seller-role-tools" style="display:none; margin-top: 10px;">
+                                <select id="seller-role-select" style="width: 180px; padding: 6px; font-size: 11px; margin: 0;">
+                                    <option value="" disabled selected>Assign Discord Role...</option>
+                                    <option value="1234567890">VIP Buyer</option>
+                                    <option value="0987654321">Standard Buyer</option>
+                                </select>
+                                <button onclick="assignUserRole()" style="width: auto; padding: 6px 12px; font-size: 11px; margin: 0; background: var(--primary);">Assign</button>
+                            </div>
                         </div>
                     </div>
                     <div style="display:flex; gap:10px;">
@@ -1202,6 +1223,21 @@
             <div style="display:flex; gap:10px; justify-content:flex-end;">
                 <button onclick="closeAddMacroModal()" class="btn-secondary" style="margin:0;">Cancel</button>
                 <button onclick="saveMacro()" class="btn-primary" style="margin:0;">Save Macro</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mandatory Discord Link Modal -->
+    <div id="mandatory-discord-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9000; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+        <div class="card" style="width:100%; max-width:450px; text-align:center; padding:40px;">
+            <div style="background:rgba(88, 101, 242, 0.1); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 25px;">
+                <i class="fab fa-discord" style="font-size:40px; color:#5865F2;"></i>
+            </div>
+            <h2 style="margin-bottom:15px; color:#fff;">Discord Required</h2>
+            <p style="color:var(--text-dim); margin-bottom:30px; line-height:1.6;">To open a <strong>Buy</strong> or <strong>Support</strong> ticket, you must first link your Discord account. This ensures our staff can reach you for immediate assistance.</p>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <button onclick="promptDiscordLink()" style="background:#5865F2; color:#fff; margin:0;">Link Now</button>
+                <button class="secondary" onclick="document.getElementById('mandatory-discord-modal').classList.add('hidden')" style="margin:0;">Maybe Later</button>
             </div>
         </div>
     </div>
@@ -1406,8 +1442,100 @@
                 if (versionEl && d.current_version) {
                     versionEl.innerText = d.current_version;
                 }
+
+                // Update Discord Link Status
+                const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                const discordStatus = document.getElementById('discord-link-status');
+                const discordName = document.getElementById('discord-link-name');
+                const discordBtn = document.getElementById('btn-link-discord');
+                
+                if (discordStatus && discordBtn) {
+                    if (userData.discord_id) {
+                        discordStatus.innerText = 'Linked: ' + userData.discord_id;
+                        discordStatus.style.color = 'var(--success)';
+                        if (discordName) discordName.style.color = 'var(--success)';
+                        discordBtn.innerText = 'Unlink';
+                        discordBtn.style.background = 'rgba(255,255,255,0.05)';
+                        discordBtn.onclick = () => unlinkDiscord();
+                    } else {
+                        discordStatus.innerText = 'Not Linked';
+                        discordStatus.style.color = 'var(--text-dim)';
+                        if (discordName) discordName.style.color = 'var(--text-dim)';
+                        discordBtn.innerText = 'Link Discord';
+                        discordBtn.style.background = '#5865F2';
+                        discordBtn.onclick = () => promptDiscordLink();
+                    }
+                }
             } catch (e) {
                 console.error("Failed to load settings:", e);
+            }
+        }
+
+        async function promptDiscordLink() {
+            const discordId = prompt("Please enter your Discord User ID (e.g. 123456789012345678):\nYou can get this by enabling Developer Mode in Discord and right-clicking your profile.");
+            if (!discordId) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/user/link_discord`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ discord_id: discordId })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(data.message, 'success');
+                    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                    userData.discord_id = discordId;
+                    localStorage.setItem('userData', JSON.stringify(userData));
+                    loadSettings();
+                    const modal = document.getElementById('mandatory-discord-modal');
+                    if (modal) modal.classList.add('hidden');
+                } else {
+                    showNotification(data.error || 'Failed to link', 'error');
+                }
+            } catch (e) {
+                showNotification('Network error', 'error');
+            }
+        }
+
+        async function unlinkDiscord() {
+            if (!confirm("Are you sure you want to unlink your Discord account? You will not be able to open new tickets until it is relinked.")) return;
+            try {
+                const res = await fetch(`${API_URL}/user/link_discord`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ discord_id: null })
+                });
+                if (res.ok) {
+                    showNotification('Discord unlinked', 'success');
+                    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                    delete userData.discord_id;
+                    localStorage.setItem('userData', JSON.stringify(userData));
+                    loadSettings();
+                }
+            } catch (e) {}
+        }
+
+        async function assignUserRole() {
+            const roleId = document.getElementById('seller-role-select').value;
+            if (!roleId || !currentTicketId) return;
+            
+            if (!confirm(`Assign targeted Discord role to this user?`)) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/assign_role`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role_id: roleId })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Network error', 'error');
             }
         }
 
@@ -2013,6 +2141,13 @@
         }
 
         async function submitNewTicketUser() {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (!userData.discord_id && !localStorage.getItem('isAdmin')) {
+               const modal = document.getElementById('mandatory-discord-modal');
+               if (modal) modal.classList.remove('hidden');
+               return;
+            }
+
             const subject = document.getElementById('user-new-ticket-subject').value.trim();
             const category = document.getElementById('user-new-ticket-category').value;
             let message = document.getElementById('user-new-ticket-message').value.trim();
@@ -2191,6 +2326,11 @@
                 
                 const deleteBtn = document.getElementById('support-delete-btn');
                 if (deleteBtn) deleteBtn.classList.toggle('hidden', !isCurrentUserStaff);
+
+                const sellerRoleTools = document.getElementById('seller-role-tools');
+                if (sellerRoleTools) {
+                    sellerRoleTools.style.display = (isCurrentUserSellerTeam || isCurrentUserStaff) ? 'block' : 'none';
+                }
 
             } catch (e) {
                 console.error("Failed to load details", e);
