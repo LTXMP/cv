@@ -130,21 +130,35 @@ If a user is struggling with "Shaking" or "Bouncing" aim:
 Use this knowledge to provide the most technical, elite-level support in the assistance industry. No user left behind. Neural Precision is the goal.
 """
 
+# Global cache for the working model name
+CACHED_MODEL = None
+LAST_MODEL_CHECK = 0
+MODEL_CHECK_INTERVAL = 3600 # 1 hour
+
 def get_ai_support_response(user_query):
+    global CACHED_MODEL, LAST_MODEL_CHECK
+    
     if not GENAI_API_KEY:
         return "AI Support is currently unavailable (API Key missing)."
     
     try:
-        # Dynamic model discovery for maximum robustness
+        # Dynamic model discovery with caching
         available_models = []
-        try:
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available_models.append(m.name)
-        except Exception as e:
-            print(f"[AI] Model listing failed: {e}")
-            # Fallback to hardcoded list if listing fails
-            available_models = ['models/gemini-1.5-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro-latest', 'models/gemini-pro']
+        current_time = time.time()
+        
+        if CACHED_MODEL and (current_time - LAST_MODEL_CHECK < MODEL_CHECK_INTERVAL):
+            available_models = [CACHED_MODEL]
+        else:
+            try:
+                print(f"[AI] Refreshing model list...")
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        available_models.append(m.name)
+                # Put flash first
+                available_models.sort(key=lambda x: 0 if 'flash' in x.lower() else 1)
+            except Exception as e:
+                print(f"[AI] Model listing failed: {e}")
+                available_models = ['models/gemini-1.5-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro-latest', 'models/gemini-pro']
 
         response = None
         tried_models = []
@@ -156,6 +170,8 @@ def get_ai_support_response(user_query):
                 prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
                 response = model.generate_content(prompt)
                 if response:
+                    CACHED_MODEL = model_id
+                    LAST_MODEL_CHECK = time.time()
                     break
             except Exception as e:
                 print(f"[AI] Attempt with {model_id} failed: {e}")

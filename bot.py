@@ -5,6 +5,7 @@ from discord import app_commands
 import sqlite3
 import time
 import threading
+import asyncio
 from ai_utils import get_ai_support_response
 
 # Config from Env
@@ -46,7 +47,7 @@ class DiscordBot(commands.Bot):
         if message.channel.id == SUPPORT_CHANNEL_ID:
             print(f"[Discord] Auto-replying to: {message.content[:50]}")
             async with message.channel.typing():
-                response = get_ai_support_response(message.content)
+                response = await asyncio.to_thread(get_ai_support_response, message.content)
                 await message.reply(response)
 
         await self.process_commands(message)
