@@ -249,21 +249,32 @@ def is_commands_channel():
         return interaction.channel_id == COMMANDS_CHANNEL_ID
     return app_commands.check(predicate)
 
-@bot.tree.command(name="hwid", description="Check your linked HWID")
+@bot.tree.command(name="hwid", description="Reset your bound HWID (1 hour cooldown)")
 @is_commands_channel()
 async def hwid(interaction: discord.Interaction):
     conn = bot.get_db()
-    user = conn.execute("SELECT username FROM users WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
+    user = conn.execute("SELECT id, username, last_hwid_reset FROM users WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
+    
     if not user:
-        await interaction.response.send_message("Your Discord is not linked to any account. Please link it on the website.", ephemeral=True)
+        await interaction.response.send_message("Account not linked. Please link it on the website.", ephemeral=True)
         conn.close()
         return
-    
-    license = conn.execute("SELECT hwid FROM licenses JOIN users ON licenses.user_id = users.id WHERE users.discord_id = ?", (str(interaction.user.id),)).fetchone()
+
+    # Check cooldown (1 hour)
+    now = time.time()
+    last_reset = user['last_hwid_reset'] or 0
+    if now - last_reset < 3600:
+        remaining = int(3600 - (now - last_reset))
+        await interaction.response.send_message(f"Rate limit: You can only reset your HWID once per hour. Try again in {remaining // 60}m {remaining % 60}s.", ephemeral=True)
+        conn.close()
+        return
+
+    conn.execute("UPDATE licenses SET hwid='' WHERE user_id = ?", (user['id'],))
+    conn.execute("UPDATE users SET last_hwid_reset = ? WHERE id = ?", (now, user['id']))
+    conn.commit()
     conn.close()
     
-    hwid_str = license['hwid'] if license and license['hwid'] else "None (Unbound)"
-    await interaction.response.send_message(f"**User**: {user['username']}\n**Linked HWID**: `{hwid_str}`")
+    await interaction.response.send_message(f"✅ **{user['username']}**, your HWID has been reset. It will bind to the next device you use.")
     msg = await interaction.original_response()
     await msg.delete(delay=60)
 
@@ -285,45 +296,25 @@ async def license_status(interaction: discord.Interaction):
     msg = await interaction.original_response()
     await msg.delete(delay=60)
 
-@bot.tree.command(name="reset_hwid", description="Reset your bound HWID")
-@is_commands_channel()
-async def reset_hwid(interaction: discord.Interaction):
+@bot.tree.command(name="model", description="[ADMIN ONLY] Check available marketplace models")
+async def model_cmd(interaction: discord.Interaction):
     conn = bot.get_db()
-    user = conn.execute("SELECT id, last_hwid_reset FROM users WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
-    
-    if not user:
-        await interaction.response.send_message("Account not linked.", ephemeral=True)
+    # Admin check
+    user = conn.execute("SELECT is_admin, is_owner FROM users WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
+    if not user or not (user['is_admin'] or user['is_owner']):
         conn.close()
+        await interaction.response.send_message("❌ This command is restricted to Administrators only.", ephemeral=True)
         return
 
-    # Check cooldown (1 hour)
-    if time.time() - (user['last_hwid_reset'] or 0) < 3600:
-        await interaction.response.send_message("Rate limit: You can only reset your HWID once per hour.", ephemeral=True)
-        conn.close()
-        return
-
-    conn.execute("UPDATE licenses SET hwid='' WHERE user_id = ?", (user['id'],))
-    conn.execute("UPDATE users SET last_hwid_reset = ? WHERE id = ?", (time.time(), user['id']))
-    conn.commit()
-    conn.close()
-    
-    await interaction.response.send_message("✅ Your HWID has been reset. It will bind to the next device you use.")
-    msg = await interaction.original_response()
-    await msg.delete(delay=60)
-
-@bot.tree.command(name="models", description="Check available marketplace models")
-@is_commands_channel()
-async def models(interaction: discord.Interaction):
-    conn = bot.get_db()
-    models = conn.execute("SELECT name, marketplace_price_monthly FROM models WHERE in_marketplace = 1 LIMIT 5").fetchall()
+    models = conn.execute("SELECT name, marketplace_price_monthly FROM models WHERE in_marketplace = 1 LIMIT 10").fetchall()
     conn.close()
     
     if not models:
         await interaction.response.send_message("No marketplace models available at the moment.", ephemeral=True)
         return
 
-    model_list = "\n".join([f"• **{m['name']}** - {m['marketplace_price_monthly']}€/mo" for m in models])
-    await interaction.response.send_message(f"### 🛒 Marketplace Models\n{model_list}\n\n*Purchase these on the dashboard!*")
+    model_list = "\n".join([f"• **{m['name']}** - {m['marketplace_price_monthly'] if m['marketplace_price_monthly'] else 'N/A'}€/mo" for m in models])
+    await interaction.response.send_message(f"### 🛒 Marketplace Models (Admin View)\n{model_list}\n\n*Purchase these on the dashboard!*")
     msg = await interaction.original_response()
     await msg.delete(delay=60)
 
