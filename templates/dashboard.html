@@ -1516,8 +1516,9 @@
                 // Update Discord Link Status
                 try {
                     const raw = localStorage.getItem('userData');
-                    userData = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
-                } catch(e) { userData = {}; }
+                    const parsed = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
+                    userData = { ...(userData || {}), ...parsed };
+                } catch(e) { console.error("Stale userData parse error"); }
 
                 const discordStatus = document.getElementById('discord-link-status');
                 const discordName = document.getElementById('discord-link-name');
@@ -1609,13 +1610,12 @@
                 const data = await res.json();
                 if (res.ok) {
                     // Merge new license data into current userData to preserve existing permissions (admin/reseller/etc)
+                    // Use a clean merge to preserve status AND profile data
+                    const currentStatus = userData?.status || 'Inactive';
                     userData = { ...(userData || {}), ...data };
+                    if (!userData.status) userData.status = currentStatus;
                     localStorage.setItem('userData', JSON.stringify(userData));
-                    console.log('[License Gate] Syncing userData:', userData);
-                    // Explicitly sync license status for the gate
-                    userData.status = data.status || 'Inactive';
-                    localStorage.setItem('userData', JSON.stringify(userData));
-                    localStorage.setItem('userData', JSON.stringify(data));
+                    console.log('[License Gate] Contextual Sync complete:', userData.status);
                     loadSettings();
                     showNotification('Account synchronized', 'success');
                 }
@@ -2912,8 +2912,10 @@
             const protectedTabs = ['models', 'marketplace', 'downloads'];
             const isAdmin = userData?.is_admin || localStorage.getItem('isAdmin') === 'true';
             const isOwner = userData?.is_owner || localStorage.getItem('isOwner') === 'true';
-            const status = userData?.status || 'Inactive';
-            const hasLicense = (status === 'Active' || isAdmin || isOwner);
+            const uiStatus = document.getElementById('status-license')?.innerText;
+            const status = userData?.status || uiStatus || 'Inactive';
+            const hasLicense = (status.includes('Active') || isAdmin || isOwner);
+            console.log(`[License Gate] Final Check -> Tab: ${pageId} | Status: ${status} | Has: ${hasLicense}`);
             console.log(`[License Gate] Checking tab: ${pageId} | Status: ${userData ? userData.status : 'null'} | HasLicense: ${hasLicense}`);
 
             
