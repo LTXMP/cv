@@ -155,8 +155,10 @@ def init_db():
     
     if 'discord_id' not in columns:
         try:
-            c.execute("ALTER TABLE users ADD COLUMN discord_id TEXT UNIQUE DEFAULT NULL")
-        except: pass
+            c.execute("ALTER TABLE users ADD COLUMN discord_id TEXT DEFAULT NULL")
+            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_discord_id ON users(discord_id)")
+        except Exception as e:
+            print(f"[BOOT] Failed to add discord_id column: {e}")
             
     if 'last_hwid_reset' not in columns:
         try:
