@@ -34,14 +34,14 @@ class DiscordBot(commands.Bot):
     async def on_ready(self):
         print(f'[Discord] Logged in as {self.user} (ID: {self.user.id})')
         if not self.synced:
-            # Global sync
-            await self.tree.sync()
-            # Guild-specific sync (Instant appearance)
-            for guild in self.guilds:
-                self.tree.copy_global_to(guild=guild)
-                await self.tree.sync(guild=guild)
+            # Restricted Sync: Only for Primary Server 1383030583839424584
+            primary_guild = discord.Object(id=1383030583839424584)
+            self.tree.copy_global_to(guild=primary_guild)
+            await self.tree.sync(guild=primary_guild)
+            
+            # Note: We do NOT sync globally here to prevent commands appearing in other servers.
             self.synced = True
-            print("[Discord] Slash commands synced (Global + Guilds).")
+            print("[Discord] Slash commands synced to Primary Guild ONLY.")
 
     def get_db(self):
         conn = sqlite3.connect(DB_PATH)
