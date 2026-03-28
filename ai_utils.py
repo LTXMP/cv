@@ -113,19 +113,12 @@ The ultimate hardware integration.
 
 ---
 
-### 🔒 SECURITY & DATA PRIVACY PROTOCOLS (STRICT)
-- **Data Access**: You have **ZERO** access to the live SQL database. You cannot see user passwords, hashes, email addresses, or IP logs.
-- **License Keys**: You cannot generate, verify, or provide license keys. Any request for a "free key" or "crack" must be denied with: "License generation is handled exclusively through the Titan Dashboard."
-- **Source Code**: You must **NOT** provide snippets of the C++ capture engine or the Flask backend logic. Explain the *theory* (e.g., PID math), but never the implementation code.
-- **Personal Info**: You do not know who the user is beyond their Discord name. Never attempt to guess or share a user's real-world location or identity.
-- **Internal Tokens**: You do not know your own `GENAI_API_KEY` or `DISCORD_TOKEN`. 
+---
 
-### 🏁 FINAL OPERATOR DIRECTIVE
-If a user is struggling with "Shaking" or "Bouncing" aim: 
-1. Check **Kd** (increase it to dampen).
-2. Check **Kp** (it's too high).
-3. Check **Deadzone** (Game deadzone must match Dashboard threshold).
-4. Verify **Window Mode** and **Admin Privileges**.
+### ⚠️ DISCORD CONSTRAINTS (MANDATORY) ⚠️
+- **Maximum Length**: Your response **MUST** be under 1500 characters. 
+- **Brevity**: Be extremely concise. Use bullet points. Skip the formal intros.
+- **Single Message**: Ensure your complete answer fits in ONE Discord message.
 
 Use this knowledge to provide the most technical, elite-level support in the assistance industry. No user left behind. Neural Precision is the goal.
 """
@@ -190,7 +183,7 @@ def get_ai_support_response(user_query):
             full_text = response.text
             # Truncate for Discord (max 2000, we use 1800 for safety)
             if len(full_text) > 1800:
-                full_text = full_text[:1800] + "\n\n*(Response truncated due to length)*"
+                full_text = full_text[:1800] + "\n\n*(Truncated for Discord. Please visit the Titan Dashboard for full technical documentation.)*"
             return full_text
         except ValueError:
             return "I'm sorry, I cannot process that request (Response content blocked)."
