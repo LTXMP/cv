@@ -1455,6 +1455,15 @@
             }
         }
 
+        function isDiscordLinked() {
+            try {
+                const raw = localStorage.getItem('userData');
+                if (!raw || raw === "undefined" || raw === "null") return false;
+                const userData = JSON.parse(raw);
+                return userData.discord_id && userData.discord_id !== "null" && userData.discord_id !== "undefined";
+            } catch(e) { return false; }
+        }
+
         let trialEnabled = false;
         async function loadSettings() {
             try {
@@ -1475,17 +1484,23 @@
                 }
 
                 // Update Discord Link Status
-                const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                let userData = {};
+                try {
+                    const raw = localStorage.getItem('userData');
+                    userData = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
+                } catch(e) { userData = {}; }
+
                 const discordStatus = document.getElementById('discord-link-status');
                 const discordName = document.getElementById('discord-link-name');
                 const discordBtn = document.getElementById('btn-link-discord');
                 
                 if (discordStatus && discordBtn) {
-                    if (userData.discord_id) {
+                    if (isDiscordLinked()) {
+                        const userData = JSON.parse(localStorage.getItem('userData'));
                         discordStatus.innerText = 'Linked: ' + userData.discord_id;
                         discordStatus.style.color = 'var(--success)';
                         if (discordName) discordName.style.color = 'var(--success)';
-                        discordBtn.innerText = 'Unlink';
+                        discordBtn.innerText = 'Unlink Discord';
                         discordBtn.style.background = 'rgba(255,255,255,0.05)';
                         discordBtn.onclick = () => unlinkDiscord();
                     } else {
@@ -1495,6 +1510,12 @@
                         discordBtn.innerText = 'Link Discord';
                         discordBtn.style.background = '#5865F2';
                         discordBtn.onclick = () => promptDiscordLink();
+                        
+                        // Auto-sync once per session if not linked
+                        if (!sessionStorage.getItem('autoSynced')) {
+                            sessionStorage.setItem('autoSynced', 'true');
+                            syncUserData();
+                        }
                     }
                 }
             } catch (e) {
@@ -2057,8 +2078,7 @@
 
         async function submitNewTicket(p = 'user') {
             const prefix = p ? p + '-' : '';
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (!userData.discord_id && !localStorage.getItem('isAdmin')) {
+            if (!isDiscordLinked() && !localStorage.getItem('isAdmin')) {
                const modal = document.getElementById('mandatory-discord-modal');
                if (modal) modal.classList.remove('hidden');
                return;
@@ -3904,8 +3924,7 @@
         }
 
         async function marketplaceTicket(modelId, category, modelName) {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (!userData.discord_id && !localStorage.getItem('isAdmin')) {
+            if (!isDiscordLinked() && !localStorage.getItem('isAdmin')) {
                const modal = document.getElementById('mandatory-discord-modal');
                if (modal) modal.classList.remove('hidden');
                return;
