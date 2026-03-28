@@ -1076,11 +1076,15 @@ def client_auth():
 
     # 3. HWID Check/Bind
     stored_hwid = license['hwid']
-    if not stored_hwid or stored_hwid == "":
+    print(f"[HWID DEBUG] User: {user['username']} | Received: '{hwid}' | Stored: '{stored_hwid}'")
+    
+    if not stored_hwid or stored_hwid == "" or stored_hwid == "None":
         # Bind first time
+        print(f"[HWID DEBUG] Binding new HWID '{hwid}' to license {license['key']}")
         c.execute("UPDATE licenses SET hwid=? WHERE key=?", (hwid, license['key']))
         conn.commit()
     elif stored_hwid != hwid:
+        print(f"[HWID DEBUG] Mismatch! {stored_hwid} != {hwid}")
         conn.close()
         return jsonify({'authorized': False, 'message': 'HWID Mismatch. Reset HWID in dashboard if needed.'}), 403
 
