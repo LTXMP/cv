@@ -51,7 +51,14 @@ class DiscordBot(commands.Bot):
             print(f"[Discord] Auto-replying to: {message.content[:50]}")
             async with message.channel.typing():
                 response = await asyncio.to_thread(get_ai_support_response, message.content)
-                await message.reply(response)
+                if response and response.strip():
+                    try:
+                        await message.reply(response)
+                        print(f"[Discord] Replied to {message.author} ({len(response)} chars)")
+                    except Exception as e:
+                        print(f"[Discord] Reply Failed: {e}")
+                else:
+                    print(f"[Discord] AI returned empty response for: {message.content[:50]}")
 
         await self.process_commands(message)
 

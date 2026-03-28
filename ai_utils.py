@@ -147,6 +147,7 @@ def get_ai_support_response(user_query):
         current_time = time.time()
         
         if CACHED_MODEL and (current_time - LAST_MODEL_CHECK < MODEL_CHECK_INTERVAL):
+            print(f"[AI] Using cached model: {CACHED_MODEL}")
             available_models = [CACHED_MODEL]
         else:
             try:
@@ -178,18 +179,25 @@ def get_ai_support_response(user_query):
                 continue
                 
         if not response:
-            return f"AI Support Error: No compatible models found in your region. Tried: {', '.join(tried_models[:3])}"
+            tried_str = ", ".join(tried_models[:3]) if tried_models else "None"
+            return f"AI Support Error: No compatible models found in your region. Tried: {tried_str}"
 
         # Check if response was blocked
         if not response.candidates:
             return "I'm sorry, I cannot process that request (Blocked by safety filters)."
             
         try:
-            return response.text
+            full_text = response.text
+            # Truncate for Discord (max 2000, we use 1800 for safety)
+            if len(full_text) > 1800:
+                full_text = full_text[:1800] + "\n\n*(Response truncated due to length)*"
+            return full_text
         except ValueError:
             return "I'm sorry, I cannot process that request (Response content blocked)."
             
     except Exception as e:
+        import traceback
         error_msg = str(e)
         print(f"AI Global Error: {error_msg}")
+        traceback.print_exc()
         return f"Sorry, the AI bot hit a critical error. Details: `{error_msg[:100]}`"
