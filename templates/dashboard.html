@@ -647,6 +647,15 @@
                                                 </div>
                                             </div>
                                 </div>
+                                <div id="seller-settings-container" style="display:none; margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                                    <h3 style="margin-bottom: 10px; font-size: 16px;">Seller & Team Settings</h3>
+                                    <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 15px;">Link your Discord Server ID to enable dynamic role assignment for your team.</p>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <input type="text" id="update-discord-server" placeholder="Discord Server ID (Guild ID)" style="margin: 0; flex: 1;">
+                                        <button onclick="updateProfile()" style="margin: 0; padding: 0 20px; width: auto; background: var(--primary);">Save Server ID</button>
+                                    </div>
+                                    <p style="font-size: 10px; color: var(--warning); margin-top: 8px;"><i class="fas fa-exclamation-triangle"></i> You must invite the Titan Bot to your server and possess Administrator permissions before saving.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1136,10 +1145,8 @@
                             <div id="seller-role-tools" style="display:none; margin-top: 10px;">
                                 <select id="seller-role-select" style="width: 180px; padding: 6px; font-size: 11px; margin: 0;">
                                     <option value="" disabled selected>Assign Discord Role...</option>
-                                    <option value="1234567890">VIP Buyer</option>
-                                    <option value="0987654321">Standard Buyer</option>
                                 </select>
-                                <button onclick="assignUserRole()" style="width: auto; padding: 6px 12px; font-size: 11px; margin: 0; background: var(--primary);">Assign</button>
+                                <button id="seller-role-assign-btn" onclick="assignUserRole()" style="width: auto; padding: 6px 12px; font-size: 11px; margin: 0; background: var(--primary);">Assign</button>
                             </div>
                         </div>
                     </div>
@@ -1494,6 +1501,18 @@
                 const discordName = document.getElementById('discord-link-name');
                 const discordBtn = document.getElementById('btn-link-discord');
                 
+                const sellerContainer = document.getElementById('seller-settings-container');
+                const updateServerInput = document.getElementById('update-discord-server');
+                if (sellerContainer) {
+                    // Show if admin, reseller, or weight seller
+                    if (userData.is_admin || userData.is_reseller || userData.is_weight_seller) {
+                        sellerContainer.style.display = 'block';
+                    }
+                }
+                if (updateServerInput && userData.discord_server_id) {
+                    updateServerInput.value = userData.discord_server_id;
+                }
+
                 if (discordStatus && discordBtn) {
                     if (isDiscordLinked()) {
                         const userData = JSON.parse(localStorage.getItem('userData'));
@@ -1573,6 +1592,9 @@
             
             if (!confirm(`Assign targeted Discord role to this user?`)) return;
             
+            const btn = document.getElementById('seller-role-assign-btn');
+            if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
             try {
                 const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/assign_role`, {
                     method: 'POST',
@@ -1587,7 +1609,44 @@
                 }
             } catch (e) {
                 showNotification('Network error', 'error');
+            } finally {
+                if (btn) btn.innerHTML = 'Assign';
             }
+        }
+
+        let cachedRoles = null;
+        async function fetchDiscordRoles() {
+            const select = document.getElementById('seller-role-select');
+            if (!select) return;
+            
+            if (cachedRoles) {
+                populateRoleDropdown(select, cachedRoles);
+                return;
+            }
+            
+            select.innerHTML = '<option value="" disabled selected>Loading Roles...</option>';
+            try {
+                const res = await fetch(`${API_URL}/support/discord_roles`);
+                const data = await res.json();
+                if (res.ok && data.roles) {
+                    cachedRoles = data;
+                    populateRoleDropdown(select, cachedRoles);
+                } else {
+                    select.innerHTML = `<option value="" disabled selected>${data.error || 'No Roles Found'}</option>`;
+                }
+            } catch (e) {
+                select.innerHTML = '<option value="" disabled selected>Error Loading API</option>';
+            }
+        }
+        
+        function populateRoleDropdown(select, data) {
+            select.innerHTML = '<option value="" disabled selected>Assign Discord Role...</option>';
+            data.roles.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = r.name;
+                select.appendChild(opt);
+            });
         }
 
         async function toggleTrial() {
@@ -2303,7 +2362,12 @@
 
                 const sellerRoleTools = document.getElementById('seller-role-tools');
                 if (sellerRoleTools) {
-                    sellerRoleTools.style.display = (isCurrentUserSellerTeam || isCurrentUserStaff) ? 'block' : 'none';
+                    if (isCurrentUserSellerTeam || isCurrentUserStaff) {
+                        sellerRoleTools.style.display = 'block';
+                        fetchDiscordRoles();
+                    } else {
+                        sellerRoleTools.style.display = 'none';
+                    }
                 }
 
             } catch (e) {
@@ -2928,10 +2992,14 @@
         async function updateProfile() {
             const email = document.getElementById('update-email').value;
             const password = document.getElementById('update-pass').value;
+            const discordServer = document.getElementById('update-discord-server') ? document.getElementById('update-discord-server').value : '';
 
             const body = {};
             if (email) body.email = email;
             if (password) body.password = password;
+            if (discordServer !== undefined && document.getElementById('seller-settings-container')?.style.display !== 'none') {
+                body.discord_server_id = discordServer;
+            }
 
             if (Object.keys(body).length === 0) {
                 showNotification('No changes to save.', 'info');
