@@ -26,6 +26,89 @@ app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'None' # Required for cross-site redirects on Render
 
+DISCORD_API_BASE = "https://discord.com/api/v10"
+REST_HEADERS = {
+    "Authorization": f"Bot {os.environ.get('DISCORD_TOKEN')}",
+    "Content-Type": "application/json"
+}
+
+def sync_verify_admin(guild_id, user_id):
+    try:
+        import requests
+        g_res = requests.get(f"{DISCORD_API_BASE}/guilds/{guild_id}", headers=REST_HEADERS, timeout=5)
+        if g_res.status_code != 200:
+            return False, "The Titan Bot is not currently in that Discord Server."
+        guild_data = g_res.json()
+        owner_id = guild_data.get("owner_id")
+
+        m_res = requests.get(f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}", headers=REST_HEADERS, timeout=5)
+        if m_res.status_code == 404:
+            return False, "You must be a member of that Discord Server to link it."
+        elif m_res.status_code != 200:
+            return False, f"Discord API error: {m_res.status_code}"
+        
+        member_data = m_res.json()
+        if str(owner_id) == str(user_id):
+            return True, "Success"
+
+        member_roles = member_data.get("roles", [])
+        roles_res = requests.get(f"{DISCORD_API_BASE}/guilds/{guild_id}/roles", headers=REST_HEADERS, timeout=5)
+        if roles_res.status_code == 200:
+            all_roles = roles_res.json()
+            for r in all_roles:
+                if str(r.get("id")) in member_roles or str(r.get("id")) == str(guild_id):
+                    permissions = int(r.get("permissions", 0))
+                    if (permissions & 0x8) == 0x8:
+                        return True, "Success"
+                        
+        return False, "You must be an Administrator in that server to link it."
+    except Exception as e:
+        return False, f"API Exception: {str(e)}"
+
+def sync_get_roles(guild_id, user_id):
+    is_admin, err = sync_verify_admin(guild_id, user_id)
+    if not is_admin: return None, err
+    try:
+        import requests
+        res = requests.get(f"{DISCORD_API_BASE}/guilds/{guild_id}/roles", headers=REST_HEADERS, timeout=5)
+        if res.status_code != 200: return None, "Failed to fetch roles."
+        roles = []
+        for r in res.json():
+            if str(r.get("id")) != str(guild_id) and not r.get("managed"):
+                roles.append({"id": str(r.get("id")), "name": r.get("name")})
+        roles.reverse()
+        return roles, None
+    except Exception as e:
+        return None, str(e)
+
+def sync_assign_role(guild_id, target_discord_id, role_id, acting_user_discord_id):
+    is_admin, err = sync_verify_admin(guild_id, acting_user_discord_id)
+    if not is_admin: return False, f"Unauthorized: {err}"
+    try:
+        import requests
+        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{target_discord_id}/roles/{role_id}"
+        res = requests.put(url, headers=REST_HEADERS, timeout=5)
+        if res.status_code == 204:
+            return True, "Role assigned successfully."
+        elif res.status_code == 403:
+            return False, "Bot lacks permission or role is higher than Bot's highest role."
+        elif res.status_code == 404:
+            return False, "User or Role not found."
+        else:
+            return False, f"Discord API Error: {res.status_code}"
+    except Exception as e:
+        return False, str(e)
+
+def sync_assign_sub_role_now(discord_id):
+    try:
+        import requests
+        guild_id = "1383030583839424584"
+        role_id = "1487326056682881044"
+        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{discord_id}/roles/{role_id}"
+        requests.put(url, headers=REST_HEADERS, timeout=5)
+    except:
+        pass
+
 # Absolute path to models directory (Better for Render Disks)
 # Persistent Pathing for Render
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1319,19 +1402,9 @@ def claim_key():
         
         # Trigger instant Discord role assignment
         discord_id = user_row['discord_id']
-        if discord_id and hasattr(app, 'discord_bot') and app.discord_bot:
-            import asyncio
-            try:
-                # Dispatch coroutine to bot's active event loop
-                if not hasattr(app.discord_bot, 'active_loop'):
-                    raise Exception("Discord Bot is offline or still booting up.")
-                loop = app.discord_bot.active_loop
-                asyncio.run_coroutine_threadsafe(
-                    app.discord_bot.assign_sub_role_now(discord_id),
-                    loop
-                )
-            except Exception as e:
-                print(f"[Discord] Failed to dispatch instant role sync: {e}")
+        if discord_id:
+            import threading
+            threading.Thread(target=sync_assign_sub_role_now, args=(discord_id,), daemon=True).start()
     
     return jsonify({'message': 'License renewed successfully'})
 
@@ -1369,38 +1442,16 @@ def update_profile():
                 c.execute("UPDATE seller_teams SET discord_server_id=NULL WHERE id=?", (user_info['seller_team_id'],))
             c.execute("UPDATE users SET discord_server_id=NULL WHERE id=?", (user_id,))
         else:
-            if not hasattr(app, 'discord_bot') or not app.discord_bot:
+            # Replaced Bot async checking with direct synchronous REST calls to prevent worker deadlocks
+            is_admin, error_msg = sync_verify_admin(discord_server_id_clean, user_info['discord_id'])
+            
+            if not is_admin:
                 conn.close()
-                return jsonify({'error': 'Discord Bot integration unavailable. Please try again later.'}), 503
+                return jsonify({'error': error_msg}), 403
                 
-            import asyncio
-            try:
-                # Wrap an asyncio loop to wait for the bot's check
-                if not hasattr(app.discord_bot, 'active_loop'):
-                    conn.close()
-                    return jsonify({'error': 'Discord Bot is offline or still booting up. Try again in 10 seconds.'}), 503
-                loop = app.discord_bot.active_loop
-                future = asyncio.run_coroutine_threadsafe(
-                    app.discord_bot.verify_server_admin(discord_server_id_clean, user_info['discord_id']),
-                    loop
-                )
-                is_admin, error_msg = future.result(timeout=15)
-                
-                if not is_admin:
-                    conn.close()
-                    return jsonify({'error': error_msg}), 403
-                    
-                if user_info['seller_team_id']:
-                    c.execute("UPDATE seller_teams SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_info['seller_team_id']))
-                c.execute("UPDATE users SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_id))
-            except Exception as e:
-                import concurrent.futures
-                import traceback
-                print(f"[Discord Multi-Server] Exception traceback: {traceback.format_exc()}")
-                conn.close()
-                if isinstance(e, concurrent.futures.TimeoutError):
-                    return jsonify({'error': 'Failed to communicate with Discord Bot: Timeout after 15 seconds'}), 408
-                return jsonify({'error': f'Failed to communicate with Discord Bot: {type(e).__name__} - {str(e)}'}), 500
+            if user_info['seller_team_id']:
+                c.execute("UPDATE seller_teams SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_info['seller_team_id']))
+            c.execute("UPDATE users SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_id))
 
     if email:
         if not is_valid_email(email):
@@ -1586,23 +1637,12 @@ def get_discord_roles():
     if not hasattr(app, 'discord_bot') or not app.discord_bot:
         return jsonify({'error': 'Discord Bot unavailable.'}), 503
         
-    import asyncio
-    try:
-        if not hasattr(app.discord_bot, 'active_loop'):
-            return jsonify({'error': 'Discord Bot is offline or still booting up.'}), 503
-        loop = app.discord_bot.active_loop
-        future = asyncio.run_coroutine_threadsafe(
-            app.discord_bot.get_guild_roles_sync(user['discord_server_id'], user['discord_id']),
-            loop
-        )
-        roles, error_msg = future.result(timeout=10)
+    roles, error_msg = sync_get_roles(user['discord_server_id'], user['discord_id'])
+    
+    if error_msg:
+        return jsonify({'error': error_msg}), 403
         
-        if error_msg:
-            return jsonify({'error': error_msg}), 403
-            
-        return jsonify({'roles': roles})
-    except Exception as e:
-        return jsonify({'error': f'Bot communication failure: {str(e)}'}), 500
+    return jsonify({'roles': roles})
 
 @app.route('/api/support/tickets/<int:ticket_id>/assign_role', methods=['POST'])
 @login_required
@@ -1640,25 +1680,11 @@ def assign_discord_role(ticket_id):
     if not user or not user['discord_id']:
         return jsonify({'error': 'User has not linked their Discord account.'}), 400
         
-    if hasattr(app, 'discord_bot') and app.discord_bot:
-        import asyncio
-        try:
-            if not hasattr(app.discord_bot, 'active_loop'):
-                return jsonify({'error': 'Discord Bot is offline or still booting up.'}), 503
-            loop = app.discord_bot.active_loop
-            future = asyncio.run_coroutine_threadsafe(
-                app.discord_bot.assign_role_in_guild(user['discord_id'], role_id, acting_user['discord_server_id'], acting_user['discord_id']),
-                loop
-            )
-            success, msg = future.result(timeout=10)
-            if success:
-                return jsonify({'message': msg})
-            else:
-                return jsonify({'error': msg}), 400
-        except Exception as e:
-            return jsonify({'error': f'Bot error: {str(e)}'}), 500
+    success, msg = sync_assign_role(acting_user['discord_server_id'], user['discord_id'], role_id, acting_user['discord_id'])
+    if success:
+        return jsonify({'message': msg})
     else:
-        return jsonify({'error': 'Discord bot not active'}), 503
+        return jsonify({'error': msg}), 400
 
 @app.route('/api/user/reset_hwid', methods=['POST'])
 @login_required
