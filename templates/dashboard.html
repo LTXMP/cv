@@ -445,6 +445,7 @@
             .model-desc-truncated {
                 display: -webkit-box;
                 -webkit-line-clamp: 10;
+                line-clamp: 10;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -1290,8 +1291,8 @@
     <div id="notification" class="notification"></div>
 
     <script>
-        // ... (Existing variables) ...
         const API_URL = '/api';
+        let userData = null;
 
         // --- Admin Functions ---
 
@@ -1469,12 +1470,14 @@
         }
 
         function isDiscordLinked() {
-            try {
-                const raw = localStorage.getItem('userData');
-                if (!raw || raw === "undefined" || raw === "null") return false;
-                const userData = JSON.parse(raw);
-                return userData.discord_id && userData.discord_id !== "null" && userData.discord_id !== "undefined";
-            } catch(e) { return false; }
+            if (!userData) {
+                try {
+                    const raw = localStorage.getItem('userData');
+                    if (!raw || raw === "undefined" || raw === "null") return false;
+                    userData = JSON.parse(raw);
+                } catch(e) { return false; }
+            }
+            return userData && userData.discord_id && userData.discord_id !== "null" && userData.discord_id !== "undefined";
         }
 
         let trialEnabled = false;
@@ -1506,7 +1509,6 @@
                 } catch (e) { console.error("Auto-sync error:", e); }
 
                 // Update Discord Link Status
-                let userData = {};
                 try {
                     const raw = localStorage.getItem('userData');
                     userData = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
@@ -1601,6 +1603,7 @@
                 const res = await fetch('/api/user/profile');
                 const data = await res.json();
                 if (res.ok) {
+                    userData = data;
                     localStorage.setItem('userData', JSON.stringify(data));
                     loadSettings();
                     showNotification('Account synchronized', 'success');
@@ -2855,6 +2858,12 @@
         }
 
         function showDashboard(username, isAdmin, isOwner, isReseller) {
+            // Initialize global userData from localStorage
+            try {
+                const raw = localStorage.getItem('userData');
+                userData = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
+            } catch(e) { userData = {}; }
+
             hideAll();
             const dashHeader = document.getElementById('dashboard-header');
             if (dashHeader) dashHeader.style.display = 'flex';
@@ -3716,7 +3725,7 @@
                         const res = await fetch('/api/user/profile');
                         const data = await res.json();
                         if (res.ok) {
-                            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                            userData = JSON.parse(localStorage.getItem('userData') || '{}');
                             userData.discord_id = data.discord_id;
                             localStorage.setItem('userData', JSON.stringify(userData));
                             console.log("Updated Discord ID in localStorage:", data.discord_id);
