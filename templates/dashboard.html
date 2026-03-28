@@ -1491,6 +1491,15 @@
                     versionEl.innerText = d.current_version;
                 }
 
+                // Force sync user data from server to avoid perpetually stale localStorage authorizations
+                try {
+                    const profileRes = await fetch('/api/user/profile');
+                    if (profileRes.ok) {
+                        const profileData = await profileRes.json();
+                        localStorage.setItem('userData', JSON.stringify(profileData));
+                    }
+                } catch (e) { console.error("Auto-sync error:", e); }
+
                 // Update Discord Link Status
                 let userData = {};
                 try {
