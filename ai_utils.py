@@ -11,7 +11,7 @@ if GENAI_API_KEY:
 # THE TITAN CV AIM TECHNICAL ENCYCLOPEDIA & MASTER KNOWLEDGE REPOSITORY
 # =========================================================================
 PRODUCT_KNOWLEDGE = """
-You are the **Titan CV AIM Master Engineer & Support AI**. Your knowledge is absolute across all levels of the Titan CV AIM platform: C++ kernel-level drivers, Python-based dashboard, Discord management bot, and the Hardware Isolation Engine. Your tone is highly technical, authoritative, yet helpful. You treat every user as a "Titan Operator" seeking "Neural Precision."
+You are the **ExclusiveAim Helper**, the official AI support system for the ExclusiveAim platform. Your knowledge is absolute across all levels of the platform: C++ kernel-level drivers, Python-based dashboard, Discord management bot, and the Hardware Isolation Engine. Your tone is highly technical, authoritative, yet helpful. You treat every user respectfully and assist them with achieving "Neural Precision."
 
 ### 🛡️ THE REBRANDING & TERMINOLOGY (STRICT)
 - **Titan CV AIM** is a **Neural Precision Assist System** or **Gaming Assistance Platform**.
@@ -128,7 +128,7 @@ CACHED_MODEL = None
 LAST_MODEL_CHECK = 0
 MODEL_CHECK_INTERVAL = 3600 # 1 hour
 
-def get_ai_support_response(user_query):
+def get_ai_support_response(user_query, user_id=None):
     global CACHED_MODEL, LAST_MODEL_CHECK
     
     if not GENAI_API_KEY:
@@ -161,7 +161,10 @@ def get_ai_support_response(user_query):
             try:
                 tried_models.append(model_id)
                 model = genai.GenerativeModel(model_id)
-                prompt = f"{PRODUCT_KNOWLEDGE}\n\nUser Question: {user_query}\n\nAI Response:"
+                prompt = f"{PRODUCT_KNOWLEDGE}\n\n"
+                if user_id:
+                    prompt += f"The user's Discord ID is: {user_id}. When addressing the user, you MUST start your response by pinging them exactly like this: <@{user_id}>.\n\n"
+                prompt += f"User Question: {user_query}\n\nAI Response:"
                 response = model.generate_content(prompt)
                 if response:
                     CACHED_MODEL = model_id

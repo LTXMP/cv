@@ -160,6 +160,20 @@ def init_db():
         except Exception as e:
             print(f"[BOOT] Failed to add discord_id column: {e}")
             
+    if 'discord_server_id' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN discord_server_id TEXT DEFAULT NULL")
+        except Exception as e:
+            print(f"[BOOT] Failed to add discord_server_id column: {e}")
+            
+    c.execute("PRAGMA table_info(seller_teams)")
+    team_cols = [info[1] for info in c.fetchall()]
+    if 'discord_server_id' not in team_cols:
+        try:
+            c.execute("ALTER TABLE seller_teams ADD COLUMN discord_server_id TEXT DEFAULT NULL")
+        except Exception as e:
+            pass
+            
     if 'last_hwid_reset' not in columns:
         try:
             c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL DEFAULT 0")
@@ -1324,11 +1338,58 @@ def update_profile():
     data = request.json
     email = data.get('email')
     password = data.get('password')
+    discord_server_id = data.get('discord_server_id')
     user_id = session['user_id']
     
     conn = get_db()
     c = conn.cursor()
     
+    if discord_server_id is not None:
+        user_info = c.execute("SELECT discord_id, is_admin, is_reseller, is_weight_seller, seller_team_id FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user_info:
+            conn.close()
+            return jsonify({'error': 'User not found'}), 404
+            
+        if not user_info['discord_id']:
+            conn.close()
+            return jsonify({'error': 'You must link your Discord account first.'}), 400
+            
+        if not (user_info['is_admin'] or user_info['is_reseller'] or user_info['is_weight_seller']):
+            conn.close()
+            return jsonify({'error': 'You do not have permission to link a Discord server.'}), 403
+            
+        discord_server_id_clean = str(discord_server_id).strip()
+        
+        # Clearing the server ID
+        if not discord_server_id_clean:
+            if user_info['seller_team_id']:
+                c.execute("UPDATE seller_teams SET discord_server_id=NULL WHERE id=?", (user_info['seller_team_id'],))
+            c.execute("UPDATE users SET discord_server_id=NULL WHERE id=?", (user_id,))
+        else:
+            if not hasattr(app, 'discord_bot') or not app.discord_bot:
+                conn.close()
+                return jsonify({'error': 'Discord Bot integration unavailable. Please try again later.'}), 503
+                
+            import asyncio
+            try:
+                # Wrap an asyncio loop to wait for the bot's check
+                future = asyncio.run_coroutine_threadsafe(
+                    app.discord_bot.verify_server_admin(discord_server_id_clean, user_info['discord_id']),
+                    app.discord_bot.loop
+                )
+                is_admin, error_msg = future.result(timeout=15)
+                
+                if not is_admin:
+                    conn.close()
+                    return jsonify({'error': error_msg}), 403
+                    
+                if user_info['seller_team_id']:
+                    c.execute("UPDATE seller_teams SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_info['seller_team_id']))
+                c.execute("UPDATE users SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_id))
+            except Exception as e:
+                conn.close()
+                return jsonify({'error': f'Failed to communicate with Discord Bot: {str(e)}'}), 500
+
     if email:
         if not is_valid_email(email):
              conn.close()
@@ -1357,7 +1418,14 @@ def get_user_profile():
         user_id = session['user_id']
         conn = get_db()
         c = conn.cursor()
-        user = c.execute("SELECT id, username, email, discord_id, is_admin, is_owner, is_verified FROM users WHERE id=?", (user_id,)).fetchone()
+        user = c.execute("""
+            SELECT u.id, u.username, u.email, u.discord_id, 
+            COALESCE(st.discord_server_id, u.discord_server_id) as discord_server_id, 
+            u.is_admin, u.is_owner, u.is_reseller, u.is_weight_seller, u.is_verified 
+            FROM users u
+            LEFT JOIN seller_teams st ON u.seller_team_id = st.id
+            WHERE u.id=?
+        """, (user_id,)).fetchone()
         conn.close()
         
         if user:
@@ -1486,9 +1554,43 @@ def unlink_discord():
         return jsonify({"message": "Discord unlinked successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+@app.route('/api/support/discord_roles', methods=['GET'])
+@login_required
+def get_discord_roles():
+    user_id = session['user_id']
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("""
+        SELECT u.discord_id, COALESCE(st.discord_server_id, u.discord_server_id) as discord_server_id
+        FROM users u
+        LEFT JOIN seller_teams st ON u.seller_team_id = st.id
+        WHERE u.id=?
+    """, (user_id,)).fetchone()
+    conn.close()
+    
+    if not user or not user['discord_server_id']:
+        return jsonify({'error': 'No Discord server linked to your profile.'}), 400
+        
+    if not hasattr(app, 'discord_bot') or not app.discord_bot:
+        return jsonify({'error': 'Discord Bot unavailable.'}), 503
+        
+    import asyncio
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            app.discord_bot.get_guild_roles_sync(user['discord_server_id'], user['discord_id']),
+            app.discord_bot.loop
+        )
+        roles, error_msg = future.result(timeout=10)
+        
+        if error_msg:
+            return jsonify({'error': error_msg}), 403
+            
+        return jsonify({'roles': roles})
+    except Exception as e:
+        return jsonify({'error': f'Bot communication failure: {str(e)}'}), 500
 
 @app.route('/api/support/tickets/<int:ticket_id>/assign_role', methods=['POST'])
-@admin_required
+@login_required
 def assign_discord_role(ticket_id):
     # This will be used by Weight Sellers/Admins to trigger a role assignment in Discord
     data = request.json
@@ -1502,19 +1604,41 @@ def assign_discord_role(ticket_id):
     if not ticket:
         conn.close()
         return jsonify({'error': 'Ticket not found'}), 404
+    acting_user = c.execute("""
+        SELECT u.discord_id, COALESCE(st.discord_server_id, u.discord_server_id) as discord_server_id, 
+        u.is_admin, u.is_reseller, u.is_weight_seller 
+        FROM users u
+        LEFT JOIN seller_teams st ON u.seller_team_id = st.id
+        WHERE u.id=?
+    """, (session['user_id'],)).fetchone()
+    if not acting_user or not acting_user['discord_server_id']:
+        conn.close()
+        return jsonify({'error': 'You must link a Discord Server in settings first.'}), 403
         
+    if not (acting_user['is_admin'] or acting_user['is_reseller'] or acting_user['is_weight_seller']):
+        conn.close()
+        return jsonify({'error': 'Unauthorized to assign roles.'}), 403
+
     user = c.execute("SELECT discord_id FROM users WHERE id=?", (ticket['user_id'],)).fetchone()
     conn.close()
     
     if not user or not user['discord_id']:
-        return jsonify({'error': 'User has not linked their Discord account'}), 400
+        return jsonify({'error': 'User has not linked their Discord account.'}), 400
         
-    # We signal the background bot thread via a global queue or similar
-    # For now, let's assume the bot will pick it up or we call a bot method if accessible
     if hasattr(app, 'discord_bot') and app.discord_bot:
-        # discord_bot.assign_role is a hypothetical method we'll implement
-        threading.Thread(target=app.discord_bot.assign_role, args=(user['discord_id'], role_id)).start()
-        return jsonify({'message': 'Role assignment triggered'})
+        import asyncio
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                app.discord_bot.assign_role_in_guild(user['discord_id'], role_id, acting_user['discord_server_id'], acting_user['discord_id']),
+                app.discord_bot.loop
+            )
+            success, msg = future.result(timeout=10)
+            if success:
+                return jsonify({'message': msg})
+            else:
+                return jsonify({'error': msg}), 400
+        except Exception as e:
+            return jsonify({'error': f'Bot error: {str(e)}'}), 500
     else:
         return jsonify({'error': 'Discord bot not active'}), 503
 

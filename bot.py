@@ -106,7 +106,7 @@ class DiscordBot(commands.Bot):
         if message.channel.id == SUPPORT_CHANNEL_ID:
             print(f"[Discord] Auto-replying to: {message.content[:50]}")
             async with message.channel.typing():
-                response = await asyncio.to_thread(get_ai_support_response, message.content)
+                response = await asyncio.to_thread(get_ai_support_response, message.content, message.author.id)
                 if response and response.strip():
                     try:
                         rep = await message.reply(response)
@@ -139,6 +139,73 @@ class DiscordBot(commands.Bot):
                 print(f"[Discord] Assigned role {role_id} to {discord_id}")
         except Exception as e:
             print(f"[Discord] Role assignment error: {e}")
+
+    # --- Multi-Server Role Features ---
+    async def verify_server_admin(self, guild_id, user_discord_id):
+        try:
+            guild = self.get_guild(int(guild_id))
+            if not guild:
+                return False, "The Titan Bot is not currently in that Discord Server."
+            member = guild.get_member(int(user_discord_id))
+            if not member:
+                try:
+                    member = await guild.fetch_member(int(user_discord_id))
+                except discord.NotFound:
+                    return False, "You must be a member of that Discord Server to link it."
+            
+            if member.id == guild.owner_id or member.guild_permissions.administrator:
+                return True, "Success"
+            else:
+                return False, "You must be an Administrator in that server to link it."
+        except ValueError:
+            return False, "Invalid server ID format."
+        except Exception as e:
+            return False, f"Bot verification error: {e}"
+
+    async def get_guild_roles_sync(self, guild_id, user_discord_id):
+        is_admin, error_msg = await self.verify_server_admin(guild_id, user_discord_id)
+        if not is_admin:
+            return None, error_msg
+            
+        guild = self.get_guild(int(guild_id))
+        roles = []
+        for r in guild.roles:
+            if r.id != guild.id and not r.managed:
+                roles.append({'id': str(r.id), 'name': r.name})
+        
+        roles.reverse()
+        return roles, None
+
+    async def assign_role_in_guild(self, target_discord_id, role_id, guild_id, acting_user_discord_id):
+        try:
+            is_admin, error_msg = await self.verify_server_admin(guild_id, acting_user_discord_id)
+            if not is_admin:
+                return False, f"Unauthorized: {error_msg}"
+                
+            guild = self.get_guild(int(guild_id))
+            target_member = guild.get_member(int(target_discord_id))
+            if not target_member:
+                try:
+                    target_member = await guild.fetch_member(int(target_discord_id))
+                except discord.NotFound:
+                    return False, "The buyer is not currently in your Discord server."
+                    
+            role = guild.get_role(int(role_id))
+            if not role:
+                return False, "Role not found in your server."
+                
+            if guild.me.top_role <= role:
+                return False, "The Titan Bot's highest role must be above the role you are trying to assign."
+                
+            await target_member.add_roles(role, reason=f"Assigned by Seller via Dashboard")
+            print(f"[Discord] Seller {acting_user_discord_id} assigned role {role_id} to {target_discord_id} in {guild_id}")
+            return True, "Role assigned successfully."
+            
+        except discord.Forbidden:
+            return False, "The bot lacks 'Manage Roles' permission or the role is higher than the bot's highest role."
+        except Exception as e:
+            print(f"[Discord] Multi-Server Role assignment error: {e}")
+            return False, "An unexpected error occurred assigning the role."
 
     async def assign_sub_role_now(self, discord_id):
         # Fast instant assignment for the claim_key endpoint
