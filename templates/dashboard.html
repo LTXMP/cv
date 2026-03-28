@@ -648,11 +648,12 @@
                                             </div>
                                 </div>
                                 <div id="seller-settings-container" style="display:none; margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
-                                    <h3 style="margin-bottom: 10px; font-size: 16px;">Seller & Team Settings</h3>
-                                    <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 15px;">Link your Discord Server ID to enable dynamic role assignment for your team.</p>
+                                    <h3 style="margin-bottom: 5px; font-size: 16px;">Seller & Team Settings</h3>
+                                    <p id="active-discord-server" style="font-size: 12px; font-weight: 600; margin-bottom: 5px; color:var(--text-dim);">Active Server: <strong style="color:var(--error);">None</strong></p>
+                                    <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 15px;">Limit: 1 Server per Weight Seller. Link your Discord Server ID to enable dynamic role assignment for your team.</p>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <input type="text" id="update-discord-server" placeholder="Discord Server ID (Guild ID)" style="margin: 0; flex: 1;">
-                                        <button onclick="updateProfile()" style="margin: 0; padding: 0 20px; width: auto; background: var(--primary);">Save Server ID</button>
+                                        <button onclick="updateDiscordServer()" style="margin: 0; padding: 0 20px; width: auto; background: var(--primary);">Save Server ID</button>
                                     </div>
                                     <p style="font-size: 10px; color: var(--warning); margin-top: 8px;"><i class="fas fa-exclamation-triangle"></i> You must invite the Titan Bot to your server and possess Administrator permissions before saving.</p>
                                 </div>
@@ -1503,14 +1504,21 @@
                 
                 const sellerContainer = document.getElementById('seller-settings-container');
                 const updateServerInput = document.getElementById('update-discord-server');
+                const activeServerLabel = document.getElementById('active-discord-server');
                 if (sellerContainer) {
                     // Show if admin, reseller, or weight seller
                     if (userData.is_admin || userData.is_reseller || userData.is_weight_seller) {
                         sellerContainer.style.display = 'block';
                     }
                 }
-                if (updateServerInput && userData.discord_server_id) {
-                    updateServerInput.value = userData.discord_server_id;
+                if (updateServerInput) {
+                    if (userData.discord_server_id) {
+                        updateServerInput.value = userData.discord_server_id;
+                        if (activeServerLabel) activeServerLabel.innerHTML = `Active Server: <strong style="color:var(--success);">${userData.discord_server_id}</strong>`;
+                    } else {
+                        updateServerInput.value = '';
+                        if (activeServerLabel) activeServerLabel.innerHTML = `Active Server: <strong style="color:var(--error);">None</strong>`;
+                    }
                 }
 
                 if (discordStatus && discordBtn) {
@@ -2992,14 +3000,10 @@
         async function updateProfile() {
             const email = document.getElementById('update-email').value;
             const password = document.getElementById('update-pass').value;
-            const discordServer = document.getElementById('update-discord-server') ? document.getElementById('update-discord-server').value : '';
 
             const body = {};
             if (email) body.email = email;
             if (password) body.password = password;
-            if (discordServer !== undefined && document.getElementById('seller-settings-container')?.style.display !== 'none') {
-                body.discord_server_id = discordServer;
-            }
 
             if (Object.keys(body).length === 0) {
                 showNotification('No changes to save.', 'info');
@@ -3019,6 +3023,33 @@
                 document.getElementById('update-email').value = '';
             } else {
                 showNotification(data.error, 'error');
+            }
+        }
+        
+        async function updateDiscordServer() {
+            const input = document.getElementById('update-discord-server');
+            if (!input) return;
+            const discordServer = input.value.trim();
+            const btn = event.target;
+            const oldText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            try {
+                const res = await fetch(`${API_URL}/user/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ discord_server_id: discordServer })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification('Discord Server updated!', 'success');
+                    syncUserData(); // Refresh the active server UI
+                } else {
+                    showNotification(data.error || 'Failed to update server', 'error');
+                }
+            } catch (e) {
+                showNotification('Network error', 'error');
+            } finally {
+                btn.innerHTML = oldText;
             }
         }
 
