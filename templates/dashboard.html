@@ -2159,6 +2159,13 @@
             const itemGroup = document.getElementById(prefix + 'item-group');
             
             if (cat === 'Buy' || cat === 'Support') {
+                if (!isDiscordLinked() && !localStorage.getItem('isAdmin')) {
+                    const modal = document.getElementById('mandatory-discord-modal');
+                    if (modal) modal.classList.remove('hidden');
+                    // Reset dropdown selection
+                    document.getElementById(prefix + 'new-ticket-category').selectedIndex = 0;
+                    return;
+                }
                 if (subGroup) subGroup.style.display = 'block';
                 // Reset subcategory to Program
                 const subEl = document.getElementById(prefix + 'new-ticket-subcategory');
@@ -3968,6 +3975,11 @@
                     if (data.ticket_id) {
                         openSupportTicket(data.ticket_id, subject, 'open');
                     }
+                } else if (res.status === 403) {
+                    // Force the linking modal
+                    const modal = document.getElementById('mandatory-discord-modal');
+                    if (modal) modal.classList.remove('hidden');
+                    showNotification('Discord linking required', 'warning');
                 } else {
                     const data = await res.json().catch(() => ({error: 'Failed to create ticket'}));
                     showNotification(data.error || 'Failed to create ticket', 'error');
