@@ -1346,7 +1346,9 @@ def get_user_profile():
         
         if user:
             # Return as dictionary
-            return jsonify(dict(user))
+            resp = jsonify(dict(user))
+            resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
         return jsonify({'error': 'User not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1399,10 +1401,10 @@ def discord_callback():
 
     if not verified_user_id:
         print("[Discord] Callback Failed: No verified user_id in session or state.")
-        return redirect('/dashboard#settings?linked=error&reason=unauthorized')
+        return redirect('/dashboard?linked=error&reason=unauthorized#settings')
 
     if not code:
-        return redirect('/dashboard#settings?linked=error&reason=no_code')
+        return redirect('/dashboard?linked=error&reason=no_code#settings')
         
     data = {
         'client_id': DISCORD_CLIENT_ID,
@@ -1420,13 +1422,13 @@ def discord_callback():
         response = requests.post('https://discord.com/api/oauth2/token', data=data, headers=headers)
         if not response.ok:
             print(f"[Discord] Token Exchange Failed: {response.status_code} - {response.text}")
-            return redirect(f'/dashboard#settings?linked=error&reason=token_exchange_failed_{response.status_code}')
+            return redirect(f'/dashboard?linked=error&reason=token_exchange_failed_{response.status_code}#settings')
             
         token_data = response.json()
         access_token = token_data.get('access_token')
         if not access_token:
             print(f"[Discord] No access token in response: {token_data}")
-            return redirect('/dashboard#settings?linked=error&reason=no_access_token')
+            return redirect('/dashboard?linked=error&reason=no_access_token#settings')
         
         print(f"[Discord] Fetching user info...")
         user_response = requests.get('https://discord.com/api/users/@me', headers={
@@ -1434,13 +1436,13 @@ def discord_callback():
         })
         if not user_response.ok:
             print(f"[Discord] User Info Fetch Failed: {user_response.status_code} - {user_response.text}")
-            return redirect(f'/dashboard#settings?linked=error&reason=user_info_failed_{user_response.status_code}')
+            return redirect(f'/dashboard?linked=error&reason=user_info_failed_{user_response.status_code}#settings')
             
         discord_user_data = user_response.json()
         discord_id = discord_user_data.get('id')
         if not discord_id:
             print(f"[Discord] No Discord ID in user data: {discord_user_data}")
-            return redirect('/dashboard#settings?linked=error&reason=no_discord_id')
+            return redirect('/dashboard?linked=error&reason=no_discord_id#settings')
         
         # Update Database
         user_to_link = verified_user_id or session.get('user_id')
@@ -1454,7 +1456,7 @@ def discord_callback():
         return redirect('/dashboard?linked=success#settings')
     except Exception as e:
         print(f"[Discord] Callback Exception: {str(e)}")
-        return redirect(f'/dashboard#settings?linked=error&reason=callback_exception_{str(e)[0:50]}')
+        return redirect(f'/dashboard?linked=error&reason=callback_exception_{str(e)[0:50]}#settings')
 
 @app.route('/api/user/unlink_discord', methods=['POST'])
 @login_required
