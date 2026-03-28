@@ -466,6 +466,7 @@ def init_db():
                 c.execute(f"ALTER TABLE models ADD COLUMN {col} {col_type}")
             except: pass
 
+
     # Migration: Check for last_hwid_reset in users
     if 'last_hwid_reset' not in columns:
         try:
@@ -1360,24 +1361,41 @@ def claim_key():
         conn.close()
         return jsonify({'error': 'Key already claimed'}), 409
         
-    # Renewal Logic: Accumulate total_time and delete old licenses
+    # Renewal Logic: Accumulate total_time
     duration_str = str(license_row['duration'])
     duration_seconds = 0
     if duration_str == 'LIFETIME':
-        duration_seconds = 315360000 # 10 years
+        duration_seconds = 315360000  # 10 years (fallback)
     else:
         try:
             duration_seconds = float(duration_str)
         except: pass
 
-    # Update User Total Time
-    c.execute("UPDATE users SET total_time = IFNULL(total_time, 0) + ? WHERE id = ?", (duration_seconds, user_id))
+    # Check for existing active license to see if we should APPEND time
+    c.execute("SELECT expiry FROM licenses WHERE user_id = ? ORDER BY expiry DESC LIMIT 1", (user_id,))
+    existing_license = c.fetchone()
     
+    current_time = time.time()
+    base_expiry = current_time
+    
+    if existing_license and existing_license['expiry'] > current_time:
+        # User has an active sub, ADD to it
+        base_expiry = existing_license['expiry']
+        print(f"[License] Appending {duration_seconds}s to existing expiry of {base_expiry}")
+
+    # Update User Total Time (Tenure)
+    c.execute("UPDATE users SET total_time = IFNULL(total_time, 0) + ? WHERE id = ?", (duration_seconds, user_id))
+
     # Remove old licenses (Permanent fix for duplication)
     c.execute("DELETE FROM licenses WHERE user_id = ?", (user_id,))
     
-    # Claim new one and start the expiry timer NOW
-    new_expiry = time.time() + duration_seconds
+    # Claim new one and start the expiry timer
+    new_expiry = base_expiry + duration_seconds
+    
+    # Cap Lifetime to "Never" essentially
+    if duration_str == 'LIFETIME':
+        new_expiry = 253370764800 # Year 9999
+        
     c.execute("UPDATE licenses SET user_id=?, expiry=? WHERE key=?", (user_id, new_expiry, key))
     conn.commit()
 
@@ -2837,6 +2855,7 @@ def get_models():
     
     # Get user's own models (include in_marketplace)
     c.execute('SELECT id, name, filename, model_size, image_size, thumbnail_path, unique_id, in_marketplace FROM models WHERE user_id = ?', (user_id,))
+
     own_models = [dict(row) for row in c.fetchall()]
     
     # Get shared models
@@ -2846,6 +2865,7 @@ def get_models():
                  JOIN users u ON m.user_id = u.id
                  WHERE s.target_user_id = ? AND (s.expiry_date IS NULL OR s.expiry_date > ?)''', 
               (user_id, time.time()))
+
     shared_models = [dict(row) for row in c.fetchall()]
     
     conn.close()
