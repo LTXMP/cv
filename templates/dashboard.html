@@ -392,7 +392,24 @@
             from { transform: scale(0.9); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
-    </style>
+    
+    .live-indicator {
+        width: 8px;
+        height: 8px;
+        background: #2ecc71;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        box-shadow: 0 0 8px #2ecc71;
+        animation: pulse-live 2s infinite;
+    }
+    @keyframes pulse-live {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+</style>
 </head>
 
 <body>
@@ -477,7 +494,24 @@
                 .mobile-hide { display: none !important; }
                 .nav-auth-mobile { display: flex !important; gap: 10px; }
             }
-        </style>
+        
+    .live-indicator {
+        width: 8px;
+        height: 8px;
+        background: #2ecc71;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        box-shadow: 0 0 8px #2ecc71;
+        animation: pulse-live 2s infinite;
+    }
+    @keyframes pulse-live {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+</style>
 
         <!-- Auth View -->
         <div id="auth-wrapper">
@@ -558,7 +592,24 @@
                 #auth-footer { flex-direction: column; text-align: center; padding: 40px 5% !important; }
                 .footer-links { flex-direction: column; gap: 12px; align-items: center; }
             }
-        </style>
+        
+    .live-indicator {
+        width: 8px;
+        height: 8px;
+        background: #2ecc71;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        box-shadow: 0 0 8px #2ecc71;
+        animation: pulse-live 2s infinite;
+    }
+    @keyframes pulse-live {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+</style>
 
         <!-- Main Dashboard -->
         <div id="dashboard-wrapper">
@@ -1302,7 +1353,7 @@
         // --- Admin Functions ---
 
         async function loadAdminData() {
-            loadAdminUsers();
+            loadAdminUsers(); fetchLiveUsers();
             loadAdminModels();
             loadAdminLicenses();
             loadAdminResellers();
@@ -1465,7 +1516,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     showNotification(data.message, 'success');
-                    loadAdminUsers();
+                    loadAdminUsers(); fetchLiveUsers();
                 } else {
                     showNotification(data.error || 'Failed', 'error');
                 }
@@ -1716,13 +1767,13 @@
         async function adminBanUser(id) {
             if (!confirm("Ban this user?")) return;
             const res = await fetch(`${API_URL}/admin/users/${id}/ban`, { method: 'POST' });
-            if (res.ok) { showNotification("User Banned", "success"); loadAdminUsers(); }
+            if (res.ok) { showNotification("User Banned", "success"); loadAdminUsers(); fetchLiveUsers(); }
         }
 
         async function adminUnbanUser(id) {
             if (!confirm("Unban this user?")) return;
             const res = await fetch(`${API_URL}/admin/users/${id}/unban`, { method: 'POST' });
-            if (res.ok) { showNotification("User Unbanned", "success"); loadAdminUsers(); }
+            if (res.ok) { showNotification("User Unbanned", "success"); loadAdminUsers(); fetchLiveUsers(); }
         }
 
         async function adminResetPass(id) {
@@ -1749,7 +1800,7 @@
             const res = await fetch(`${API_URL}/admin/users/${id}/delete`, { method: 'POST' }); // Using POST for safety if DELETE is blocked by some proxies
             if (res.ok) {
                 showNotification('User Deleted', 'success');
-                loadAdminUsers();
+                loadAdminUsers(); fetchLiveUsers();
                 loadAdminModels();
             } else {
                 showNotification('Failed to delete user', 'error');
@@ -1824,7 +1875,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/release_license`, { method: 'POST' });
             if (res.ok) {
                 showNotification('License released', 'success');
-                loadAdminUsers();
+                loadAdminUsers(); fetchLiveUsers();
             } else {
                 showNotification('Failed to release license', 'error');
             }
@@ -1835,7 +1886,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/promote`, { method: 'POST' });
             if (res.ok) {
                 showNotification('User promoted to Admin', 'success');
-                loadAdminUsers();
+                loadAdminUsers(); fetchLiveUsers();
             } else {
                 showNotification('Failed to promote user', 'error');
             }
@@ -1846,7 +1897,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/demote`, { method: 'POST' });
             if (res.ok) {
                 showNotification('Admin demoted', 'success');
-                loadAdminUsers();
+                loadAdminUsers(); fetchLiveUsers();
             } else {
                 const data = await res.json();
                 showNotification(data.error || 'Failed to demote', 'error');
@@ -2960,6 +3011,8 @@
                 const res = await fetch(`${API_URL}/user/license`);
                 const data = await res.json();
                 console.log("[Account] Data received:", data);
+                // Sync HWID state to global userData immediately
+
 
                 if (res.status === 401) {
                     logout();
