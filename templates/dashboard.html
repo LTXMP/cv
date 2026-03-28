@@ -832,6 +832,31 @@
 
             <!-- Tab: Admin Panel -->
             <div id="page-admin" class="page hidden">
+
+                <!-- Live Users Section -->
+                <div class="card" style="margin-bottom: 24px; border: 1px solid rgba(46, 204, 113, 0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px;">
+                            <span class="live-indicator"></span> Live Session Tracking
+                        </h3>
+                        <span id="live-user-count" class="badge" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">0 Online</span>
+                    </div>
+                    <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="text-align: left; border-bottom: 1px solid var(--glass-border);">
+                                    <th style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">User</th>
+                                    <th style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">IP Address</th>
+                                    <th style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">Last Heartbeat</th>
+                                </tr>
+                            </thead>
+                            <tbody id="live-users-tbody">
+                                <tr><td colspan="3" style="padding: 20px; text-align: center; color: var(--text-dim);">Scanning for active sessions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <h1 style="margin-bottom: 30px;">Admin Controller</h1>
 
 
@@ -1342,6 +1367,12 @@
     <div id="notification" class="notification"></div>
 
     <script>
+
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+        console.log("%c[GLOBAL ERROR] " + msg + " at " + lineNo + ":" + columnNo, "color: red; font-weight: bold;");
+        return false;
+    };
+
         const API_URL = '/api';
         let userData = null;
         try {
@@ -1353,7 +1384,7 @@
         // --- Admin Functions ---
 
         async function loadAdminData() {
-            loadAdminUsers(); fetchLiveUsers();
+            loadAdminUsers(); fetchLiveUsers(); 
             loadAdminModels();
             loadAdminLicenses();
             loadAdminResellers();
@@ -1421,6 +1452,32 @@
             }, 400); // 400ms debounce
         }
 
+
+        
+        async function fetchLiveUsers() {
+            try {
+                const res = await fetch('/api/admin/live_users');
+                if (!res.ok) return;
+                const users = await res.json();
+                const tbody = document.getElementById('live-users-tbody');
+                const countEl = document.getElementById('live-user-count');
+                if (!tbody || !countEl) return;
+                
+                countEl.innerText = `${users.length} Online`;
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="padding: 20px; text-align: center; color: var(--text-dim);">No active users detected</td></tr>';
+                } else {
+                    tbody.innerHTML = users.map(u => `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
+                            <td style="padding: 10px; font-weight: 500; color: var(--primary);">${u.username}</td>
+                            <td style="padding: 10px; color: var(--text-dim); font-family: monospace;">${u.last_ip}</td>
+                            <td style="padding: 10px; color: var(--text-dim);">${new Date(u.last_seen * 1000).toLocaleTimeString()}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) { console.error("Live fetch error:", e); }
+        }
+        setInterval(fetchLiveUsers, 20000);
 
         async function loadAdminUsers(searchQuery = '') {
             try {
@@ -1516,7 +1573,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     showNotification(data.message, 'success');
-                    loadAdminUsers(); fetchLiveUsers();
+                    loadAdminUsers(); fetchLiveUsers(); 
                 } else {
                     showNotification(data.error || 'Failed', 'error');
                 }
@@ -1767,13 +1824,13 @@
         async function adminBanUser(id) {
             if (!confirm("Ban this user?")) return;
             const res = await fetch(`${API_URL}/admin/users/${id}/ban`, { method: 'POST' });
-            if (res.ok) { showNotification("User Banned", "success"); loadAdminUsers(); fetchLiveUsers(); }
+            if (res.ok) { showNotification("User Banned", "success"); loadAdminUsers(); fetchLiveUsers();  }
         }
 
         async function adminUnbanUser(id) {
             if (!confirm("Unban this user?")) return;
             const res = await fetch(`${API_URL}/admin/users/${id}/unban`, { method: 'POST' });
-            if (res.ok) { showNotification("User Unbanned", "success"); loadAdminUsers(); fetchLiveUsers(); }
+            if (res.ok) { showNotification("User Unbanned", "success"); loadAdminUsers(); fetchLiveUsers();  }
         }
 
         async function adminResetPass(id) {
@@ -1800,7 +1857,7 @@
             const res = await fetch(`${API_URL}/admin/users/${id}/delete`, { method: 'POST' }); // Using POST for safety if DELETE is blocked by some proxies
             if (res.ok) {
                 showNotification('User Deleted', 'success');
-                loadAdminUsers(); fetchLiveUsers();
+                loadAdminUsers(); fetchLiveUsers(); 
                 loadAdminModels();
             } else {
                 showNotification('Failed to delete user', 'error');
@@ -1875,7 +1932,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/release_license`, { method: 'POST' });
             if (res.ok) {
                 showNotification('License released', 'success');
-                loadAdminUsers(); fetchLiveUsers();
+                loadAdminUsers(); fetchLiveUsers(); 
             } else {
                 showNotification('Failed to release license', 'error');
             }
@@ -1886,7 +1943,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/promote`, { method: 'POST' });
             if (res.ok) {
                 showNotification('User promoted to Admin', 'success');
-                loadAdminUsers(); fetchLiveUsers();
+                loadAdminUsers(); fetchLiveUsers(); 
             } else {
                 showNotification('Failed to promote user', 'error');
             }
@@ -1897,7 +1954,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/demote`, { method: 'POST' });
             if (res.ok) {
                 showNotification('Admin demoted', 'success');
-                loadAdminUsers(); fetchLiveUsers();
+                loadAdminUsers(); fetchLiveUsers(); 
             } else {
                 const data = await res.json();
                 showNotification(data.error || 'Failed to demote', 'error');
