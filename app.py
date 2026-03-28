@@ -1492,8 +1492,13 @@ def get_user_profile():
         conn.close()
         
         if user:
-            # Return as dictionary
-            resp = jsonify(dict(user))
+            user_dict = dict(user)
+            # Enforce strict boolean casting to prevent JavaScript truthy-string execution bugs (e.g. "0" == true)
+            for key in ['is_admin', 'is_owner', 'is_reseller', 'is_weight_seller', 'is_verified']:
+                if key in user_dict:
+                    user_dict[key] = int(user_dict[key] or 0) == 1
+                    
+            resp = jsonify(user_dict)
             resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             return resp
         return jsonify({'error': 'User not found'}), 404
