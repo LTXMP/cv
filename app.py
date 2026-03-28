@@ -1387,8 +1387,13 @@ def update_profile():
                     c.execute("UPDATE seller_teams SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_info['seller_team_id']))
                 c.execute("UPDATE users SET discord_server_id=? WHERE id=?", (discord_server_id_clean, user_id))
             except Exception as e:
+                import concurrent.futures
+                import traceback
+                print(f"[Discord Multi-Server] Exception traceback: {traceback.format_exc()}")
                 conn.close()
-                return jsonify({'error': f'Failed to communicate with Discord Bot: {str(e)}'}), 500
+                if isinstance(e, concurrent.futures.TimeoutError):
+                    return jsonify({'error': 'Failed to communicate with Discord Bot: Timeout after 15 seconds'}), 504
+                return jsonify({'error': f'Failed to communicate with Discord Bot: {type(e).__name__} - {str(e)}'}), 500
 
     if email:
         if not is_valid_email(email):
