@@ -1323,7 +1323,9 @@ def claim_key():
             import asyncio
             try:
                 # Dispatch coroutine to bot's active event loop
-                loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
+                if not hasattr(app.discord_bot, 'active_loop'):
+                    raise Exception("Discord Bot is offline or still booting up.")
+                loop = app.discord_bot.active_loop
                 asyncio.run_coroutine_threadsafe(
                     app.discord_bot.assign_sub_role_now(discord_id),
                     loop
@@ -1374,7 +1376,10 @@ def update_profile():
             import asyncio
             try:
                 # Wrap an asyncio loop to wait for the bot's check
-                loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
+                if not hasattr(app.discord_bot, 'active_loop'):
+                    conn.close()
+                    return jsonify({'error': 'Discord Bot is offline or still booting up. Try again in 10 seconds.'}), 503
+                loop = app.discord_bot.active_loop
                 future = asyncio.run_coroutine_threadsafe(
                     app.discord_bot.verify_server_admin(discord_server_id_clean, user_info['discord_id']),
                     loop
@@ -1583,7 +1588,9 @@ def get_discord_roles():
         
     import asyncio
     try:
-        loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
+        if not hasattr(app.discord_bot, 'active_loop'):
+            return jsonify({'error': 'Discord Bot is offline or still booting up.'}), 503
+        loop = app.discord_bot.active_loop
         future = asyncio.run_coroutine_threadsafe(
             app.discord_bot.get_guild_roles_sync(user['discord_server_id'], user['discord_id']),
             loop
@@ -1636,7 +1643,9 @@ def assign_discord_role(ticket_id):
     if hasattr(app, 'discord_bot') and app.discord_bot:
         import asyncio
         try:
-            loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
+            if not hasattr(app.discord_bot, 'active_loop'):
+                return jsonify({'error': 'Discord Bot is offline or still booting up.'}), 503
+            loop = app.discord_bot.active_loop
             future = asyncio.run_coroutine_threadsafe(
                 app.discord_bot.assign_role_in_guild(user['discord_id'], role_id, acting_user['discord_server_id'], acting_user['discord_id']),
                 loop

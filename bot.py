@@ -150,9 +150,12 @@ class DiscordBot(commands.Bot):
             member = guild.get_member(int(user_discord_id))
             if not member:
                 try:
-                    member = await guild.fetch_member(int(user_discord_id))
+                    # Enforce a 5.0 second timeout so we don't hold the Flask thread forever on Discord API timeouts
+                    member = await asyncio.wait_for(guild.fetch_member(int(user_discord_id)), timeout=5.0)
                 except discord.NotFound:
                     return False, "You must be a member of that Discord Server to link it."
+                except asyncio.TimeoutError:
+                    return False, "Discord API timed out fetching your account. You may be ratelimited."
             
             if member.id == guild.owner_id or member.guild_permissions.administrator:
                 return True, "Success"
@@ -187,11 +190,14 @@ class DiscordBot(commands.Bot):
             target_member = guild.get_member(int(target_discord_id))
             if not target_member:
                 try:
-                    target_member = await guild.fetch_member(int(target_discord_id))
+                    target_member = await asyncio.wait_for(guild.fetch_member(int(target_discord_id)), timeout=5.0)
                 except discord.NotFound:
                     return False, "The buyer is not currently in your Discord server."
+                except asyncio.TimeoutError:
+                    return False, "Discord API timed out searching for the buyer. Try again."
                     
             role = guild.get_role(int(role_id))
+
             if not role:
                 return False, "Role not found in your server."
                 
