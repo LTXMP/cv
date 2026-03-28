@@ -1854,6 +1854,17 @@
         let selectedSupportFile = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Check for Discord linking status in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const linkedStatus = urlParams.get('linked');
+            if (linkedStatus === 'success') {
+                showNotification('Discord Account Linked Successfully!', 'success');
+                syncUserData(); // Force immediate sync from server
+            } else if (linkedStatus === 'error') {
+                const reason = urlParams.get('reason') || 'unknown';
+                showNotification('Discord Link Failed: ' + reason, 'error');
+            }
+
             const replyInput = document.getElementById('support-reply-input');
             if (replyInput) {
                 replyInput.addEventListener('keydown', function(e) {
