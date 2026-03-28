@@ -653,7 +653,7 @@
                                     <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 15px;">Limit: 1 Server per Weight Seller. Link your Discord Server ID to enable dynamic role assignment for your team.</p>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <input type="text" id="update-discord-server" placeholder="Discord Server ID (Guild ID)" style="margin: 0; flex: 1;">
-                                        <button onclick="updateDiscordServer()" style="margin: 0; padding: 0 20px; width: auto; background: var(--primary);">Save Server ID</button>
+                                        <button id="btn-save-discord-server" onclick="updateDiscordServer()" style="margin: 0; padding: 0 20px; width: auto; background: var(--primary);">Save Server ID</button>
                                     </div>
                                     <p style="font-size: 10px; color: var(--warning); margin-top: 8px;"><i class="fas fa-exclamation-triangle"></i> You must invite the Titan Bot to your server and possess Administrator permissions before saving.</p>
                                 </div>
@@ -1506,9 +1506,11 @@
                 const updateServerInput = document.getElementById('update-discord-server');
                 const activeServerLabel = document.getElementById('active-discord-server');
                 if (sellerContainer) {
-                    // Show if admin, reseller, or weight seller
-                    if (userData.is_admin || userData.is_reseller || userData.is_weight_seller) {
+                    // Show only for weight sellers (Administrators can still configure via DB if needed)
+                    if (userData.is_weight_seller) {
                         sellerContainer.style.display = 'block';
+                    } else {
+                        sellerContainer.style.display = 'none';
                     }
                 }
                 if (updateServerInput) {
@@ -3030,9 +3032,9 @@
             const input = document.getElementById('update-discord-server');
             if (!input) return;
             const discordServer = input.value.trim();
-            const btn = event.target;
-            const oldText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            const btn = document.getElementById('btn-save-discord-server');
+            const oldText = btn ? btn.innerHTML : 'Save Server ID';
+            if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             try {
                 const res = await fetch(`${API_URL}/user/update`, {
                     method: 'POST',
@@ -3049,7 +3051,7 @@
             } catch (e) {
                 showNotification('Network error', 'error');
             } finally {
-                btn.innerHTML = oldText;
+                if (btn) btn.innerHTML = oldText;
             }
         }
 
