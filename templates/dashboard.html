@@ -1608,8 +1608,13 @@
                 const res = await fetch('/api/user/profile');
                 const data = await res.json();
                 if (res.ok) {
-                    userData = data;
+                    // Merge new license data into current userData to preserve existing permissions (admin/reseller/etc)
+                    userData = { ...(userData || {}), ...data };
+                    localStorage.setItem('userData', JSON.stringify(userData));
                     console.log('[License Gate] Syncing userData:', userData);
+                    // Explicitly sync license status for the gate
+                    userData.status = data.status || 'Inactive';
+                    localStorage.setItem('userData', JSON.stringify(userData));
                     localStorage.setItem('userData', JSON.stringify(data));
                     loadSettings();
                     showNotification('Account synchronized', 'success');
@@ -2905,7 +2910,10 @@
         function showPage(pageId) {
             // --- License Gate ---
             const protectedTabs = ['models', 'marketplace', 'downloads'];
-            const hasLicense = (userData && (userData.status === 'Active' || userData.is_admin || userData.is_owner));
+            const isAdmin = userData?.is_admin || localStorage.getItem('isAdmin') === 'true';
+            const isOwner = userData?.is_owner || localStorage.getItem('isOwner') === 'true';
+            const status = userData?.status || 'Inactive';
+            const hasLicense = (status === 'Active' || isAdmin || isOwner);
             console.log(`[License Gate] Checking tab: ${pageId} | Status: ${userData ? userData.status : 'null'} | HasLicense: ${hasLicense}`);
 
             
