@@ -3049,7 +3049,8 @@
                     showNotification(data.error || 'Failed to update server', 'error');
                 }
             } catch (e) {
-                showNotification('Network error', 'error');
+                console.error("Network error saving discord server:", e);
+                showNotification('Network error: ' + (e.message || 'Check browser console'), 'error');
             } finally {
                 if (btn) btn.innerHTML = oldText;
             }
