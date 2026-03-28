@@ -1359,19 +1359,48 @@ DISCORD_REDIRECT_URI = os.environ.get('DISCORD_REDIRECT_URI', 'https://xentweaks
 @app.route('/api/user/link_discord/auth')
 @login_required
 def discord_auth():
+    import hmac, hashlib, base64
+    user_id = str(session.get('user_id'))
+    # Sign the user_id with app.secret_key to prevent tampering
+    signature = hmac.new(app.secret_key.encode(), user_id.encode(), hashlib.sha256).hexdigest()
+    state = base64.urlsafe_b64encode(f"{user_id}:{signature}".encode()).decode()
+    
     auth_url = (
         f"https://discord.com/api/oauth2/authorize"
         f"?client_id={DISCORD_CLIENT_ID}"
         f"&redirect_uri={DISCORD_REDIRECT_URI}"
         f"&response_type=code"
         f"&scope=identify"
+        f"&state={state}"
     )
     return redirect(auth_url)
 
 @app.route('/api/user/link_discord/callback')
-@login_required
 def discord_callback():
+    import hmac, hashlib, base64
     code = request.args.get('code')
+    state = request.args.get('state')
+    
+    # Try to recover user_id from signed state if session is lost
+    verified_user_id = session.get('user_id')
+    
+    if state and not verified_user_id:
+        try:
+            decoded = base64.urlsafe_b64decode(state.encode()).decode()
+            u_id, sig = decoded.split(':')
+            expected_sig = hmac.new(app.secret_key.encode(), u_id.encode(), hashlib.sha256).hexdigest()
+            if hmac.compare_digest(sig, expected_sig):
+                verified_user_id = int(u_id)
+                print(f"[Discord] Recovered User ID {verified_user_id} from signed state.")
+                # Restore session if possible
+                session['user_id'] = verified_user_id
+        except Exception as e:
+            print(f"[Discord] State verification failed: {e}")
+
+    if not verified_user_id:
+        print("[Discord] Callback Failed: No verified user_id in session or state.")
+        return redirect('/dashboard#settings?linked=error&reason=unauthorized')
+
     if not code:
         return redirect('/dashboard#settings?linked=error&reason=no_code')
         
@@ -1414,9 +1443,10 @@ def discord_callback():
             return redirect('/dashboard#settings?linked=error&reason=no_discord_id')
         
         # Update Database
-        print(f"[Discord] Linking Discord ID {discord_id} to User {session.get('user_id')}")
+        user_to_link = verified_user_id or session.get('user_id')
+        print(f"[Discord] Linking Discord ID {discord_id} to User {user_to_link}")
         conn = get_db()
-        conn.execute("UPDATE users SET discord_id=? WHERE id=?", (discord_id, session['user_id']))
+        conn.execute("UPDATE users SET discord_id=? WHERE id=?", (discord_id, user_to_link))
         conn.commit()
         conn.close()
         
