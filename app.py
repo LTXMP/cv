@@ -468,9 +468,9 @@ def init_db():
 
 
     # Migration: Check for last_hwid_reset in users
-    if 'last_hwid_reset' not in columns:
+    if 'last_seen' not in columns:
         try:
-            c.execute("ALTER TABLE users ADD COLUMN last_hwid_reset REAL")
+            c.execute("ALTER TABLE users ADD COLUMN last_seen REAL DEFAULT 0")
             conn.commit()
         except: pass
 
@@ -1041,7 +1041,7 @@ def client_auth():
         return jsonify({'authorized': False, 'message': 'Account not verified. A new verification link has been sent to your email.'}), 403
 
     # 2. Check License
-    conn.execute("UPDATE users SET last_ip=? WHERE id=?", (request.remote_addr, user['id']))
+    c.execute("UPDATE users SET last_ip=?, last_seen=? WHERE id=?", (request.remote_addr, time.time(), user['id']))
     
     current_time = time.time()
     # Fix: Get the license with the most time remaining (Greatest expiry)
@@ -1100,6 +1100,37 @@ def client_auth():
         'm_key': SECRET_KEY.decode('utf-8'),
         'm_iv': IV.decode('utf-8')
     })
+
+@app.route('/api/client/heartbeat', methods=['POST'])
+def client_heartbeat():
+    content = request.json
+    email = content.get('email')
+    # For client heartbeats, we verify email to ensure it's the right user
+    if not email: return jsonify({'error': 'Unauthorized'}), 401
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET last_seen=?, last_ip=? WHERE email=?", (time.time(), request.remote_addr, email))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/admin/live_users', methods=['GET'])
+@admin_required
+def admin_live_users():
+    conn = get_db()
+    c = conn.cursor()
+    # Users seen in the last 120 seconds
+    threshold = time.time() - 120
+    users = c.execute("""
+        SELECT id, username, last_ip, last_seen 
+        FROM users 
+        WHERE last_seen > ? 
+        ORDER BY last_seen DESC
+    """, (threshold,)).fetchall()
+    conn.close()
+    
+    return jsonify([dict(u) for u in users])
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
