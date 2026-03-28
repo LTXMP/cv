@@ -2888,6 +2888,17 @@
         }
 
         function showPage(pageId) {
+            // --- License Gate ---
+            const protectedTabs = ['models', 'marketplace', 'downloads'];
+            const hasLicense = (userData && (userData.status === 'Active' || userData.is_admin || userData.is_owner));
+            
+            if (protectedTabs.includes(pageId) && !hasLicense) {
+                showNotification('Active License Required to access this tab.', 'error');
+                // Avoid infinite recursion if we're already trying to go to account or it fails
+                if (pageId !== 'account') showPage('account');
+                return;
+            }
+
             // Hide all pages
             document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
