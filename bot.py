@@ -1,6 +1,6 @@
 import os
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 import sqlite3
 import time
@@ -27,20 +27,76 @@ class DiscordBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
         super().__init__(command_prefix="!", intents=intents)
         self.synced = False
 
     async def on_ready(self):
         print(f'[Discord] Logged in as {self.user} (ID: {self.user.id})')
         if not self.synced:
+            # Global sync
             await self.tree.sync()
+            # Guild-specific sync (Instant appearance)
+            for guild in self.guilds:
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
             self.synced = True
-            print("[Discord] Slash commands synced.")
+            print("[Discord] Slash commands synced (Global + Guilds).")
 
     def get_db(self):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         return conn
+
+    async def setup_hook(self):
+        self.sync_subscription_roles.start()
+
+    @tasks.loop(minutes=5)
+    async def sync_subscription_roles(self):
+        try:
+            guild = self.get_guild(1383030583839424584)
+            if not guild: return
+            role = guild.get_role(1487326056682881044)
+            if not role: return
+            
+            conn = self.get_db()
+            c = conn.cursor()
+            
+            # Find users with ACTIVE licenses
+            current_time = time.time()
+            query = '''
+                SELECT u.discord_id 
+                FROM users u
+                JOIN licenses l ON u.id = l.user_id
+                WHERE u.discord_id IS NOT NULL 
+                AND (l.duration = 'LIFETIME' OR l.expiry > ?)
+                AND l.is_paused = 0
+                AND l.revoke_pending = 0
+            '''
+            active_users = c.execute(query, (current_time,)).fetchall()
+            active_discord_ids = {str(row['discord_id']) for row in active_users}
+            conn.close()
+            
+            # 1. Add role to active users
+            for discord_id in active_discord_ids:
+                # Use fetch_member if get_member fails, though intents.members should cache it
+                member = guild.get_member(int(discord_id))
+                if member and role not in member.roles:
+                    try:
+                        await member.add_roles(role, reason="Auto-sync: Active Subscription")
+                        print(f"[Discord] Auto-assigned sub role to {discord_id}")
+                    except: pass
+                        
+            # 2. Remove role from inactive users
+            for member in role.members:
+                if str(member.id) not in active_discord_ids:
+                    try:
+                        await member.remove_roles(role, reason="Auto-sync: Subscription Expired")
+                        print(f"[Discord] Auto-removed sub role from {member.id}")
+                    except: pass
+
+        except Exception as e:
+            print(f"[Discord] Sync role task error: {e}")
 
     async def on_message(self, message):
         if message.author == self.user:
@@ -53,12 +109,20 @@ class DiscordBot(commands.Bot):
                 response = await asyncio.to_thread(get_ai_support_response, message.content)
                 if response and response.strip():
                     try:
-                        await message.reply(response)
+                        rep = await message.reply(response)
                         print(f"[Discord] Replied to {message.author} ({len(response)} chars)")
                     except Exception as e:
                         print(f"[Discord] Reply Failed: {e}")
                 else:
                     print(f"[Discord] AI returned empty response for: {message.content[:50]}")
+
+        # Auto-Delete in Commands Channel
+        if message.channel.id == COMMANDS_CHANNEL_ID:
+            try:
+                # Use delay=60 to delete after 1 minute
+                await message.delete(delay=60)
+            except Exception as e:
+                print(f"[Discord] Delete failed in commands channel: {e}")
 
         await self.process_commands(message)
 
@@ -75,6 +139,22 @@ class DiscordBot(commands.Bot):
                 print(f"[Discord] Assigned role {role_id} to {discord_id}")
         except Exception as e:
             print(f"[Discord] Role assignment error: {e}")
+
+    async def assign_sub_role_now(self, discord_id):
+        # Fast instant assignment for the claim_key endpoint
+        try:
+            guild = self.get_guild(1383030583839424584)
+            if not guild: return
+            role = guild.get_role(1487326056682881044)
+            if not role: return
+            
+            # Use fetch_member to guarantee retrieval even if cache misses
+            member = await guild.fetch_member(int(discord_id))
+            if member and role not in member.roles:
+                await member.add_roles(role, reason="Instant key claim")
+                print(f"[Discord] Instant sub role assigned to {discord_id}")
+        except Exception as e:
+            print(f"[Discord] Instant role assignment error: {e}")
 
 # Bot Instance
 bot = DiscordBot()
@@ -109,7 +189,9 @@ async def hwid(interaction: discord.Interaction):
     conn.close()
     
     hwid_str = license['hwid'] if license and license['hwid'] else "None (Unbound)"
-    await interaction.response.send_message(f"**User**: {user['username']}\n**Linked HWID**: `{hwid_str}`", ephemeral=True)
+    await interaction.response.send_message(f"**User**: {user['username']}\n**Linked HWID**: `{hwid_str}`")
+    msg = await interaction.original_response()
+    await msg.delete(delay=60)
 
 @bot.tree.command(name="license", description="Check your license status")
 @is_commands_channel()
@@ -125,7 +207,9 @@ async def license_status(interaction: discord.Interaction):
     expiry_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(user['expiry'])) if user['expiry'] < 9999999999 else "Lifetime"
     status = "Active" if user['expiry'] > time.time() else "Expired"
     
-    await interaction.response.send_message(f"**User**: {user['username']}\n**Status**: {status}\n**Type**: {user['duration']}\n**Expiry**: {expiry_str}", ephemeral=True)
+    await interaction.response.send_message(f"**User**: {user['username']}\n**Status**: {status}\n**Type**: {user['duration']}\n**Expiry**: {expiry_str}")
+    msg = await interaction.original_response()
+    await msg.delete(delay=60)
 
 @bot.tree.command(name="reset_hwid", description="Reset your bound HWID")
 @is_commands_channel()
@@ -149,7 +233,9 @@ async def reset_hwid(interaction: discord.Interaction):
     conn.commit()
     conn.close()
     
-    await interaction.response.send_message("✅ Your HWID has been reset. It will bind to the next device you use.", ephemeral=True)
+    await interaction.response.send_message("✅ Your HWID has been reset. It will bind to the next device you use.")
+    msg = await interaction.original_response()
+    await msg.delete(delay=60)
 
 @bot.tree.command(name="models", description="Check available marketplace models")
 @is_commands_channel()
@@ -163,7 +249,9 @@ async def models(interaction: discord.Interaction):
         return
 
     model_list = "\n".join([f"• **{m['name']}** - {m['marketplace_price_monthly']}€/mo" for m in models])
-    await interaction.response.send_message(f"### 🛒 Marketplace Models\n{model_list}\n\n*Purchase these on the dashboard!*", ephemeral=True)
+    await interaction.response.send_message(f"### 🛒 Marketplace Models\n{model_list}\n\n*Purchase these on the dashboard!*")
+    msg = await interaction.original_response()
+    await msg.delete(delay=60)
 
 def run_bot():
     if TOKEN:

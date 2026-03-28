@@ -1285,22 +1285,36 @@ def claim_key():
     conn.commit()
 
     # Send confirmation email
-    user_row = c.execute("SELECT username, email FROM users WHERE id=?", (user_id,)).fetchone()
+    user_row = c.execute("SELECT username, email, discord_id FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
 
-    if user_row and user_row['email']:
-        added_dur = format_duration(duration_seconds)
-        expiry_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(new_expiry)) if new_expiry < 9999999999 else 'Never'
-        send_email(
-            user_row['email'],
-            "Exclusive Aim - License Successfully Activated",
-            f"Hello {user_row['username']},\n\nFantastic news! Your license key has been successfully claimed and activated on your account.\n\n<strong>Subscription Details:</strong>\n&bull; Added Duration: {added_dur}\n&bull; New Expiry: {expiry_str}\n\nYou now have full access to our premium features. Thank you for choosing Exclusive Aim!\n\nBest regards,\nThe Exclusive Aim Team"
-        )
+    if user_row:
+        if user_row['email']:
+            added_dur = format_duration(duration_seconds)
+            expiry_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(new_expiry)) if new_expiry < 9999999999 else 'Never'
+            send_email(
+                user_row['email'],
+                "Exclusive Aim - License Successfully Activated",
+                f"Hello {user_row['username']},\n\nFantastic news! Your license key has been successfully claimed and activated on your account.\n\n<strong>Subscription Details:</strong>\n&bull; Added Duration: {added_dur}\n&bull; New Expiry: {expiry_str}\n\nYou now have full access to our premium features. Thank you for choosing Exclusive Aim!\n\nBest regards,\nThe Exclusive Aim Team"
+            )
         send_discord_notification(
             "License Claimed",
             f"**User**: {user_row['username']} (ID: {user_id})\n**Key**: {key}\n**Duration**: {license_row['duration']}",
             color=0x2ecc71
         )
+        
+        # Trigger instant Discord role assignment
+        discord_id = user_row['discord_id']
+        if discord_id and hasattr(app, 'discord_bot') and app.discord_bot:
+            import asyncio
+            try:
+                # Dispatch coroutine to bot's active event loop
+                asyncio.run_coroutine_threadsafe(
+                    app.discord_bot.assign_sub_role_now(discord_id),
+                    app.discord_bot.loop
+                )
+            except Exception as e:
+                print(f"[Discord] Failed to dispatch instant role sync: {e}")
     
     return jsonify({'message': 'License renewed successfully'})
 
