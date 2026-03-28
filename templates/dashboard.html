@@ -801,7 +801,7 @@
                             <p style="font-size: 13px; color: var(--text-dim);">New Key:</p>
                             <input type="text" id="new-license-key" readonly 
                                 style="text-align: center; border-color: var(--accent); color: white; cursor: pointer;"
-                                onclick="this.select(); document.execCommand('copy');">
+                                onclick="copyNewKey()">
                             <p style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 5px;">Click to copy</p>
                         </div>
                     </div>
@@ -1923,7 +1923,7 @@
             });
             const data = await res.json();
             if (data.key) {
-                document.getElementById('new-license-key').innerText = data.key;
+                document.getElementById('new-license-key').value = data.key;
                 document.getElementById('gen-result').style.display = 'block';
                 loadAdminLicenses(); // Refresh list
             } else {
