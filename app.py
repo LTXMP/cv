@@ -1323,9 +1323,10 @@ def claim_key():
             import asyncio
             try:
                 # Dispatch coroutine to bot's active event loop
+                loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
                 asyncio.run_coroutine_threadsafe(
                     app.discord_bot.assign_sub_role_now(discord_id),
-                    app.discord_bot.loop
+                    loop
                 )
             except Exception as e:
                 print(f"[Discord] Failed to dispatch instant role sync: {e}")
@@ -1373,9 +1374,10 @@ def update_profile():
             import asyncio
             try:
                 # Wrap an asyncio loop to wait for the bot's check
+                loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
                 future = asyncio.run_coroutine_threadsafe(
                     app.discord_bot.verify_server_admin(discord_server_id_clean, user_info['discord_id']),
-                    app.discord_bot.loop
+                    loop
                 )
                 is_admin, error_msg = future.result(timeout=15)
                 
@@ -1392,7 +1394,7 @@ def update_profile():
                 print(f"[Discord Multi-Server] Exception traceback: {traceback.format_exc()}")
                 conn.close()
                 if isinstance(e, concurrent.futures.TimeoutError):
-                    return jsonify({'error': 'Failed to communicate with Discord Bot: Timeout after 15 seconds'}), 504
+                    return jsonify({'error': 'Failed to communicate with Discord Bot: Timeout after 15 seconds'}), 408
                 return jsonify({'error': f'Failed to communicate with Discord Bot: {type(e).__name__} - {str(e)}'}), 500
 
     if email:
@@ -1581,9 +1583,10 @@ def get_discord_roles():
         
     import asyncio
     try:
+        loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
         future = asyncio.run_coroutine_threadsafe(
             app.discord_bot.get_guild_roles_sync(user['discord_server_id'], user['discord_id']),
-            app.discord_bot.loop
+            loop
         )
         roles, error_msg = future.result(timeout=10)
         
@@ -1633,9 +1636,10 @@ def assign_discord_role(ticket_id):
     if hasattr(app, 'discord_bot') and app.discord_bot:
         import asyncio
         try:
+            loop = getattr(app.discord_bot, 'active_loop', app.discord_bot.loop)
             future = asyncio.run_coroutine_threadsafe(
                 app.discord_bot.assign_role_in_guild(user['discord_id'], role_id, acting_user['discord_server_id'], acting_user['discord_id']),
-                app.discord_bot.loop
+                loop
             )
             success, msg = future.result(timeout=10)
             if success:

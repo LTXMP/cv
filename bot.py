@@ -49,6 +49,7 @@ class DiscordBot(commands.Bot):
         return conn
 
     async def setup_hook(self):
+        self.active_loop = asyncio.get_running_loop()
         self.sync_subscription_roles.start()
 
     @tasks.loop(minutes=5)
