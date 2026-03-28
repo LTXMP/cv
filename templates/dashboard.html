@@ -1293,6 +1293,11 @@
     <script>
         const API_URL = '/api';
         let userData = null;
+        try {
+            const cached = localStorage.getItem('userData');
+            if (cached) userData = JSON.parse(cached);
+        } catch(e) {}
+
 
         // --- Admin Functions ---
 
@@ -1604,6 +1609,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     userData = data;
+                    console.log('[License Gate] Syncing userData:', userData);
                     localStorage.setItem('userData', JSON.stringify(data));
                     loadSettings();
                     showNotification('Account synchronized', 'success');
@@ -2900,6 +2906,8 @@
             // --- License Gate ---
             const protectedTabs = ['models', 'marketplace', 'downloads'];
             const hasLicense = (userData && (userData.status === 'Active' || userData.is_admin || userData.is_owner));
+            console.log(`[License Gate] Checking tab: ${pageId} | Status: ${userData ? userData.status : 'null'} | HasLicense: ${hasLicense}`);
+
             
             if (protectedTabs.includes(pageId) && !hasLicense) {
                 showNotification('Active License Required to access this tab.', 'error');
@@ -3167,6 +3175,7 @@
                             <span class="${m.is_public ? 'status-active' : 'status-invalid'}">${m.is_public ? 'Public' : 'Private'}</span>
                         </div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+
                             <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="togglePublic(${m.id})">${m.is_public ? 'Private' : 'Public'}</button>
                             <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="openShareModal(${m.id})">Share</button>
                             <button class="secondary" style="margin:0; padding: 8px; font-size: 11px;" onclick="showSharedUsers(${m.id}, this)">Users</button>
@@ -3204,7 +3213,33 @@
             }
         }
 
+        async function updateModelSettings(modelId, field, value) {
+            try {
+                const body = {};
+                body[field] = value;
+                
+                const res = await fetch(`${API_URL}/models/${modelId}/update_settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                if (res.ok) {
+                    showNotification('Model settings updated', 'success');
+                } else {
+                    const data = await res.json();
+                    showNotification(data.error || 'Update failed', 'error');
+                }
+            } catch (e) {
+                console.error("Failed to update model settings:", e);
+                showNotification('Network error', 'error');
+            }
+        }
+
+
         async function togglePublic(id) {
+
+
             const res = await fetch(`${API_URL}/models/${id}/toggle_public`, { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
