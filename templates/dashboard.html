@@ -1507,9 +1507,12 @@
                 const activeServerLabel = document.getElementById('active-discord-server');
                 if (sellerContainer) {
                     // Show only for weight sellers (Administrators can still configure via DB if needed)
+                    console.log(`[Permission Check] is_weight_seller: ${userData.is_weight_seller} | typeof: ${typeof userData.is_weight_seller}`);
                     if (userData.is_weight_seller) {
+                        console.log("[Permission Check] Unhiding Seller Container!");
                         sellerContainer.style.display = 'block';
                     } else {
+                        console.log("[Permission Check] Hiding Seller Container!");
                         sellerContainer.style.display = 'none';
                     }
                 }
