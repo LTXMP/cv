@@ -3867,8 +3867,6 @@ def update_marketplace_listing(model_id):
     conn.close()
     return jsonify({'message': 'Marketplace listing updated'})
 
-@app.route('/api/models/<int:model_id>/thumbnail', methods=['POST'])
-@login_required
 @app.route('/api/seller/webhook', methods=['GET'])
 @login_required
 def get_seller_webhook():
@@ -3902,6 +3900,8 @@ def update_seller_webhook():
     
     return jsonify({'success': True, 'message': 'Webhook updated successfully'})
 
+@app.route('/api/models/<int:model_id>/thumbnail', methods=['POST'])
+@login_required
 def upload_marketplace_thumbnail(model_id):
     user_id = session.get('user_id')
     if 'file' not in request.files:
