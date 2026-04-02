@@ -249,6 +249,12 @@ def init_db():
         except Exception as e:
             print(f"[BOOT] Failed to add discord_server_id column: {e}")
             
+    if 'seller_webhook_url' not in columns:
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN seller_webhook_url TEXT DEFAULT NULL")
+        except Exception as e:
+            print(f"[BOOT] Failed to add seller_webhook_url column: {e}")
+            
     c.execute("PRAGMA table_info(seller_teams)")
     team_cols = [info[1] for info in c.fetchall()]
     if 'discord_server_id' not in team_cols:
@@ -656,6 +662,37 @@ def send_discord_notification(title, description, color=0x3498db):
             return response.status == 200 or response.status == 204
     except Exception as e:
         print(f"Discord Webhook Error: {e}")
+        return False
+
+def send_weight_seller_log(seller_id, title, description, color=0x3498db):
+    """Sends a log to a weight seller's specific Discord webhook if configured."""
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("SELECT seller_webhook_url, is_weight_seller FROM users WHERE id=?", (seller_id,)).fetchone()
+    conn.close()
+    
+    if not user or not user['is_weight_seller'] or not user['seller_webhook_url']:
+        return False
+        
+    try:
+        data = {
+            "embeds": [{
+                "title": title,
+                "description": description,
+                "color": color,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "footer": {"text": "Weight Seller Logging"}
+            }]
+        }
+        
+        req = urllib.request.Request(user['seller_webhook_url'], 
+                                     data=json.dumps(data).encode('utf-8'),
+                                     headers={'Content-Type': 'application/json', 'User-Agent': 'Exclusive-Aim-Bot'})
+        
+        with urllib.request.urlopen(req) as response:
+            return response.status in [200, 204]
+    except Exception as e:
+        print(f"Weight Seller Webhook Error for ID {seller_id}: {e}")
         return False
 
 def notify_mod_action(user_id, subject_prefix, action_description):
@@ -2182,6 +2219,15 @@ def grant_marketplace_access():
     c.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (now, ticket_id))
     
     conn.commit()
+    
+    # Logging for Weight Seller
+    send_weight_seller_log(
+        session['user_id'], 
+        "Model Access Granted", 
+        f"Seller **{session['username']}** granted **{duration if duration != 'LIFETIME' else 'Lifetime'}** access for model **{model_id}** to user ID **{target_user_id}**.",
+        0x2ecc71
+    )
+    
     conn.close()
     return jsonify({'message': 'Access granted successfully'})
 
@@ -2274,6 +2320,16 @@ def reply_to_ticket(ticket_id):
             f"**Ticket ID**: {ticket_id}\n**Subject**: {ticket['subject']}\n**Category**: {ticket['category']}\n**User**: {session['username']} (ID: {user_id})\n**Message**: {message}",
             color=0xf39c12 # Orange
         )
+
+    # If weight seller reply, log to their webhook
+    if session.get('is_weight_seller'):
+        send_weight_seller_log(
+            session['user_id'],
+            "Support Ticket Reply",
+            f"Seller **{session['username']}** replied to ticket: **{ticket['subject']}** (ID: {ticket_id})\n\n**Message**: {message}",
+            0x3498db
+        )
+
     conn.close()
     return jsonify({'message': 'Reply added successfully'})
 
@@ -3813,6 +3869,39 @@ def update_marketplace_listing(model_id):
 
 @app.route('/api/models/<int:model_id>/thumbnail', methods=['POST'])
 @login_required
+@app.route('/api/seller/webhook', methods=['GET'])
+@login_required
+def get_seller_webhook():
+    if not session.get('is_weight_seller'):
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("SELECT seller_webhook_url FROM users WHERE id=?", (session['user_id'],)).fetchone()
+    conn.close()
+    
+    return jsonify({'webhook_url': user['seller_webhook_url'] if user else None})
+
+@app.route('/api/seller/webhook', methods=['POST'])
+@login_required
+def update_seller_webhook():
+    if not session.get('is_weight_seller'):
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    data = request.json
+    webhook_url = data.get('webhook_url', '').strip()
+    
+    if webhook_url and not (webhook_url.startswith("https://discord.com/api/webhooks/") or webhook_url.startswith("https://discordapp.com/api/webhooks/")):
+        return jsonify({'error': 'Invalid Discord Webhook URL'}), 400
+        
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET seller_webhook_url=? WHERE id=?", (webhook_url if webhook_url else None, session['user_id']))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': 'Webhook updated successfully'})
+
 def upload_marketplace_thumbnail(model_id):
     user_id = session.get('user_id')
     if 'file' not in request.files:
