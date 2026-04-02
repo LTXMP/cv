@@ -7,10 +7,13 @@ import time
 import threading
 import asyncio
 from ai_utils import get_ai_support_response
+import io
+import datetime
 
 # Config from Env
 # Config from Env
 TOKEN = os.environ.get('DISCORD_TOKEN')
+ARCHIVE_WEBHOOK_URL = "https://discord.com/api/webhooks/1489297500325150840/Ehy8koCkWesk2szErFxeWydn9Bsv1QZNN9VRwXqaVQed4GMSvug1NCvm_TlqrEYQS30s"
 SUPPORT_CHANNEL_ID = 1487170317834125402
 COMMANDS_CHANNEL_ID = 1487170450659479603
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +54,117 @@ class DiscordBot(commands.Bot):
     async def setup_hook(self):
         self.active_loop = asyncio.get_running_loop()
         self.sync_subscription_roles.start()
+        self.cleanup_old_tickets.start()
+
+    @tasks.loop(hours=1)
+    async def cleanup_old_tickets(self):
+        """Archives and deletes closed/pending_delete tickets older than 24 hours."""
+        try:
+            conn = self.get_db()
+            c = conn.cursor()
+            
+            # 1. Find tickets to clean up
+            now = time.time()
+            cutoff = now - (24 * 3600)
+            
+            tickets = c.execute("""
+                SELECT id, user_id, subject, category, updated_at 
+                FROM tickets 
+                WHERE status IN ('closed', 'pending_delete') 
+                AND updated_at < ?
+            """, (cutoff,)).fetchall()
+            
+            if not tickets:
+                conn.close()
+                return
+
+            print(f"[Discord] Cleanup started for {len(tickets)} tickets.")
+            
+            from discord import Webhook
+            import aiohttp
+            
+            async with aiohttp.ClientSession() as session:
+                webhook = Webhook.from_url(ARCHIVE_WEBHOOK_URL, session=session)
+                
+                for t in tickets:
+                    t_id = t['id']
+                    
+                    # Generate Transcript
+                    messages = c.execute("""
+                        SELECT m.message, m.file_path, m.created_at, u.username, u.is_admin, u.is_support 
+                        FROM ticket_messages m
+                        JOIN users u ON m.sender_id = u.id
+                        WHERE m.ticket_id = ?
+                        ORDER BY m.created_at ASC
+                    """, (t_id,)).fetchall()
+                    
+                    lines = [
+                        f"--- TICKET ARCHIVE #{t_id} ---",
+                        f"Subject: {t['subject']}",
+                        f"Category: {t['category']}",
+                        f"Closed/Deleted At: {datetime.datetime.fromtimestamp(t['updated_at']).strftime('%Y-%m-%d %H:%M:%S')}",
+                        "-" * 30,
+                        ""
+                    ]
+                    
+                    attachment_paths = []
+                    for m in messages:
+                        role = "[STAFF]" if (m['is_admin'] or m['is_support']) else "[USER]"
+                        ts = datetime.datetime.fromtimestamp(m['created_at']).strftime('%Y-%m-%d %H:%M:%S')
+                        lines.append(f"[{ts}] {role} {m['username']}:")
+                        lines.append(m['message'] if m['message'] else "[Attachment Only]")
+                        if m['file_path']:
+                            lines.append(f"-> Attachment Removed: {os.path.basename(m['file_path'])}")
+                            attachment_paths.append(m['file_path'])
+                        lines.append("")
+                    
+                    transcript_text = "\n".join(lines)
+                    
+                    # Send to Webhook
+                    try:
+                        if len(transcript_text) < 1900:
+                            await webhook.send(content=f"```\n{transcript_text}\n```", username="Ticket Archiver")
+                        else:
+                            with io.BytesIO(transcript_text.encode('utf-8')) as f:
+                                await webhook.send(
+                                    content=f"📦 **Archive for Ticket #{t_id}** ({t['subject']})",
+                                    file=discord.File(f, filename=f"ticket_{t_id}_transcript.txt"),
+                                    username="Ticket Archiver"
+                                )
+                    except Exception as e:
+                        print(f"[Discord] Failed to archive ticket {t_id}: {e}")
+                        continue # Don't delete if archive failed
+                        
+                    # Delete Attachments from Disk
+                    support_dir = os.path.join(MODEL_DIR, 'support')
+                    for path in attachment_paths:
+                        try:
+                            # Handle relative vs absolute paths if needed
+                            full_path = path
+                            if not os.path.isabs(path):
+                                # Some old paths might be relative to /static/support or /api/support
+                                filename = os.path.basename(path)
+                                full_path = os.path.join(support_dir, filename)
+                            
+                            if os.path.exists(full_path):
+                                os.remove(full_path)
+                                # print(f"[Cleanup] Deleted file: {full_path}")
+                        except Exception as e:
+                            print(f"[Cleanup] File error for ticket {t_id}: {e}")
+
+                    # Delete from DB
+                    c.execute("DELETE FROM ticket_messages WHERE ticket_id = ?", (t_id,))
+                    c.execute("DELETE FROM tickets WHERE id = ?", (t_id,))
+                    conn.commit()
+                    print(f"[Cleanup] Permanently deleted ticket #{t_id}")
+
+            conn.close()
+            print(f"[Discord] Cleanup finished.")
+            
+        except Exception as e:
+            print(f"[Discord] Cleanup task global error: {e}")
+            try: conn.close()
+            except: pass
 
     @tasks.loop(minutes=5)
     async def sync_subscription_roles(self):
