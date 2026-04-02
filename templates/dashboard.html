@@ -785,6 +785,19 @@
             <div id="page-models" class="page hidden">
                 <h1 style="margin-bottom: 30px;">Model Management</h1>
 
+                <!-- Weight Seller Webhook Settings -->
+                <div id="seller-webhook-section" class="card" style="display: none; border: 1px solid var(--accent); margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 15px; color: var(--accent);"><i class="fas fa-plug" style="margin-right: 10px;"></i>Seller Webhook Settings</h3>
+                    <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Configure a Discord webhook to receive real-time logs for your marketplace sales, license grants, and support ticket replies.</p>
+                    <div style="display: flex; gap: 12px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-left: 5px;">Discord Webhook URL</label>
+                            <input type="text" id="seller-webhook-url" placeholder="https://discord.com/api/webhooks/..." style="margin: 0;">
+                        </div>
+                        <button onclick="saveSellerWebhook()" style="width: auto; padding: 10px 25px; margin: 0; background: var(--accent); border-color: var(--accent);">Save Webhook</button>
+                    </div>
+                </div>
+
                 <!-- Upload Section -->
                 <div class="card">
                     <h3 style="margin-bottom: 20px; color: var(--primary);">Upload New Model</h3>
@@ -3013,6 +3026,47 @@
             showPage('account');
             loadAccountData();
             loadSettings();
+
+            if (userData && userData.is_weight_seller) {
+                const section = document.getElementById('seller-webhook-section');
+                if (section) section.style.display = 'block';
+                loadSellerWebhook();
+            }
+        }
+
+        async function loadSellerWebhook() {
+            try {
+                const res = await fetch(`${API_URL}/seller/webhook`);
+                const data = await res.json();
+                if (data.webhook_url) {
+                    document.getElementById('seller-webhook-url').value = data.webhook_url;
+                }
+            } catch (e) {
+                console.error("Failed to load seller webhook", e);
+            }
+        }
+
+        async function saveSellerWebhook() {
+            const url = document.getElementById('seller-webhook-url').value.trim();
+            if (url && !url.includes('discord.com/api/webhooks')) {
+                showNotification("Invalid Discord Webhook URL", "error");
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/seller/webhook`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ webhook_url: url })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification("Seller Webhook Updated", "success");
+                } else {
+                    showNotification(data.error || "Update Failed", "error");
+                }
+            } catch (e) {
+                showNotification("Request Failed", "error");
+            }
         }
 
         function showPage(pageId) {
