@@ -2053,6 +2053,8 @@ def get_tickets():
     return jsonify({
         'is_staff': bool(is_any_staff),
         'is_global_staff': bool(is_global_staff),
+        'is_admin': bool(is_admin),
+        'is_owner': bool(is_owner),
         'is_seller_team': bool(my_team_id),
         'user_team_id': my_team_id,
         'tickets': [dict(row) for row in tickets],
