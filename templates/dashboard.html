@@ -1723,7 +1723,8 @@
             <h2 style="margin-bottom:15px; color:#fff;">Discord Required</h2>
             <p style="color:var(--text-dim); margin-bottom:30px; line-height:1.6; font-size:14px;">To open a
                 <strong>Buy</strong> or <strong>Support</strong> ticket, you must first link your Discord account. This
-                ensures our staff can reach you for immediate assistance.</p>
+                ensures our staff can reach you for immediate assistance.
+            </p>
             <div style="display:flex; flex-direction:column; gap:12px;">
                 <button onclick="promptDiscordLink()"
                     style="background:#5865F2; color:#fff; margin:0; font-weight:bold;">Connect with Discord</button>
@@ -2498,14 +2499,14 @@
             try {
                 const res = await fetch(`${API_URL}/support/tickets`);
                 const data = await res.json();
-                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.is_global_staff, data.current_user_id, data.user_team_id);
+                renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.is_global_staff, data.is_admin, data.is_owner, data.current_user_id, data.user_team_id);
                 loadMacros(); // Load macros for staff/sellers
             } catch (e) {
                 console.error("Failed to load tickets", e);
             }
         }
 
-        function renderSupportTickets(list, isStaff, isSellerTeam, isGlobalStaff, currentUserId, myTeamId) {
+        function renderSupportTickets(list, isStaff, isSellerTeam, isGlobalStaff, isAdmin, isOwner, currentUserId, myTeamId) {
             isCurrentUserStaff = isStaff;
             isCurrentUserSellerTeam = isSellerTeam;
             supportCurrentUserId = currentUserId;
@@ -2597,11 +2598,13 @@
                 const isModelOwner = t.model_owner_id && (parseInt(t.model_owner_id) === parseInt(currentUserId));
 
                 // Marketplace/weight categories are team-private
-                const teamPrivateCategories = ['Sale', 'Model Support', 'Buy', 'Weights'];
+                const teamPrivateCategories = ['Sale', 'Model Support', 'Weights']; // 'Buy' removed: Purchasing is regular
                 const isTeamPrivate = teamPrivateCategories.includes(t.category) || !!t.model_id;
 
-                // Global staff see general tickets: no team, not a team-private category
-                const isGeneralForStaff = isGlobalStaff && !t.seller_team_id && !isTeamPrivate;
+                // Global staff see general tickets: no team, or any regular ticket if they are Owner/Admin
+                const isRegularCategory = !isTeamPrivate;
+                const isGeneralForStaff = isGlobalStaff && (!t.seller_team_id || (isRegularCategory && (isAdmin || isOwner))) && !isTeamPrivate;
+
                 // Seller team members see tickets assigned to their team OR tickets for models they own
                 const isTeamStaff = isSellerTeam && ((myTeamId && parseInt(t.seller_team_id) === parseInt(myTeamId)) || isModelOwner);
 
@@ -2792,7 +2795,7 @@
                 { value: 'day', text: 'Day (4€)' },
                 { value: 'week', text: 'Week (10€)' },
                 { value: 'month', text: 'Month (15€)' },
-                { value: '6 months', text: 'Month (70€)' },
+                { value: '6 months', text: '6 Months (70€)' },
                 { value: 'lifetime', text: 'Lifetime' }
             ];
             plans.forEach(plan => {
