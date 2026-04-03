@@ -7,7 +7,9 @@
     <title>Exclusive Aim - User Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -40,7 +42,9 @@
             min-height: 100vh;
         }
 
-        h1, h2, h3 {
+        h1,
+        h2,
+        h3 {
             font-family: 'Outfit', sans-serif;
             font-weight: 800;
             letter-spacing: -0.02em;
@@ -54,7 +58,7 @@
             width: 100%;
             height: 100%;
             z-index: -1;
-            background: 
+            background:
                 radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.05), transparent 40%),
                 radial-gradient(circle at 20% 80%, rgba(112, 0, 255, 0.05), transparent 40%);
         }
@@ -66,18 +70,21 @@
         }
 
         @media (max-width: 768px) {
-            .container { padding: 15px 10px; }
+            .container {
+                padding: 15px 10px;
+            }
         }
 
         /* --- Components --- */
-        .card, .section {
+        .card,
+        .section {
             background: var(--bg-card);
             backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             padding: 30px;
             border-radius: 20px;
             margin-bottom: 24px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
         .section {
@@ -150,20 +157,30 @@
         .img-fade {
             animation: fadeIn 0.5s ease-in-out;
         }
+
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
+
         img.loading {
             background: var(--glass);
             position: relative;
         }
+
         img.loading::after {
-            content: "\f110"; /* fa-spinner */
+            content: "\f110";
+            /* fa-spinner */
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             position: absolute;
-            top: 50%; left: 50%;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
             color: var(--text-dim);
         }
@@ -198,6 +215,7 @@
                 flex-direction: column;
                 gap: 15px;
             }
+
             .sidebar {
                 width: 100% !important;
                 position: relative !important;
@@ -206,9 +224,14 @@
                 overflow-x: auto;
                 padding: 10px !important;
                 gap: 10px !important;
-                background: rgba(255,255,255,0.03) !important;
+                background: rgba(255, 255, 255, 0.03) !important;
             }
-            .sidebar > div:first-child { display: none; } /* Hide logo in mobile sidebar */
+
+            .sidebar>div:first-child {
+                display: none;
+            }
+
+            /* Hide logo in mobile sidebar */
             .sidebar button {
                 white-space: nowrap;
                 width: auto !important;
@@ -216,27 +239,41 @@
                 font-size: 13px;
                 flex-shrink: 0;
             }
-            .sidebar div[style*="flex-grow"] { display: none; }
-            .sidebar button[onclick*="location.href"] { display: none; }
-            
-            .content { padding: 10px; }
-            .card { padding: 20px; }
-            
+
+            .sidebar div[style*="flex-grow"] {
+                display: none;
+            }
+
+            .sidebar button[onclick*="location.href"] {
+                display: none;
+            }
+
+            .content {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
             /* Responsive Grid Fixes */
             div[style*="grid-template-columns: 1fr 1fr"] {
                 grid-template-columns: 1fr !important;
             }
+
             div[style*="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))"] {
                 grid-template-columns: 1fr !important;
             }
-            
+
             /* Tickets Kanban Fix */
             #support-staff-layout {
                 grid-template-columns: 1fr !important;
             }
+
             #support-user-layout {
                 grid-template-columns: 1fr !important;
             }
+
             #support-user-layout .card:last-child {
                 height: 400px !important;
             }
@@ -256,7 +293,8 @@
             letter-spacing: 0;
         }
 
-        .nav-item:hover, .nav-item.active {
+        .nav-item:hover,
+        .nav-item.active {
             background: rgba(255, 255, 255, 0.05);
             color: var(--primary);
             transform: none;
@@ -269,6 +307,7 @@
             display: inline-block;
             cursor: default;
         }
+
         #auth-wrapper h2:hover {
             color: var(--primary);
             text-shadow: 0 0 20px var(--primary-glow);
@@ -283,7 +322,7 @@
         }
 
         .model-card {
-            background: rgba(255,255,255,0.02);
+            background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--glass-border);
             padding: 20px;
             border-radius: 16px;
@@ -292,18 +331,24 @@
 
         .model-card:hover {
             border-color: var(--primary);
-            background: rgba(255,255,255,0.04);
+            background: rgba(255, 255, 255, 0.04);
         }
 
         /* Status Tags */
-        .status-active { color: var(--success); text-shadow: 0 0 10px rgba(46, 204, 113, 0.3); }
-        .status-invalid { color: var(--error); }
+        .status-active {
+            color: var(--success);
+            text-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
+        }
+
+        .status-invalid {
+            color: var(--error);
+        }
 
         /* Shared Users */
         .shared-users-container {
             margin-top: 15px;
             padding: 15px;
-            background: rgba(0,0,0,0.3);
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 12px;
             border: 1px solid var(--glass-border);
         }
@@ -331,15 +376,23 @@
             color: white;
             padding: 16px 24px;
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             transform: translateY(150px);
             transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 2000;
         }
 
-        .notification.show { transform: translateY(0); }
-        .notification.success { border-left: 4px solid var(--success); }
-        .notification.error { border-left: 4px solid var(--error); }
+        .notification.show {
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .notification.error {
+            border-left: 4px solid var(--error);
+        }
 
         header {
             display: flex;
@@ -361,11 +414,19 @@
                 margin-bottom: 20px;
                 border-radius: 0 0 15px 15px;
             }
-            header h1 { font-size: 18px !important; }
-            #usernameDisplay { font-size: 12px; }
+
+            header h1 {
+                font-size: 18px !important;
+            }
+
+            #usernameDisplay {
+                font-size: 12px;
+            }
         }
 
-        .hidden { display: none !important; }
+        .hidden {
+            display: none !important;
+        }
 
         .modal {
             position: fixed;
@@ -373,43 +434,63 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.85);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(8px);
             z-index: 5000;
             display: flex;
             align-items: center;
             justify-content: center;
         }
+
         .modal-content {
             background: var(--bg-card);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
             animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             position: relative;
         }
-        @keyframes modalPop {
-            from { transform: scale(0.9); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-    
-    .live-indicator {
-        width: 8px;
-        height: 8px;
-        background: #2ecc71;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 8px;
-        box-shadow: 0 0 8px #2ecc71;
-        animation: pulse-live 2s infinite;
-    }
-    @keyframes pulse-live {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.2); opacity: 0.5; }
-        100% { transform: scale(1); opacity: 1; }
-    }
 
-</style>
+        @keyframes modalPop {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .live-indicator {
+            width: 8px;
+            height: 8px;
+            background: #2ecc71;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 8px #2ecc71;
+            animation: pulse-live 2s infinite;
+        }
+
+        @keyframes pulse-live {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -418,7 +499,10 @@
     <div class="container">
         <header id="dashboard-header" style="display:none;">
             <div>
-                <a href="/" style="text-decoration:none;"><h1 style="color:white; margin:0; font-size: 24px;">EXCLUSIVE<span style="color: var(--primary); text-shadow: 0 0 15px var(--primary-glow);">AIM</span></h1></a>
+                <a href="/" style="text-decoration:none;">
+                    <h1 style="color:white; margin:0; font-size: 24px;">EXCLUSIVE<span
+                            style="color: var(--primary); text-shadow: 0 0 15px var(--primary-glow);">AIM</span></h1>
+                </a>
             </div>
             <div id="userInfo" style="display:flex; align-items: center; gap: 15px;">
                 <span id="usernameDisplay" style="color:var(--text-dim); font-weight: 600;">User</span>
@@ -442,22 +526,74 @@
 
         <style>
             nav {
-                position: sticky; top: 0; width: 100%; padding: 20px 8%;
-                display: flex; justify-content: space-between; align-items: center;
-                background: var(--nav-bg); backdrop-filter: blur(12px);
-                z-index: 1000; border-bottom: 1px solid var(--glass-border);
+                position: sticky;
+                top: 0;
+                width: 100%;
+                padding: 20px 8%;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: var(--nav-bg);
+                backdrop-filter: blur(12px);
+                z-index: 1000;
+                border-bottom: 1px solid var(--glass-border);
             }
-            .logo { font-size: 24px; font-weight: 800; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 10px; }
-            .logo span { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
-            .nav-links { display: flex; gap: 30px; align-items: center; }
-            .nav-links a { text-decoration: none; color: var(--text-dim); font-weight: 600; font-size: 14px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
-            .nav-links a:hover { color: var(--primary); }
+
+            .logo {
+                font-size: 24px;
+                font-weight: 800;
+                color: #fff;
+                text-decoration: none;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .logo span {
+                color: var(--primary);
+                text-shadow: 0 0 15px var(--primary-glow);
+            }
+
+            .nav-links {
+                display: flex;
+                gap: 30px;
+                align-items: center;
+            }
+
+            .nav-links a {
+                text-decoration: none;
+                color: var(--text-dim);
+                font-weight: 600;
+                font-size: 14px;
+                transition: 0.3s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .nav-links a:hover {
+                color: var(--primary);
+            }
+
             .cta-btn {
-                background: var(--primary); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 15px var(--primary-glow);
+                background: var(--primary);
+                color: #000;
+                padding: 10px 24px;
+                border-radius: 8px;
+                font-weight: 700;
+                text-decoration: none;
+                transition: 0.3s;
+                box-shadow: 0 4px 15px var(--primary-glow);
             }
-            .nav-auth-mobile { display: none; }
-            .status-invalid { background: rgba(244, 67, 54, 0.15); color: #f44336; }
-            
+
+            .nav-auth-mobile {
+                display: none;
+            }
+
+            .status-invalid {
+                background: rgba(244, 67, 54, 0.15);
+                color: #f44336;
+            }
+
             /* Description Truncation */
             .model-desc-truncated {
                 display: -webkit-box;
@@ -470,6 +606,7 @@
                 font-size: 11px;
                 color: var(--text-dim);
             }
+
             .show-more-link {
                 color: var(--primary);
                 cursor: pointer;
@@ -480,6 +617,7 @@
                 transition: 0.2s;
                 text-align: left;
             }
+
             .show-more-link:hover {
                 text-shadow: 0 0 10px var(--primary-glow);
                 opacity: 0.8;
@@ -490,28 +628,49 @@
                     padding: 12px 5% !important;
                     padding-top: calc(12px + env(safe-area-inset-top)) !important;
                 }
-                .logo { font-size: 20px !important; }
-                .mobile-hide { display: none !important; }
-                .nav-auth-mobile { display: flex !important; gap: 10px; }
-            }
-        
-    .live-indicator {
-        width: 8px;
-        height: 8px;
-        background: #2ecc71;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 8px;
-        box-shadow: 0 0 8px #2ecc71;
-        animation: pulse-live 2s infinite;
-    }
-    @keyframes pulse-live {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.2); opacity: 0.5; }
-        100% { transform: scale(1); opacity: 1; }
-    }
 
-</style>
+                .logo {
+                    font-size: 20px !important;
+                }
+
+                .mobile-hide {
+                    display: none !important;
+                }
+
+                .nav-auth-mobile {
+                    display: flex !important;
+                    gap: 10px;
+                }
+            }
+
+            .live-indicator {
+                width: 8px;
+                height: 8px;
+                background: #2ecc71;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 8px;
+                box-shadow: 0 0 8px #2ecc71;
+                animation: pulse-live 2s infinite;
+            }
+
+            @keyframes pulse-live {
+                0% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+
+                50% {
+                    transform: scale(1.2);
+                    opacity: 0.5;
+                }
+
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+        </style>
 
         <!-- Auth View -->
         <div id="auth-wrapper">
@@ -530,7 +689,8 @@
                 </div>
                 <div style="margin-top: 20px;">
                     <a href="#" onclick="showResetRequest()"
-                        style="color: var(--text-dim); font-size: 0.85em; text-decoration: none; border-bottom: 1px dashed var(--glass-border);">Forgot Password?</a>
+                        style="color: var(--text-dim); font-size: 0.85em; text-decoration: none; border-bottom: 1px dashed var(--glass-border);">Forgot
+                        Password?</a>
                 </div>
             </div>
 
@@ -543,7 +703,8 @@
                 <input type="text" id="reg-user" placeholder="Username (for sharing)">
                 <input type="email" id="reg-email" placeholder="Email Address">
                 <input type="password" id="reg-pass" placeholder="Password">
-                <p style="font-size: 0.75em; color: var(--text-dim); text-align: left; margin: 10px 0 20px 5px; opacity: 0.7;">
+                <p
+                    style="font-size: 0.75em; color: var(--text-dim); text-align: left; margin: 10px 0 20px 5px; opacity: 0.7;">
                     Min. 8 characters with numbers or symbols.
                 </p>
                 <div class="row">
@@ -555,7 +716,8 @@
             <!-- Request Reset Section -->
             <div id="reset-request-section" class="section hidden">
                 <h2 style="color: var(--primary);">RESET PASS</h2>
-                <p style="color:var(--text-dim); font-size:0.9em; margin-bottom: 20px;">Enter your email for a reset link.</p>
+                <p style="color:var(--text-dim); font-size:0.9em; margin-bottom: 20px;">Enter your email for a reset
+                    link.</p>
                 <input type="email" id="reset-email" placeholder="Enter your Email">
                 <div class="row">
                     <button onclick="requestReset()">Send Link</button>
@@ -566,7 +728,8 @@
             <!-- Perform Reset Section -->
             <div id="reset-perform-section" class="section hidden">
                 <h2 style="color: var(--primary);">SET PASSWORD</h2>
-                <p style="color:var(--text-dim); font-size:0.85em; margin-bottom: 20px;">Enter the 8-character security code sent to your email.</p>
+                <p style="color:var(--text-dim); font-size:0.85em; margin-bottom: 20px;">Enter the 8-character security
+                    code sent to your email.</p>
                 <input type="text" id="reset-token" placeholder="0 0 0 0 0 0 0 0"
                     style="text-align: center; font-weight: 800; letter-spacing: 4px; font-family: monospace; font-size: 1.4em; color: var(--primary);">
                 <input type="password" id="new-reset-pass" placeholder="New Password">
@@ -577,46 +740,80 @@
             </div>
         </div>
 
-        <footer id="auth-footer" style="padding: 60px 8%; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; background: #030303; margin-top: 60px; border-radius: 24px 24px 0 0;">
-            <div style="font-size: 20px; font-weight: 800; color: #fff;">EXCLUSIVE<span style="color: var(--primary);">AIM</span></div>
+        <footer id="auth-footer"
+            style="padding: 60px 8%; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; background: #030303; margin-top: 60px; border-radius: 24px 24px 0 0;">
+            <div style="font-size: 20px; font-weight: 800; color: #fff;">EXCLUSIVE<span
+                    style="color: var(--primary);">AIM</span></div>
             <div class="footer-links" style="display: flex; gap: 20px;">
-                <a href="/privacy" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Privacy Policy</a>
-                <a href="/terms" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Terms of Service</a>
-                <a href="/refund" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Refund Policy</a>
-                <a href="/reseller" style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Reseller & Rebrand</a>
+                <a href="/privacy"
+                    style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Privacy
+                    Policy</a>
+                <a href="/terms"
+                    style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Terms of
+                    Service</a>
+                <a href="/refund"
+                    style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Refund
+                    Policy</a>
+                <a href="/reseller"
+                    style="color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.3s;">Reseller &
+                    Rebrand</a>
             </div>
         </footer>
 
         <style>
             @media (max-width: 768px) {
-                #auth-footer { flex-direction: column; text-align: center; padding: 40px 5% !important; }
-                .footer-links { flex-direction: column; gap: 12px; align-items: center; }
-            }
-        
-    .live-indicator {
-        width: 8px;
-        height: 8px;
-        background: #2ecc71;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 8px;
-        box-shadow: 0 0 8px #2ecc71;
-        animation: pulse-live 2s infinite;
-    }
-    @keyframes pulse-live {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.2); opacity: 0.5; }
-        100% { transform: scale(1); opacity: 1; }
-    }
+                #auth-footer {
+                    flex-direction: column;
+                    text-align: center;
+                    padding: 40px 5% !important;
+                }
 
-</style>
+                .footer-links {
+                    flex-direction: column;
+                    gap: 12px;
+                    align-items: center;
+                }
+            }
+
+            .live-indicator {
+                width: 8px;
+                height: 8px;
+                background: #2ecc71;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 8px;
+                box-shadow: 0 0 8px #2ecc71;
+                animation: pulse-live 2s infinite;
+            }
+
+            @keyframes pulse-live {
+                0% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+
+                50% {
+                    transform: scale(1.2);
+                    opacity: 0.5;
+                }
+
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+        </style>
 
         <!-- Main Dashboard -->
         <div id="dashboard-wrapper">
             <!-- Sidebar -->
             <div class="sidebar">
-                <div style="text-align: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border);">
-                    <a href="/" style="text-decoration:none;"><h3 style="margin:0; color:var(--primary); font-size: 20px;">EA <span style="color:white">DASH</span></h3></a>
+                <div
+                    style="text-align: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border);">
+                    <a href="/" style="text-decoration:none;">
+                        <h3 style="margin:0; color:var(--primary); font-size: 20px;">EA <span
+                                style="color:white">DASH</span></h3>
+                    </a>
                 </div>
                 <button class="nav-item active" onclick="showPage('account')" id="nav-account">Account Settings</button>
                 <button class="nav-item" onclick="showPage('models')" id="nav-models">Model Sharing</button>
@@ -625,10 +822,13 @@
                     style="display:none; color:var(--accent);">Admin Panel</button>
                 <button class="nav-item" onclick="showPage('reseller')" id="nav-reseller"
                     style="display:none; color:var(--warning);">Reseller Panel</button>
-                <button class="nav-item" onclick="showPage('support')" id="nav-support"><i class="fas fa-headset" style="margin-right: 10px;"></i>Tickets</button>
-                <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads"><i class="fas fa-download" style="margin-right: 10px;"></i>Downloads</button>
+                <button class="nav-item" onclick="showPage('support')" id="nav-support"><i class="fas fa-headset"
+                        style="margin-right: 10px;"></i>Tickets</button>
+                <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads"><i class="fas fa-download"
+                        style="margin-right: 10px;"></i>Downloads</button>
                 <div style="flex-grow:1"></div>
-                <button class="nav-item" onclick="location.href='/'" style="opacity: 0.7; font-size: 0.85em; margin-bottom: 10px;">&larr; Back to Website</button>
+                <button class="nav-item" onclick="location.href='/'"
+                    style="opacity: 0.7; font-size: 0.85em; margin-bottom: 10px;">&larr; Back to Website</button>
                 <button class="nav-item" onclick="logout()" style="color: var(--error);">Logout</button>
             </div>
 
@@ -643,17 +843,18 @@
                         <!-- License Status -->
                         <div class="card">
                             <h3 style="margin-bottom: 20px; color: var(--primary);">License Status</h3>
-                            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                            <div
+                                style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
                                 <p style="margin-bottom: 12px; display: flex; justify-content: space-between;">
-                                    <strong>Status:</strong> 
+                                    <strong>Status:</strong>
                                     <span id="status-license" class="status-invalid">Checking...</span>
                                 </p>
                                 <p style="margin-bottom: 12px; display: flex; justify-content: space-between;">
-                                    <strong>Expiry:</strong> 
+                                    <strong>Expiry:</strong>
                                     <span id="status-expiry">-</span>
                                 </p>
                                 <p style="display: flex; justify-content: space-between;">
-                                    <strong>Tenure:</strong> 
+                                    <strong>Tenure:</strong>
                                     <span id="status-total-time" style="color:var(--primary);">-</span>
                                 </p>
                             </div>
@@ -662,8 +863,10 @@
                             <p style="font-size: 0.9em; color: var(--text-dim); margin-bottom: 15px;">
                                 <strong>Status:</strong> <span id="status-hwid">Checking...</span>
                             </p>
-                            <button class="secondary" onclick="resetHWID()" id="btn-reset-hwid" style="font-size: 13px; padding: 10px;">Reset HWID</button>
-                            <p style="font-size:0.75em; color:var(--text-dim); margin-top: 10px; opacity: 0.6;">Limit: Once per hour</p>
+                            <button class="secondary" onclick="resetHWID()" id="btn-reset-hwid"
+                                style="font-size: 13px; padding: 10px;">Reset HWID</button>
+                            <p style="font-size:0.75em; color:var(--text-dim); margin-top: 10px; opacity: 0.6;">Limit:
+                                Once per hour</p>
                         </div>
 
                         <!-- Update Profile & Redeem -->
@@ -671,8 +874,10 @@
                             <div class="card">
                                 <h3 style="margin-bottom: 15px;">Redeem License</h3>
                                 <div style="display: flex; gap: 10px;">
-                                    <input type="text" id="license-key-input" placeholder="XXXX-XXXX-XXXX-XXXX" style="margin: 0;">
-                                    <button onclick="redeemKey()" style="width: auto; padding: 0 20px; margin: 0;">Redeem</button>
+                                    <input type="text" id="license-key-input" placeholder="XXXX-XXXX-XXXX-XXXX"
+                                        style="margin: 0;">
+                                    <button onclick="redeemKey()"
+                                        style="width: auto; padding: 0 20px; margin: 0;">Redeem</button>
                                 </div>
                             </div>
 
@@ -681,38 +886,57 @@
                                 <input type="email" id="update-email" placeholder="New Email">
                                 <input type="password" id="update-pass" placeholder="New Password">
                                 <button onclick="updateProfile()" style="margin-top: 15px;">Update Profile</button>
-                                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                                <div
+                                    style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
                                     <h3 style="margin-bottom: 10px; font-size: 16px;">Social Integration</h3>
-                                            <div id="discord-link-container" style="display: flex; align-items: center; justify-content: space-between; background: rgba(88, 101, 242, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(88, 101, 242, 0.3);">
-                                                <div style="display: flex; align-items: center; gap: 12px;">
-                                                    <i class="fab fa-discord" style="font-size: 24px; color: #5865F2;"></i>
-                                                    <div>
-                                                        <div id="discord-link-name" style="font-weight: 600; font-size: 14px;">Discord Account</div>
-                                                        <div id="discord-link-status" style="font-size: 11px; color: var(--text-dim);">Not Linked</div>
-                                                    </div>
-                                                </div>
-                                                <div style="display:flex; gap: 8px;">
-                                                    <button id="btn-sync-discord" onclick="syncUserData()" class="secondary" style="padding: 6px 12px; font-size: 11px; margin:0; width:auto; border: 1px solid rgba(255,255,255,0.1);">
-                                                        <i class="fas fa-sync-alt"></i>
-                                                    </button>
-                                                    <button id="btn-link-discord" onclick="promptDiscordLink()" style="padding: 8px 16px; font-size: 12px; margin:0; width:auto; background: #5865F2;">Link Discord</button>
-                                                </div>
+                                    <div id="discord-link-container"
+                                        style="display: flex; align-items: center; justify-content: space-between; background: rgba(88, 101, 242, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(88, 101, 242, 0.3);">
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <i class="fab fa-discord" style="font-size: 24px; color: #5865F2;"></i>
+                                            <div>
+                                                <div id="discord-link-name" style="font-weight: 600; font-size: 14px;">
+                                                    Discord Account</div>
+                                                <div id="discord-link-status"
+                                                    style="font-size: 11px; color: var(--text-dim);">Not Linked</div>
                                             </div>
+                                        </div>
+                                        <div style="display:flex; gap: 8px;">
+                                            <button id="btn-sync-discord" onclick="syncUserData()" class="secondary"
+                                                style="padding: 6px 12px; font-size: 11px; margin:0; width:auto; border: 1px solid rgba(255,255,255,0.1);">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                            <button id="btn-link-discord" onclick="promptDiscordLink()"
+                                                style="padding: 8px 16px; font-size: 12px; margin:0; width:auto; background: #5865F2;">Link
+                                                Discord</button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div id="seller-settings-container" style="display:none; margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                                <div id="seller-settings-container"
+                                    style="display:none; margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
                                     <h3 style="margin-bottom: 5px; font-size: 16px;">Seller & Team Settings</h3>
-                                    <p id="active-discord-server" style="font-size: 12px; font-weight: 600; margin-bottom: 5px; color:var(--text-dim);">Active Server: <strong style="color:var(--error);">None</strong></p>
-                                    <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 15px;">Limit: 1 Server per Weight Seller. Link your Discord Server ID to enable dynamic role assignment for your team.</p>
+                                    <p id="active-discord-server"
+                                        style="font-size: 12px; font-weight: 600; margin-bottom: 5px; color:var(--text-dim);">
+                                        Active Server: <strong style="color:var(--error);">None</strong></p>
+                                    <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 15px;">Limit: 1
+                                        Server per Weight Seller. Link your Discord Server ID to enable dynamic role
+                                        assignment for your team.</p>
                                     <div style="display: flex; gap: 10px; align-items: center;">
-                                        <input type="text" id="update-discord-server" placeholder="Discord Server ID (Guild ID)" style="margin: 0; flex: 1;">
-                                        <button id="btn-save-discord-server" onclick="updateDiscordServer()" style="margin: 0; padding: 0 20px; width: auto; background: var(--primary);">Save Server ID</button>
+                                        <input type="text" id="update-discord-server"
+                                            placeholder="Discord Server ID (Guild ID)" style="margin: 0; flex: 1;">
+                                        <button id="btn-save-discord-server" onclick="updateDiscordServer()"
+                                            style="margin: 0; padding: 0 20px; width: auto; background: var(--primary);">Save
+                                            Server ID</button>
                                     </div>
                                     <div style="margin-top: 10px;">
-                                        <a href="https://discord.com/oauth2/authorize?client_id=1487168618511732799" target="_blank" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #5865F2; border: none; text-decoration: none; font-size: 13px; padding: 10px;">
+                                        <a href="https://discord.com/oauth2/authorize?client_id=1487168618511732799"
+                                            target="_blank" class="btn-primary"
+                                            style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #5865F2; border: none; text-decoration: none; font-size: 13px; padding: 10px;">
                                             <i class="fab fa-discord"></i> Invite ExclusiveAim Helper to your Server
                                         </a>
                                     </div>
-                                    <p style="font-size: 10px; color: var(--warning); margin-top: 8px;"><i class="fas fa-exclamation-triangle"></i> You must invite the Titan Bot to your server and possess Administrator permissions before saving.</p>
+                                    <p style="font-size: 10px; color: var(--warning); margin-top: 8px;"><i
+                                            class="fas fa-exclamation-triangle"></i> You must invite the Titan Bot to
+                                        your server and possess Administrator permissions before saving.</p>
                                 </div>
                             </div>
                         </div>
@@ -724,29 +948,41 @@
                     <h1 style="margin-bottom: 30px;">Downloads</h1>
 
                     <!-- Main Software Card -->
-                    <div class="card" style="background: linear-gradient(135deg, rgba(0, 191, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <div class="card"
+                        style="background: linear-gradient(135deg, rgba(0, 191, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
                             <div>
-                                <h2 style="color: var(--primary); margin: 0;">Exclusive Aim Build <span id="current-build-version" style="font-size: 14px; opacity: 0.6; margin-left: 10px;">...</span></h2>
-                                <p style="color: var(--text-dim); margin: 5px 0 0 0;">Latest stable release for Windows 10/11</p>
+                                <h2 style="color: var(--primary); margin: 0;">Exclusive Aim Build <span
+                                        id="current-build-version"
+                                        style="font-size: 14px; opacity: 0.6; margin-left: 10px;">...</span></h2>
+                                <p style="color: var(--text-dim); margin: 5px 0 0 0;">Latest stable release for Windows
+                                    10/11</p>
                             </div>
                             <i class="fas fa-box-open" style="font-size: 40px; color: rgba(255,255,255,0.1);"></i>
                         </div>
                         <div style="display: flex; gap: 15px; align-items: center;">
-                            <a href="/api/release/download" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; padding: 12px 25px;">
+                            <a href="/api/release/download" class="btn-primary"
+                                style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; padding: 12px 25px;">
                                 <i class="fas fa-cloud-download-alt"></i> Download Latest (.zip)
                             </a>
                         </div>
                     </div>
 
                     <!-- Owner-Only Upload Section -->
-                    <div id="admin-upload-section" class="card" style="display: none; border: 1px dashed var(--primary); margin-top: 30px;">
-                        <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-upload" style="margin-right: 10px;"></i>Owner: Upload New Build</h3>
-                        <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 20px;">Uploading a new file will automatically <strong>delete the previous version</strong>. Only .zip files are accepted.</p>
-                        
+                    <div id="admin-upload-section" class="card"
+                        style="display: none; border: 1px dashed var(--primary); margin-top: 30px;">
+                        <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-upload"
+                                style="margin-right: 10px;"></i>Owner: Upload New Build</h3>
+                        <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 20px;">Uploading a new file
+                            will automatically <strong>delete the previous version</strong>. Only .zip files are
+                            accepted.</p>
+
                         <div style="display: flex; gap: 10px; align-items: center;">
-                            <input type="file" id="release-upload-input" accept=".zip" style="margin: 0; background: rgba(0,0,0,0.3); padding: 8px;">
-                            <button onclick="uploadNewRelease()" class="btn-primary" style="width: auto; padding: 0 20px; white-space: nowrap;">Upload Build</button>
+                            <input type="file" id="release-upload-input" accept=".zip"
+                                style="margin: 0; background: rgba(0,0,0,0.3); padding: 8px;">
+                            <button onclick="uploadNewRelease()" class="btn-primary"
+                                style="width: auto; padding: 0 20px; white-space: nowrap;">Upload Build</button>
                         </div>
                         <div id="upload-status" style="margin-top: 15px; font-size: 13px;"></div>
                     </div>
@@ -760,22 +996,31 @@
                             <h4 style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                                 <i class="fab fa-windows" style="color: #0078d4;"></i> Visual C++
                             </h4>
-                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Required for running the C++ engine logic.</p>
-                            <a href="https://aka.ms/vs/17/release/vc_redist.x64.exe" target="_blank" style="color: var(--primary); font-size: 13px; text-decoration: none;">Download Redistributable &rarr;</a>
+                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Required for
+                                running the C++ engine logic.</p>
+                            <a href="https://aka.ms/vs/17/release/vc_redist.x64.exe" target="_blank"
+                                style="color: var(--primary); font-size: 13px; text-decoration: none;">Download
+                                Redistributable &rarr;</a>
                         </div>
                         <div class="card" style="padding: 20px;">
                             <h4 style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                                 <i class="fas fa-gamepad" style="color: #4CAF50;"></i> Gtuner IV
                             </h4>
-                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Setup software for Titan Two hardware configuration.</p>
-                            <a href="https://www.consoletuner.com/titan-two-downloads/" target="_blank" style="color: var(--primary); font-size: 13px; text-decoration: none;">Gtuner IV Website &rarr;</a>
+                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Setup software for
+                                Titan Two hardware configuration.</p>
+                            <a href="https://www.consoletuner.com/titan-two-downloads/" target="_blank"
+                                style="color: var(--primary); font-size: 13px; text-decoration: none;">Gtuner IV Website
+                                &rarr;</a>
                         </div>
                         <div class="card" style="padding: 20px;">
                             <h4 style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                                 <i class="fas fa-microchip" style="color: #FF9800;"></i> Macku Drivers
                             </h4>
-                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Essential drivers for Macku hardware spoofing.</p>
-                            <a href="#" style="color: var(--text-dim); font-size: 13px; text-decoration: none; cursor: not-allowed;">Coming Soon &hellip;</a>
+                            <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Essential drivers
+                                for Macku hardware spoofing.</p>
+                            <a href="#"
+                                style="color: var(--text-dim); font-size: 13px; text-decoration: none; cursor: not-allowed;">Coming
+                                Soon &hellip;</a>
                         </div>
                     </div>
                 </div>
@@ -786,15 +1031,24 @@
                 <h1 style="margin-bottom: 30px;">Model Management</h1>
 
                 <!-- Weight Seller Webhook Settings -->
-                <div id="seller-webhook-section" class="card" style="display: none; border: 1px solid var(--accent); margin-bottom: 30px;">
-                    <h3 style="margin-bottom: 15px; color: var(--accent);"><i class="fas fa-plug" style="margin-right: 10px;"></i>Seller Webhook Settings</h3>
-                    <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Configure a Discord webhook to receive real-time logs for your marketplace sales, license grants, and support ticket replies.</p>
+                <div id="seller-webhook-section" class="card"
+                    style="display: none; border: 1px solid var(--accent); margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 15px; color: var(--accent);"><i class="fas fa-plug"
+                            style="margin-right: 10px;"></i>Seller Webhook Settings</h3>
+                    <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px;">Configure a Discord webhook
+                        to receive real-time logs for your marketplace sales, license grants, and support ticket
+                        replies.</p>
                     <div style="display: flex; gap: 12px; align-items: flex-end;">
                         <div style="flex: 1;">
-                            <label style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-left: 5px;">Discord Webhook URL</label>
-                            <input type="text" id="seller-webhook-url" placeholder="https://discord.com/api/webhooks/..." style="margin: 0;">
+                            <label
+                                style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-left: 5px;">Discord
+                                Webhook URL</label>
+                            <input type="text" id="seller-webhook-url"
+                                placeholder="https://discord.com/api/webhooks/..." style="margin: 0;">
                         </div>
-                        <button onclick="saveSellerWebhook()" style="width: auto; padding: 10px 25px; margin: 0; background: var(--accent); border-color: var(--accent);">Save Webhook</button>
+                        <button onclick="saveSellerWebhook()"
+                            style="width: auto; padding: 10px 25px; margin: 0; background: var(--accent); border-color: var(--accent);">Save
+                            Webhook</button>
                     </div>
                 </div>
 
@@ -807,11 +1061,13 @@
                             <input type="text" id="upload-name" placeholder="E.g. Exclusive v1">
                         </div>
                         <div>
-                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Model File (.onnx)</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Model File
+                                (.onnx)</label>
                             <input type="file" id="upload-file" accept=".onnx">
                         </div>
                         <div>
-                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Model Architecture</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Model
+                                Architecture</label>
                             <select id="upload-model-size">
                                 <option value="Nano">Nano</option>
                                 <option value="Small">Small</option>
@@ -821,7 +1077,8 @@
                             </select>
                         </div>
                         <div>
-                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Input Resolution</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Input
+                                Resolution</label>
                             <select id="upload-img-size">
                                 <option value="320">320</option>
                                 <option value="416">416</option>
@@ -830,7 +1087,8 @@
                             </select>
                         </div>
                         <div style="grid-column: span 2;">
-                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Preview Thumbnail</label>
+                            <label style="font-size: 13px; color: var(--text-dim); margin-left: 5px;">Preview
+                                Thumbnail</label>
                             <input type="file" id="upload-thumb" accept="image/*">
                         </div>
                     </div>
@@ -848,23 +1106,35 @@
 
                 <!-- Live Users Section -->
                 <div class="card" style="margin-bottom: 24px; border: 1px solid rgba(46, 204, 113, 0.2);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px;">
                             <span class="live-indicator"></span> Live Session Tracking
                         </h3>
-                        <span id="live-user-count" class="badge" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">0 Online</span>
+                        <span id="live-user-count" class="badge"
+                            style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">0
+                            Online</span>
                     </div>
                     <div class="table-container" style="max-height: 250px; overflow-y: auto;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                             <thead>
                                 <tr style="text-align: left; border-bottom: 1px solid var(--glass-border);">
-                                    <th style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">User</th>
-                                    <th style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">IP Address</th>
-                                    <th style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">Last Heartbeat</th>
+                                    <th
+                                        style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">
+                                        User</th>
+                                    <th
+                                        style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">
+                                        IP Address</th>
+                                    <th
+                                        style="padding: 10px; color: var(--text-dim); text-transform: uppercase; font-size: 10px;">
+                                        Last Heartbeat</th>
                                 </tr>
                             </thead>
                             <tbody id="live-users-tbody">
-                                <tr><td colspan="3" style="padding: 20px; text-align: center; color: var(--text-dim);">Scanning for active sessions...</td></tr>
+                                <tr>
+                                    <td colspan="3" style="padding: 20px; text-align: center; color: var(--text-dim);">
+                                        Scanning for active sessions...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -885,32 +1155,38 @@
                             <option value="604800">7 Days</option>
                             <option value="86400">1 Day</option>
                         </select>
-                        <button onclick="generateLicense()" style="background: var(--accent); color: #fff; margin-top: 15px;">Generate Key</button>
-                        
+                        <button onclick="generateLicense()"
+                            style="background: var(--accent); color: #fff; margin-top: 15px;">Generate Key</button>
+
                         <div id="gen-result" style="margin-top: 15px; display: none;">
                             <p style="font-size: 13px; color: var(--text-dim);">New Key:</p>
-                            <input type="text" id="new-license-key" readonly 
+                            <input type="text" id="new-license-key" readonly
                                 style="text-align: center; border-color: var(--accent); color: white; cursor: pointer;"
                                 onclick="copyNewKey()">
-                            <p style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 5px;">Click to copy</p>
+                            <p style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 5px;">
+                                Click to copy</p>
                         </div>
                     </div>
 
                     <div class="card">
                         <h3 style="margin-bottom: 20px; color: var(--primary);">Feature Controls</h3>
-                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                        <div
+                            style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
                             <div>
                                 <p style="font-weight: 600; font-size: 14px;">7-Day Free Trial</p>
-                                <p style="font-size: 11px; color: var(--text-dim);">When enabled, new signups get a 7-day key.</p>
+                                <p style="font-size: 11px; color: var(--text-dim);">When enabled, new signups get a
+                                    7-day key.</p>
                             </div>
-                            <button id="trial-toggle-btn" onclick="toggleTrial()" style="width: 100px; margin: 0; font-size: 12px; background: #333;">Disabled</button>
+                            <button id="trial-toggle-btn" onclick="toggleTrial()"
+                                style="width: 100px; margin: 0; font-size: 12px; background: #333;">Disabled</button>
                         </div>
                     </div>
 
                     <div class="card">
                         <h3 style="margin-bottom: 20px;">Unclaimed Licenses</h3>
                         <div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
-                            <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                            <table
+                                style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                                 <tbody id="admin-licenses-list">
                                     <!-- Populated by JS -->
                                 </tbody>
@@ -924,17 +1200,20 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
                             <label style="font-size: 13px; color: var(--text-dim);">Target</label>
-                            <select id="time-target" onchange="document.getElementById('time-user-id').style.display = this.value === 'specific' ? 'block' : 'none'">
+                            <select id="time-target"
+                                onchange="document.getElementById('time-user-id').style.display = this.value === 'specific' ? 'block' : 'none'">
                                 <option value="all">All Users</option>
                                 <option value="specific">Specific User ID</option>
                             </select>
-                            <input type="number" id="time-user-id" placeholder="Enter User ID..." style="display:none; margin-top: 8px;">
+                            <input type="number" id="time-user-id" placeholder="Enter User ID..."
+                                style="display:none; margin-top: 8px;">
                         </div>
                         <div>
                             <div style="display: flex; gap: 10px;">
                                 <div style="flex: 1;">
                                     <label style="font-size: 13px; color: var(--text-dim);">Amount</label>
-                                    <input type="number" id="time-amount" placeholder="7" min="1" value="1" style="margin: 4px 0;">
+                                    <input type="number" id="time-amount" placeholder="7" min="1" value="1"
+                                        style="margin: 4px 0;">
                                 </div>
                                 <div style="flex: 1;">
                                     <label style="font-size: 13px; color: var(--text-dim);">Unit</label>
@@ -946,8 +1225,11 @@
                                 </div>
                             </div>
                             <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                <button onclick="adjustTime(1)" style="background: var(--success); color: #fff; flex: 1; font-size: 12px;">+ Add</button>
-                                <button onclick="adjustTime(-1)" class="danger" style="flex: 1; font-size: 12px;">&minus; Remove</button>
+                                <button onclick="adjustTime(1)"
+                                    style="background: var(--success); color: #fff; flex: 1; font-size: 12px;">+
+                                    Add</button>
+                                <button onclick="adjustTime(-1)" class="danger"
+                                    style="flex: 1; font-size: 12px;">&minus; Remove</button>
                             </div>
                         </div>
                     </div>
@@ -962,7 +1244,8 @@
                             style="width: 150px; margin: 0;">Search</button>
                     </div>
                     <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                        <table
+                            style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                             <thead>
                                 <tr style="border-bottom:1px solid var(--glass-border);">
                                     <th style="padding:12px;">ID</th>
@@ -983,7 +1266,8 @@
                 <div class="card" style="margin-top: 24px;">
                     <h3 style="margin-bottom: 20px;">Cloud Repository (All Models)</h3>
                     <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                        <table
+                            style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                             <thead>
                                 <tr style="border-bottom:1px solid var(--glass-border);">
                                     <th style="padding:12px;">ID</th>
@@ -1003,11 +1287,12 @@
                 <div class="card" style="margin-top: 24px;">
                     <h3 style="margin-bottom: 20px; color: var(--warning);">Reseller Management</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                        <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                        <div
+                            style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--glass-border);">
                             <h4 style="margin-bottom: 10px; color: var(--primary);">Allocate Licenses</h4>
                             <label style="font-size: 13px; color: var(--text-dim);">Reseller ID</label>
                             <input type="number" id="gen-reseller-id" placeholder="ID">
-                            
+
                             <label style="font-size: 13px; color: var(--text-dim);">Duration</label>
                             <select id="gen-reseller-duration">
                                 <option value="15552000">6 Months</option>
@@ -1016,16 +1301,18 @@
                                 <option value="86400">1 Day</option>
                                 <option value="LIFETIME">Lifetime</option>
                             </select>
-                            
+
                             <label style="font-size: 13px; color: var(--text-dim);">Amount (Quantity)</label>
                             <input type="number" id="gen-reseller-amount" value="1" min="1">
-                            
-                            <button onclick="adminGenerateResellerLicenses()" style="background: var(--warning); color: #111; margin-top: 15px;">Generate</button>
+
+                            <button onclick="adminGenerateResellerLicenses()"
+                                style="background: var(--warning); color: #111; margin-top: 15px;">Generate</button>
                         </div>
                         <div>
                             <h4 style="margin-bottom: 15px;">Current Resellers</h4>
                             <div style="max-height: 250px; overflow-y: auto;">
-                                <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                                <table
+                                    style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                                     <tbody id="admin-resellers-list">
                                         <!-- Populated via JS -->
                                     </tbody>
@@ -1038,7 +1325,8 @@
                 <div class="card" style="margin-top: 24px;">
                     <h3 style="margin-bottom: 20px; color: var(--error);">Pending Revoke Requests</h3>
                     <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                        <table
+                            style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                             <thead>
                                 <tr style="border-bottom:1px solid var(--glass-border);">
                                     <th style="padding:12px;">Key</th>
@@ -1058,12 +1346,17 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                         <h3 style="margin:0; color: var(--accent);">Seller Management</h3>
                         <div style="display:flex; gap:10px;">
-                            <button onclick="adminCreateTeam()" style="width:auto; padding:8px 15px; font-size:12px; margin:0; background:var(--success);"><i class="fas fa-plus"></i> Create Team</button>
-                            <button onclick="loadAdminSellers()" style="width:auto; padding:8px 15px; font-size:12px; margin:0;"><i class="fas fa-sync"></i> Refresh</button>
+                            <button onclick="adminCreateTeam()"
+                                style="width:auto; padding:8px 15px; font-size:12px; margin:0; background:var(--success);"><i
+                                    class="fas fa-plus"></i> Create Team</button>
+                            <button onclick="loadAdminSellers()"
+                                style="width:auto; padding:8px 15px; font-size:12px; margin:0;"><i
+                                    class="fas fa-sync"></i> Refresh</button>
                         </div>
                     </div>
                     <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                        <table
+                            style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                             <thead>
                                 <tr style="border-bottom:1px solid var(--glass-border);">
                                     <th style="padding:12px;">Seller Username</th>
@@ -1083,15 +1376,19 @@
             <!-- Tab: Reseller Panel -->
             <div id="page-reseller" class="page hidden">
                 <h1 style="margin-bottom: 30px; display:flex; align-items:center; gap: 10px;">
-                    Reseller Panel 
-                    <span style="font-size: 12px; color: var(--warning); border: 1px solid var(--warning); padding: 2px 6px; border-radius: 4px;">AUTHORIZED</span>
+                    Reseller Panel
+                    <span
+                        style="font-size: 12px; color: var(--warning); border: 1px solid var(--warning); padding: 2px 6px; border-radius: 4px;">AUTHORIZED</span>
                 </h1>
-                <p style="color: var(--text-dim); margin-bottom: 20px;">Manage and distribute your allocated license keys. Looking for more information? Please open a Ticket in the <strong>Tickets</strong> tab, or reach out to us on Discord.</p>
+                <p style="color: var(--text-dim); margin-bottom: 20px;">Manage and distribute your allocated license
+                    keys. Looking for more information? Please open a Ticket in the <strong>Tickets</strong> tab, or
+                    reach out to us on Discord.</p>
 
                 <div class="card">
                     <h3 style="margin-bottom: 20px; color: var(--primary);">My Assigned Keys</h3>
                     <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
+                        <table
+                            style="width:100%; border-collapse:collapse; color:var(--text-dim); text-align:left; font-size: 14px;">
                             <thead>
                                 <tr style="border-bottom:1px solid var(--glass-border);">
                                     <th style="padding:12px;">Key</th>
@@ -1116,31 +1413,36 @@
                 </div>
 
                 <!-- User View (Now always visible at top) -->
-                <div id="support-user-layout" style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-bottom: 40px;">
+                <div id="support-user-layout"
+                    style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-bottom: 40px;">
                     <div class="card" style="padding: 20px;">
                         <h3 style="margin-bottom:20px;">Open New Ticket</h3>
                         <label style="color:var(--text-dim); font-size:13px;">Reason / Category</label>
-                        <select id="user-new-ticket-category" onchange="onTicketCategoryChange('user')" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
+                        <select id="user-new-ticket-category" onchange="onTicketCategoryChange('user')"
+                            style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
                             <option value="Support">General Support</option>
                             <option value="Buy">Purchasing & Billing</option>
                             <option value="Rebrand/Reseller">Rebrand / Reseller</option>
                         </select>
                         <div id="user-subcategory-group">
                             <label style="color:var(--text-dim); font-size:13px;">Type</label>
-                            <select id="user-new-ticket-subcategory" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
+                            <select id="user-new-ticket-subcategory"
+                                style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
                                 <option value="Program">Program (Subscription)</option>
                             </select>
                         </div>
                         <div id="user-item-group" style="display:none;">
                             <label style="color:var(--text-dim); font-size:13px;">Item</label>
-                            <select id="user-new-ticket-item" style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
+                            <select id="user-new-ticket-item"
+                                style="width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:#0d0d0d; color:#fff; outline:none;">
                             </select>
                         </div>
                         <br>
                         <label style="color:var(--text-dim); font-size:13px;">Subject</label>
                         <input type="text" id="user-new-ticket-subject" placeholder="e.g., HWID Reset Issue">
                         <label style="color:var(--text-dim); font-size:13px;">Message</label>
-                        <textarea id="user-new-ticket-message" placeholder="Describe your issue..." style="width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
+                        <textarea id="user-new-ticket-message" placeholder="Describe your issue..."
+                            style="width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
                         <div style="display:flex; justify-content:flex-end; margin-top:20px;">
                             <button style="width:100%; margin:0;" onclick="submitNewTicket()">Submit Ticket</button>
                         </div>
@@ -1156,27 +1458,45 @@
                 </div>
 
                 <!-- Staff Header (Hidden if not staff) -->
-                <div id="support-staff-header" style="display: none; border-top: 1px solid var(--glass-border); padding-top: 30px; margin-top: 20px; margin-bottom: 20px;">
+                <div id="support-staff-header"
+                    style="display: none; border-top: 1px solid var(--glass-border); padding-top: 30px; margin-top: 20px; margin-bottom: 20px;">
                     <h2 style="margin:0;">Staff Management (Kanban)</h2>
                 </div>
 
                 <!-- Staff View -->
-                <div id="support-staff-layout" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 15px; align-items: start;">
+                <div id="support-staff-layout"
+                    style="display: none; grid-template-columns: repeat(4, 1fr); gap: 15px; align-items: start;">
                     <div class="card" style="padding: 12px; min-width: 0;">
-                        <h4 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">Support</h4>
-                        <div id="kanban-support" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                        <h4
+                            style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">
+                            Support</h4>
+                        <div id="kanban-support"
+                            style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;">
+                        </div>
                     </div>
                     <div class="card" style="padding: 12px; min-width: 0;">
-                        <h4 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">Buy</h4>
-                        <div id="kanban-buy" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                        <h4
+                            style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">
+                            Buy</h4>
+                        <div id="kanban-buy"
+                            style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;">
+                        </div>
                     </div>
                     <div class="card" style="padding: 12px; min-width: 0;">
-                        <h4 style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">Rebrand</h4>
-                        <div id="kanban-rebrand" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                        <h4
+                            style="margin-top:0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">
+                            Rebrand</h4>
+                        <div id="kanban-rebrand"
+                            style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;">
+                        </div>
                     </div>
                     <div class="card" style="padding: 12px; min-width: 0;">
-                        <h4 style="margin-top:0; color:var(--text-dim); border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">Closed</h4>
-                        <div id="kanban-closed" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;"></div>
+                        <h4
+                            style="margin-top:0; color:var(--text-dim); border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; margin-bottom: 10px; font-size:14px;">
+                            Closed</h4>
+                        <div id="kanban-closed"
+                            style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; overflow-x:hidden;">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1185,17 +1505,22 @@
             <div id="page-marketplace" class="page hidden">
                 <div style="margin-bottom:30px; display:flex; flex-direction:column; gap:4px;">
                     <h1 style="margin:0; font-size:28px;">Model Marketplace</h1>
-                    <div style="font-size:14px; color:var(--text-dim);">Browse and purchase high-performance AI models</div>
+                    <div style="font-size:14px; color:var(--text-dim);">Browse and purchase high-performance AI models
+                    </div>
                 </div>
 
                 <!-- Search & Filters -->
-                <div class="glass-panel" style="margin-bottom:24px; padding:15px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+                <div class="glass-panel"
+                    style="margin-bottom:24px; padding:15px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
                     <div style="flex:1; min-width:200px; position:relative;">
-                        <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:14px;"></i>
-                        <input type="text" id="m-search-name" placeholder="Search by name..." oninput="applyMarketplaceFilters()" style="margin:0; padding-left:36px; font-size:13px;">
+                        <i class="fas fa-search"
+                            style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:14px;"></i>
+                        <input type="text" id="m-search-name" placeholder="Search by name..."
+                            oninput="applyMarketplaceFilters()" style="margin:0; padding-left:36px; font-size:13px;">
                     </div>
                     <div style="width:200px;">
-                        <input type="text" id="m-filter-game" list="game-list" placeholder="Filter by game..." oninput="applyMarketplaceFilters()" style="margin:0; font-size:13px;">
+                        <input type="text" id="m-filter-game" list="game-list" placeholder="Filter by game..."
+                            oninput="applyMarketplaceFilters()" style="margin:0; font-size:13px;">
                     </div>
                     <div style="width:180px;">
                         <select id="m-sort" onchange="applyMarketplaceFilters()" style="margin:0; font-size:13px;">
@@ -1206,24 +1531,27 @@
                         </select>
                     </div>
                 </div>
-                
+
                 <div id="marketplace-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
                     <!-- JS populates cards -->
                 </div>
             </div>
-            
+
         </div>
     </div>
 
     <!-- Ticket View Modal -->
-    <div id="support-ticket-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:4000; display:flex; align-items:center; justify-content:center;">
+    <div id="support-ticket-modal" class="hidden"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:4000; display:flex; align-items:center; justify-content:center;">
         <div class="card" style="width:100%; max-width:1100px; height: 85vh; display:flex; padding:0; overflow:hidden;">
-            
+
             <!-- Internal Macros Sidebar -->
-            <div id="internal-macros-sidebar" style="width:280px; border-right:1px solid var(--glass-border); display:flex; flex-direction:column; padding:20px; background:rgba(0,0,0,0.1);">
+            <div id="internal-macros-sidebar"
+                style="width:280px; border-right:1px solid var(--glass-border); display:flex; flex-direction:column; padding:20px; background:rgba(0,0,0,0.1);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="margin:0; font-size:16px;">Support Macros</h3>
-                    <button onclick="openAddMacroModal()" style="padding: 4px 8px; font-size:11px; margin:0;"><i class="fas fa-plus"></i></button>
+                    <button onclick="openAddMacroModal()" style="padding: 4px 8px; font-size:11px; margin:0;"><i
+                            class="fas fa-plus"></i></button>
                 </div>
                 <div id="macros-list" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
                     <!-- Macros filled here -->
@@ -1232,61 +1560,90 @@
 
             <!-- Chat Area -->
             <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
-                <div style="padding:15px 25px; border-bottom:1px solid var(--glass-border); display:flex; justify-content:space-between; align-items:center;">
+                <div
+                    style="padding:15px 25px; border-bottom:1px solid var(--glass-border); display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <h2 id="support-active-subject" style="margin:0; font-size:18px;">Ticket</h2>
                         <div id="support-grant-tools" style="display:none; margin-top:10px; gap:10px;">
-                            <button onclick="grantModelAccess('30')" class="btn-primary" style="padding:5px 12px; font-size:12px; background:var(--accent); border-color:var(--accent);">Grant Monthly</button>
-                            <button onclick="grantModelAccess('LIFETIME')" class="btn-primary" style="padding:5px 12px; font-size:12px; background:var(--success); border-color:var(--success);">Grant Lifetime</button>
+                            <button onclick="grantModelAccess('30')" class="btn-primary"
+                                style="padding:5px 12px; font-size:12px; background:var(--accent); border-color:var(--accent);">Grant
+                                Monthly</button>
+                            <button onclick="grantModelAccess('LIFETIME')" class="btn-primary"
+                                style="padding:5px 12px; font-size:12px; background:var(--success); border-color:var(--success);">Grant
+                                Lifetime</button>
                         </div>
                         <div id="seller-role-tools" style="display:none; margin-top: 10px;">
-                            <select id="seller-role-select" style="width: 180px; padding: 6px; font-size: 11px; margin: 0;">
+                            <select id="seller-role-select"
+                                style="width: 180px; padding: 6px; font-size: 11px; margin: 0;">
                                 <option value="" disabled selected>Assign Discord Role...</option>
                             </select>
-                            <button id="seller-role-assign-btn" onclick="assignUserRole()" style="width: auto; padding: 6px 12px; font-size: 11px; margin: 0; background: var(--primary);">Assign</button>
+                            <button id="seller-role-assign-btn" onclick="assignUserRole()"
+                                style="width: auto; padding: 6px 12px; font-size: 11px; margin: 0; background: var(--primary);">Assign</button>
                         </div>
                     </div>
                     <div style="display:flex; gap:10px;">
-                        <button id="support-transcript-btn" class="secondary" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:rgba(255,255,255,0.05); border-color:var(--glass-border);" onclick="handleTranscriptAction()">Transcript</button>
-                        <button id="support-reopen-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--primary); border-color:var(--primary);" onclick="reopenTicket()">Reopen</button>
-                        <button id="support-close-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="closeActiveTicket()">Close</button>
-                        <button id="support-delete-btn" class="secondary hidden" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--error); border-color:var(--error);" onclick="deleteTicketPermanent()">Delete</button>
-                        <button onclick="closeSupportTicketModal()" class="btn-secondary" style="margin:0; width:40px; height:40px; display:flex; align-items:center; justify-content:center; padding:0; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border);"><i class="fas fa-times" style="font-size:18px; color:white !important;"></i></button>
+                        <button id="support-transcript-btn" class="secondary"
+                            style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:rgba(255,255,255,0.05); border-color:var(--glass-border);"
+                            onclick="handleTranscriptAction()">Transcript</button>
+                        <button id="support-reopen-btn" class="secondary hidden"
+                            style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--primary); border-color:var(--primary);"
+                            onclick="reopenTicket()">Reopen</button>
+                        <button id="support-close-btn" class="secondary hidden"
+                            style="width:auto; margin:0; padding:6px 12px; font-size:12px;"
+                            onclick="closeActiveTicket()">Close</button>
+                        <button id="support-delete-btn" class="secondary hidden"
+                            style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:var(--error); border-color:var(--error);"
+                            onclick="deleteTicketPermanent()">Delete</button>
+                        <button onclick="closeSupportTicketModal()" class="btn-secondary"
+                            style="margin:0; width:40px; height:40px; display:flex; align-items:center; justify-content:center; padding:0; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border);"><i
+                                class="fas fa-times" style="font-size:18px; color:white !important;"></i></button>
                     </div>
                 </div>
-                
-                <div id="support-message-area" style="flex:1; overflow-y:auto; padding:25px; display:flex; flex-direction:column; gap:15px; background:rgba(0,0,0,0.2);">
+
+                <div id="support-message-area"
+                    style="flex:1; overflow-y:auto; padding:25px; display:flex; flex-direction:column; gap:15px; background:rgba(0,0,0,0.2);">
                     <!-- Messages JS based -->
                 </div>
-                
-                <div id="support-reply-footer" style="padding:15px; border-top:1px solid var(--glass-border); background:rgba(0,0,0,0.1);">
+
+                <div id="support-reply-footer"
+                    style="padding:15px; border-top:1px solid var(--glass-border); background:rgba(0,0,0,0.1);">
                     <!-- File Preview -->
-                    <div id="file-preview-area" style="display:none; margin-bottom:10px; padding:10px; background:rgba(var(--accent-rgb), 0.1); border:1px solid var(--glass-border); border-radius:8px; align-items:center; gap:10px;">
+                    <div id="file-preview-area"
+                        style="display:none; margin-bottom:10px; padding:10px; background:rgba(var(--accent-rgb), 0.1); border:1px solid var(--glass-border); border-radius:8px; align-items:center; gap:10px;">
                         <i class="fas fa-file-image" style="font-size:20px; color:var(--accent);"></i>
                         <div style="flex:1;">
                             <div id="selected-filename" style="font-size:12px; font-weight:600; color:white;"></div>
                             <div id="selected-filesize" style="font-size:10px; color:var(--text-dim);"></div>
                         </div>
-                        <button onclick="clearSelectedFile()" style="background:none; border:none; color:var(--error); padding:5px; cursor:pointer;"><i class="fas fa-times"></i></button>
+                        <button onclick="clearSelectedFile()"
+                            style="background:none; border:none; color:var(--error); padding:5px; cursor:pointer;"><i
+                                class="fas fa-times"></i></button>
                     </div>
 
                     <div style="display:flex; gap:12px; align-items:flex-end;">
                         <!-- Attach Button -->
                         <div style="position:relative;">
-                            <label for="support-file-input" class="btn-secondary" style="margin:0; width:45px; height:45px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:8px; cursor:pointer; background:rgba(255,255,255,0.05);">
+                            <label for="support-file-input" class="btn-secondary"
+                                style="margin:0; width:45px; height:45px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:8px; cursor:pointer; background:rgba(255,255,255,0.05);">
                                 <i class="fas fa-plus" style="font-size:18px; color:white !important;"></i>
-                                <input type="file" id="support-file-input" style="display:none;" onchange="handleFileSelected()">
+                                <input type="file" id="support-file-input" style="display:none;"
+                                    onchange="handleFileSelected()">
                             </label>
                         </div>
 
                         <!-- Input -->
-                        <div style="flex:1; background:rgba(0,0,0,0.3); border-radius:8px; border:1px solid var(--glass-border); display:flex; align-items:center;">
-                            <textarea id="support-reply-input" placeholder="Message ticket..." style="width:100%; border:none; background:none; min-height:45px; max-height:150px; margin:0; padding:12px; resize:none; font-size:13px; color:white;"></textarea>
+                        <div
+                            style="flex:1; background:rgba(0,0,0,0.3); border-radius:8px; border:1px solid var(--glass-border); display:flex; align-items:center;">
+                            <textarea id="support-reply-input" placeholder="Message ticket..."
+                                style="width:100%; border:none; background:none; min-height:45px; max-height:150px; margin:0; padding:12px; resize:none; font-size:13px; color:white;"></textarea>
                         </div>
 
                         <!-- Send Button -->
-                        <button id="ticket-reply-btn" onclick="sendTicketReply()" class="btn-primary" title="Press Enter to send (Shift+Enter for new line)" style="margin:0; height:45px; width:45px; display:flex; align-items:center; justify-content:center; border-radius:8px;">
-                            <i class="fas fa-level-down-alt" style="transform: rotate(90deg); font-size:18px; color:white !important;"></i>
+                        <button id="ticket-reply-btn" onclick="sendTicketReply()" class="btn-primary"
+                            title="Press Enter to send (Shift+Enter for new line)"
+                            style="margin:0; height:45px; width:45px; display:flex; align-items:center; justify-content:center; border-radius:8px;">
+                            <i class="fas fa-level-down-alt"
+                                style="transform: rotate(90deg); font-size:18px; color:white !important;"></i>
                         </button>
                     </div>
                 </div>
@@ -1295,16 +1652,21 @@
     </div>
 
     <!-- Create Ticket Modal -->
-    <div id="create-ticket-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; display:flex; align-items:center; justify-content:center;">
+    <div id="create-ticket-modal" class="hidden"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; display:flex; align-items:center; justify-content:center;">
         <div class="card" style="width:100%; max-width:500px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h3 style="margin:0;">Open New Ticket</h3>
-                <button onclick="closeCreateTicketModal()" style="background:none; border:none; color:var(--text-dim); cursor:pointer;"><i class="fas fa-times"></i></button>
+                <button onclick="closeCreateTicketModal()"
+                    style="background:none; border:none; color:var(--text-dim); cursor:pointer;"><i
+                        class="fas fa-times"></i></button>
             </div>
-            
+
             <div style="margin-bottom:15px;">
-                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Reason / Category</label>
-                <select id="new-ticket-category" onchange="onTicketCategoryChange('')" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Reason /
+                    Category</label>
+                <select id="new-ticket-category" onchange="onTicketCategoryChange('')"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
                     <option value="Support">General Support</option>
                     <option value="Buy">Purchasing & Billing</option>
                     <option value="Rebrand/Reseller">Rebrand / Reseller</option>
@@ -1313,52 +1675,68 @@
 
             <div id="subcategory-group" style="display:none; margin-bottom:15px;">
                 <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Type</label>
-                <select id="new-ticket-subcategory" onchange="onTicketSubcategoryChange('')" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+                <select id="new-ticket-subcategory" onchange="onTicketSubcategoryChange('')"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
                     <option value="Program">Program (Subscription)</option>
                 </select>
             </div>
 
             <div id="item-group" style="display:none; margin-bottom:15px;">
-                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Item / Plan</label>
-                <select id="new-ticket-item" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+                <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Item /
+                    Plan</label>
+                <select id="new-ticket-item"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
                     <!-- Populated via JS -->
                 </select>
             </div>
-            
+
             <div style="margin-bottom:15px;">
                 <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Subject</label>
-                <input type="text" id="new-ticket-subject" placeholder="e.g., HWID Reset Issue" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
+                <input type="text" id="new-ticket-subject" placeholder="e.g., HWID Reset Issue"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; outline:none;">
             </div>
 
             <div style="margin-bottom:15px;">
                 <label style="color:var(--text-dim); font-size:13px; display:block; margin-bottom:5px;">Message</label>
-                <textarea id="new-ticket-message" placeholder="Describe your issue..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
+                <textarea id="new-ticket-message" placeholder="Describe your issue..."
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:100px; font-family:inherit; outline:none; resize:vertical;"></textarea>
             </div>
 
             <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
-                <button class="secondary" style="width:auto; margin:0; padding:10px 20px;" onclick="closeCreateTicketModal()">Cancel</button>
-                <button style="width:auto; margin:0; padding:10px 20px;" onclick="submitNewTicket('')">Submit Ticket</button>
+                <button class="secondary" style="width:auto; margin:0; padding:10px 20px;"
+                    onclick="closeCreateTicketModal()">Cancel</button>
+                <button style="width:auto; margin:0; padding:10px 20px;" onclick="submitNewTicket('')">Submit
+                    Ticket</button>
             </div>
         </div>
     </div>
 
     <!-- Mandatory Discord Link Modal -->
-    <div id="mandatory-discord-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9000; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
-        <div class="card" style="width:100%; max-width:400px; text-align:center; padding:40px; border:1px solid #5865F2;">
-            <div style="background:rgba(88, 101, 242, 0.1); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 25px;">
+    <div id="mandatory-discord-modal" class="hidden"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9000; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+        <div class="card"
+            style="width:100%; max-width:400px; text-align:center; padding:40px; border:1px solid #5865F2;">
+            <div
+                style="background:rgba(88, 101, 242, 0.1); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 25px;">
                 <i class="fab fa-discord" style="font-size:40px; color:#5865F2;"></i>
             </div>
             <h2 style="margin-bottom:15px; color:#fff;">Discord Required</h2>
-            <p style="color:var(--text-dim); margin-bottom:30px; line-height:1.6; font-size:14px;">To open a <strong>Buy</strong> or <strong>Support</strong> ticket, you must first link your Discord account. This ensures our staff can reach you for immediate assistance.</p>
+            <p style="color:var(--text-dim); margin-bottom:30px; line-height:1.6; font-size:14px;">To open a
+                <strong>Buy</strong> or <strong>Support</strong> ticket, you must first link your Discord account. This
+                ensures our staff can reach you for immediate assistance.</p>
             <div style="display:flex; flex-direction:column; gap:12px;">
-                <button onclick="promptDiscordLink()" style="background:#5865F2; color:#fff; margin:0; font-weight:bold;">Connect with Discord</button>
-                <button class="secondary" onclick="document.getElementById('mandatory-discord-modal').classList.add('hidden')" style="margin:0; font-size:12px;">Maybe Later</button>
+                <button onclick="promptDiscordLink()"
+                    style="background:#5865F2; color:#fff; margin:0; font-weight:bold;">Connect with Discord</button>
+                <button class="secondary"
+                    onclick="document.getElementById('mandatory-discord-modal').classList.add('hidden')"
+                    style="margin:0; font-size:12px;">Maybe Later</button>
             </div>
         </div>
     </div>
 
     <!-- Macro Add Modal -->
-    <div id="add-macro-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:5000; display:flex; align-items:center; justify-content:center;">
+    <div id="add-macro-modal" class="hidden"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:5000; display:flex; align-items:center; justify-content:center;">
         <div class="card" style="width:100%; max-width:400px; padding:25px;">
             <h3 style="margin-top:0;">Create New Macro</h3>
             <div style="margin-bottom:15px;">
@@ -1367,7 +1745,8 @@
             </div>
             <div style="margin-bottom:20px;">
                 <label style="display:block; margin-bottom:5px; font-size:12px; color:var(--text-dim);">Content</label>
-                <textarea id="macro-content" placeholder="Type pre-written text..." style="width:100%; height:100px; margin:0; padding:10px; resize:none;"></textarea>
+                <textarea id="macro-content" placeholder="Type pre-written text..."
+                    style="width:100%; height:100px; margin:0; padding:10px; resize:none;"></textarea>
             </div>
             <div style="display:flex; gap:10px; justify-content:flex-end;">
                 <button onclick="closeAddMacroModal()" class="btn-secondary" style="margin:0;">Cancel</button>
@@ -1381,23 +1760,23 @@
 
     <script>
 
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
-        console.log("%c[GLOBAL ERROR] " + msg + " at " + lineNo + ":" + columnNo, "color: red; font-weight: bold;");
-        return false;
-    };
+        window.onerror = function (msg, url, lineNo, columnNo, error) {
+            console.log("%c[GLOBAL ERROR] " + msg + " at " + lineNo + ":" + columnNo, "color: red; font-weight: bold;");
+            return false;
+        };
 
         const API_URL = '/api';
         let userData = null;
         try {
             const cached = localStorage.getItem('userData');
             if (cached) userData = JSON.parse(cached);
-        } catch(e) {}
+        } catch (e) { }
 
 
         // --- Admin Functions ---
 
         async function loadAdminData() {
-            loadAdminUsers(); fetchLiveUsers(); 
+            loadAdminUsers(); fetchLiveUsers();
             loadAdminModels();
             loadAdminLicenses();
             loadAdminResellers();
@@ -1466,7 +1845,7 @@
         }
 
 
-        
+
         async function fetchLiveUsers() {
             try {
                 const res = await fetch('/api/admin/live_users');
@@ -1475,7 +1854,7 @@
                 const tbody = document.getElementById('live-users-tbody');
                 const countEl = document.getElementById('live-user-count');
                 if (!tbody || !countEl) return;
-                
+
                 countEl.innerText = `${users.length} Online`;
                 if (users.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="3" style="padding: 20px; text-align: center; color: var(--text-dim);">No active users detected</td></tr>';
@@ -1525,7 +1904,7 @@
                     const isSupportFlag = u.is_support ? '<br><span style="color:var(--success); font-size: 11px;">SUPPORT</span>' : '';
                     const isSellerFlag = u.is_weight_seller ? '<br><span style="color:var(--accent); font-size: 11px;">SELLER</span>' : '';
                     const teamFlag = u.seller_team_id ? `<br><span style="color:var(--primary); font-size: 10px;">Team #${u.seller_team_id}</span>` : '';
-                    
+
                     tr.innerHTML = `
                         <td style="padding:12px;">${u.id}</td>
                         <td style="padding:12px;" title="${tooltip}">
@@ -1586,7 +1965,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     showNotification(data.message, 'success');
-                    loadAdminUsers(); fetchLiveUsers(); 
+                    loadAdminUsers(); fetchLiveUsers();
                 } else {
                     showNotification(data.error || 'Failed', 'error');
                 }
@@ -1601,7 +1980,7 @@
                     const raw = localStorage.getItem('userData');
                     if (!raw || raw === "undefined" || raw === "null") return false;
                     userData = JSON.parse(raw);
-                } catch(e) { return false; }
+                } catch (e) { return false; }
             }
             return userData && userData.discord_id && userData.discord_id !== "null" && userData.discord_id !== "undefined";
         }
@@ -1618,7 +1997,7 @@
                     btn.style.background = trialEnabled ? 'var(--primary)' : '#333';
                     btn.style.color = trialEnabled ? '#000' : '#fff';
                 }
-                
+
                 // Display version
                 const versionEl = document.getElementById('current-build-version');
                 if (versionEl && d.current_version) {
@@ -1639,12 +2018,12 @@
                     const raw = localStorage.getItem('userData');
                     const parsed = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
                     userData = { ...(userData || {}), ...parsed };
-                } catch(e) { console.error("Stale userData parse error"); }
+                } catch (e) { console.error("Stale userData parse error"); }
 
                 const discordStatus = document.getElementById('discord-link-status');
                 const discordName = document.getElementById('discord-link-name');
                 const discordBtn = document.getElementById('btn-link-discord');
-                
+
                 const sellerContainer = document.getElementById('seller-settings-container');
                 const updateServerInput = document.getElementById('update-discord-server');
                 const activeServerLabel = document.getElementById('active-discord-server');
@@ -1685,7 +2064,7 @@
                         discordBtn.innerText = 'Link Discord';
                         discordBtn.style.background = '#5865F2';
                         discordBtn.onclick = () => promptDiscordLink();
-                        
+
                         // Auto-sync once per session if not linked
                         if (!sessionStorage.getItem('autoSynced')) {
                             sessionStorage.setItem('autoSynced', 'true');
@@ -1751,12 +2130,12 @@
         async function assignUserRole() {
             const roleId = document.getElementById('seller-role-select').value;
             if (!roleId || !currentTicketId) return;
-            
+
             if (!confirm(`Assign targeted Discord role to this user?`)) return;
-            
+
             const btn = document.getElementById('seller-role-assign-btn');
             if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            
+
             try {
                 const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/assign_role`, {
                     method: 'POST',
@@ -1780,12 +2159,12 @@
         async function fetchDiscordRoles() {
             const select = document.getElementById('seller-role-select');
             if (!select) return;
-            
+
             if (cachedRoles) {
                 populateRoleDropdown(select, cachedRoles);
                 return;
             }
-            
+
             select.innerHTML = '<option value="" disabled selected>Loading Roles...</option>';
             try {
                 const res = await fetch(`${API_URL}/support/discord_roles`);
@@ -1800,7 +2179,7 @@
                 select.innerHTML = '<option value="" disabled selected>Error Loading API</option>';
             }
         }
-        
+
         function populateRoleDropdown(select, data) {
             select.innerHTML = '<option value="" disabled selected>Assign Discord Role...</option>';
             data.roles.forEach(r => {
@@ -1837,13 +2216,13 @@
         async function adminBanUser(id) {
             if (!confirm("Ban this user?")) return;
             const res = await fetch(`${API_URL}/admin/users/${id}/ban`, { method: 'POST' });
-            if (res.ok) { showNotification("User Banned", "success"); loadAdminUsers(); fetchLiveUsers();  }
+            if (res.ok) { showNotification("User Banned", "success"); loadAdminUsers(); fetchLiveUsers(); }
         }
 
         async function adminUnbanUser(id) {
             if (!confirm("Unban this user?")) return;
             const res = await fetch(`${API_URL}/admin/users/${id}/unban`, { method: 'POST' });
-            if (res.ok) { showNotification("User Unbanned", "success"); loadAdminUsers(); fetchLiveUsers();  }
+            if (res.ok) { showNotification("User Unbanned", "success"); loadAdminUsers(); fetchLiveUsers(); }
         }
 
         async function adminResetPass(id) {
@@ -1870,7 +2249,7 @@
             const res = await fetch(`${API_URL}/admin/users/${id}/delete`, { method: 'POST' }); // Using POST for safety if DELETE is blocked by some proxies
             if (res.ok) {
                 showNotification('User Deleted', 'success');
-                loadAdminUsers(); fetchLiveUsers(); 
+                loadAdminUsers(); fetchLiveUsers();
                 loadAdminModels();
             } else {
                 showNotification('Failed to delete user', 'error');
@@ -1945,7 +2324,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/release_license`, { method: 'POST' });
             if (res.ok) {
                 showNotification('License released', 'success');
-                loadAdminUsers(); fetchLiveUsers(); 
+                loadAdminUsers(); fetchLiveUsers();
             } else {
                 showNotification('Failed to release license', 'error');
             }
@@ -1956,7 +2335,7 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/promote`, { method: 'POST' });
             if (res.ok) {
                 showNotification('User promoted to Admin', 'success');
-                loadAdminUsers(); fetchLiveUsers(); 
+                loadAdminUsers(); fetchLiveUsers();
             } else {
                 showNotification('Failed to promote user', 'error');
             }
@@ -1967,13 +2346,13 @@
             const res = await fetch(`${API_URL}/admin/users/${userId}/demote`, { method: 'POST' });
             if (res.ok) {
                 showNotification('Admin demoted', 'success');
-                loadAdminUsers(); fetchLiveUsers(); 
+                loadAdminUsers(); fetchLiveUsers();
             } else {
                 const data = await res.json();
                 showNotification(data.error || 'Failed to demote', 'error');
             }
         }
-        
+
         async function adminToggleSupport(userId) {
             if (!confirm("Toggle Support role for this user?")) return;
             const res = await fetch(`${API_URL}/admin/users/${userId}/support`, { method: 'POST' });
@@ -2004,16 +2383,16 @@
             const tRes = await fetch(`${API_URL}/admin/seller_teams`);
             const teams = await tRes.json();
             let teamListText = teams.map(t => `#${t.id}: ${t.name}`).join('\n');
-            
+
             const teamIdStr = prompt(`Available Teams:\n${teamListText}\n\nEnter Team ID to assign (or leave empty to remove):`);
             if (teamIdStr === null) return;
             const teamId = teamIdStr.trim() === '' ? null : parseInt(teamIdStr);
             console.log(`[Admin] Assigning team ${teamId} to user ${userId}`);
-            
+
             const res = await fetch(`${API_URL}/admin/users/${userId}/seller_team`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({team_id: teamId})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ team_id: teamId })
             });
             if (res.ok) {
                 showNotification('Team assignment updated', 'success');
@@ -2065,7 +2444,7 @@
                 showNotification(data.error || 'Generation Failed', 'error');
             }
         }
-        
+
         // --- Support Ticketing System ---
         let currentTicketId = null;
 
@@ -2088,7 +2467,7 @@
 
             const replyInput = document.getElementById('support-reply-input');
             if (replyInput) {
-                replyInput.addEventListener('keydown', function(e) {
+                replyInput.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         sendTicketReply();
@@ -2133,10 +2512,10 @@
             const userView = document.getElementById('support-user-layout');
             const staffView = document.getElementById('support-staff-layout');
             const staffHeader = document.getElementById('support-staff-header');
-            
+
             // Layout: Everyone sees UserView (for their own tickets)
             userView.style.display = 'grid';
-            
+
             if (isStaff || isSellerTeam) {
                 staffView.style.display = 'grid';
                 if (staffHeader) staffHeader.style.display = 'block';
@@ -2144,7 +2523,7 @@
                 // Dynamic columns for Sellers
                 const rebrandEl = document.getElementById('kanban-rebrand');
                 const rebrandCol = rebrandEl ? rebrandEl.closest('.card') : null;
-                
+
                 if (!isGlobalStaff && isSellerTeam) {
                     staffView.style.gridTemplateColumns = 'repeat(3, 1fr)';
                     if (rebrandCol) rebrandCol.style.display = 'none';
@@ -2179,7 +2558,7 @@
                 }
                 return;
             }
-            
+
             list.forEach(t => {
                 const div = document.createElement('div');
                 div.style.padding = '10px 15px';
@@ -2191,7 +2570,7 @@
                 div.onmouseover = () => div.style.background = 'rgba(255,255,255,0.05)';
                 div.onmouseout = () => div.style.background = 'rgba(0,0,0,0.3)';
                 div.onclick = () => openSupportTicket(t.id, t.subject, t.status);
-                
+
                 const statusColor = t.status === 'open' ? 'var(--success)' : 'var(--text-dim)';
                 let displayStatus = t.status.toUpperCase();
                 if (t.status === 'pending_delete' || t.status === 'closed') {
@@ -2202,7 +2581,7 @@
                 const catBadge = !(isStaff || isSellerTeam) ? `<span style="border:1px solid var(--glass-border); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--primary);">${t.category || 'Support'}</span>` : '';
                 const closedBadge = (t.status === 'closed' || t.status === 'pending_delete') ? `<span style="border:1px solid var(--text-dim); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--text-dim);">Closing</span>` : '';
                 const salesBadge = t.seller_team_id ? `<span style="border:1px solid var(--accent); padding:2px 6px; border-radius:4px; margin-right:6px; font-size:10px; color:var(--accent);">SALE</span>` : '';
-                
+
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
                         <strong style="color:white; font-size:13px; line-height:1.4; overflow:hidden; text-overflow:ellipsis;">${closedBadge}${salesBadge}${catBadge}${title}</strong>
@@ -2212,35 +2591,35 @@
                         <span style="color:${statusColor}; font-weight:600; text-transform:uppercase;">${displayStatus}</span>
                     </div>
                 `;
-                
+
                 const isAuthor = parseInt(t.user_id) === parseInt(currentUserId);
                 const isForMyTeam = myTeamId && (parseInt(t.seller_team_id) === parseInt(myTeamId));
                 const isModelOwner = t.model_owner_id && (parseInt(t.model_owner_id) === parseInt(currentUserId));
-                
+
                 // Marketplace/weight categories are team-private
                 const teamPrivateCategories = ['Sale', 'Model Support', 'Buy', 'Weights'];
                 const isTeamPrivate = teamPrivateCategories.includes(t.category) || !!t.model_id;
-                
+
                 // Global staff see general tickets: no team, not a team-private category
                 const isGeneralForStaff = isGlobalStaff && !t.seller_team_id && !isTeamPrivate;
                 // Seller team members see tickets assigned to their team OR tickets for models they own
-                const isTeamStaff = isSellerTeam && ( (myTeamId && parseInt(t.seller_team_id) === parseInt(myTeamId)) || isModelOwner );
+                const isTeamStaff = isSellerTeam && ((myTeamId && parseInt(t.seller_team_id) === parseInt(myTeamId)) || isModelOwner);
 
                 // STRICT FRONTEND FILTER (Layer 2)
                 if (!isAuthor && !isForMyTeam && !isGeneralForStaff && !isTeamStaff) {
                     return; // Skip this ticket
                 }
-                
+
                 if (isAuthor) {
                     if (containers.user) containers.user.appendChild(div);
                     return; // Own tickets go to My Tickets ONLY, never to Kanban
                 }
-                
+
                 if (isStaff || isSellerTeam) {
                     // Route OTHER people's tickets to Kanban
                     const kDiv = div.cloneNode(true);
                     kDiv.onclick = div.onclick;
-                    
+
                     if (t.status === 'closed' || t.status === 'pending_delete') {
                         if (containers.closed) containers.closed.appendChild(kDiv);
                     } else if (isGlobalStaff) {
@@ -2282,7 +2661,7 @@
                     openSupportTicket(currentTicketId, subject, 'open');
                     loadSupportTickets();
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         async function deleteActiveTicket() {
@@ -2295,7 +2674,7 @@
                     closeSupportTicketModal();
                     loadSupportTickets();
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         function openCreateTicketModal() {
@@ -2311,21 +2690,21 @@
         async function submitNewTicket(p = 'user') {
             const prefix = p ? p + '-' : '';
             if (!isDiscordLinked() && !localStorage.getItem('isAdmin')) {
-               const modal = document.getElementById('mandatory-discord-modal');
-               if (modal) modal.classList.remove('hidden');
-               return;
+                const modal = document.getElementById('mandatory-discord-modal');
+                if (modal) modal.classList.remove('hidden');
+                return;
             }
 
             const subject = document.getElementById(prefix + 'new-ticket-subject').value.trim();
             const category = document.getElementById(prefix + 'new-ticket-category').value;
             let message = document.getElementById(prefix + 'new-ticket-message').value.trim();
             if (!subject || !message) { showNotification('Subject and message required', 'error'); return; }
-            
+
             // Build context prefix from subcategory/item
             const subGroup = document.getElementById(prefix + 'subcategory-group');
             const itemGroup = document.getElementById(prefix + 'item-group');
             let model_id = window.activeMarketplaceModelId || null;
-            
+
             if (!model_id && subGroup && subGroup.style.display !== 'none') {
                 const subcat = document.getElementById(prefix + 'new-ticket-subcategory').value;
                 const itemEl = document.getElementById(prefix + 'new-ticket-item');
@@ -2334,17 +2713,17 @@
                     message = `[${category.toUpperCase()}: ${subcat} - ${itemText}]\n\n${message}`;
                 }
             }
-            
+
             try {
-                const body = {subject, category, message};
+                const body = { subject, category, message };
                 if (model_id) body.model_id = model_id;
-                
+
                 const res = await fetch(`${API_URL}/support/tickets`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
-                
+
                 if (res.ok) {
                     const data = await res.json();
                     showNotification('Ticket Created', 'success');
@@ -2362,7 +2741,7 @@
                     if (modal) modal.classList.remove('hidden');
                     showNotification('Discord linking required', 'warning');
                 } else {
-                    const data = await res.json().catch(() => ({error: 'Failed to create ticket'}));
+                    const data = await res.json().catch(() => ({ error: 'Failed to create ticket' }));
                     showNotification(data.error || 'Failed to create ticket', 'error');
                 }
             } catch (e) {
@@ -2378,7 +2757,7 @@
             const cat = document.getElementById(prefix + 'new-ticket-category').value;
             const subGroup = document.getElementById(prefix + 'subcategory-group');
             const itemGroup = document.getElementById(prefix + 'item-group');
-            
+
             if (cat === 'Buy' || cat === 'Support') {
                 if (!isDiscordLinked() && !localStorage.getItem('isAdmin')) {
                     const modal = document.getElementById('mandatory-discord-modal');
@@ -2404,16 +2783,17 @@
             const prefix = p ? p + '-' : '';
             const itemGroup = document.getElementById(prefix + 'item-group');
             const itemSelect = document.getElementById(prefix + 'new-ticket-item');
-            
+
             if (!itemGroup || !itemSelect) return;
             itemSelect.innerHTML = '';
             itemGroup.style.display = 'block';
-            
+
             const plans = [
-                {value: 'day', text: 'Day (4€)'},
-                {value: 'week', text: 'Week (15€)'},
-                {value: 'month', text: 'Month (40€)'},
-                {value: 'lifetime', text: 'Lifetime'}
+                { value: 'day', text: 'Day (4€)' },
+                { value: 'week', text: 'Week (10€)' },
+                { value: 'month', text: 'Month (15€)' },
+                { value: '6 months', text: 'Month (70€)' },
+                { value: 'lifetime', text: 'Lifetime' }
             ];
             plans.forEach(plan => {
                 const opt = document.createElement('option');
@@ -2427,7 +2807,7 @@
             currentTicketId = id;
             document.getElementById('support-active-subject').innerText = `Ticket #${id} - ${subject}`;
             document.getElementById('support-ticket-modal').classList.remove('hidden');
-            
+
             // Show/hide Macro Sidebar internally based on role
             const internalMacroSidebar = document.getElementById('internal-macros-sidebar');
             if (internalMacroSidebar) {
@@ -2436,11 +2816,11 @@
 
             const messageArea = document.getElementById('support-message-area');
             messageArea.innerHTML = '<p style="text-align:center; color:var(--text-dim);">Loading messages...</p>';
-            
+
             try {
                 const res = await fetch(`${API_URL}/support/tickets/${id}/messages`);
                 const ticket = await res.json();
-                
+
                 // Show/hide Grant Tools for sellers if model_id exists
                 const grantTools = document.getElementById('support-grant-tools');
                 if (grantTools) {
@@ -2479,7 +2859,7 @@
                     msgDiv.style.borderRadius = '12px';
                     msgDiv.style.background = isMe ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
                     msgDiv.style.border = isMe ? 'none' : '1px solid var(--glass-border)';
-                    
+
                     let content = `
                         <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px; display:flex; justify-content:space-between; gap:20px;">
                             <span>${msg.username} ${msg.is_support || msg.is_admin ? '(Staff)' : ''}</span>
@@ -2506,19 +2886,19 @@
                     msgDiv.innerHTML = content;
                     messageArea.appendChild(msgDiv);
                 });
-                
+
                 messageArea.scrollTop = messageArea.scrollHeight;
-                
+
                 // Show/hide reply footer based on status
                 document.getElementById('support-reply-footer').style.display = status === 'open' ? 'block' : 'none';
-                
+
                 // Show/hide action buttons
                 if (document.getElementById('support-close-btn')) {
                     document.getElementById('support-close-btn').classList.toggle('hidden', status !== 'open');
                 }
                 const reopenBtn = document.getElementById('support-reopen-btn');
                 if (reopenBtn) reopenBtn.classList.toggle('hidden', status === 'open');
-                
+
                 const deleteBtn = document.getElementById('support-delete-btn');
                 if (deleteBtn) deleteBtn.classList.toggle('hidden', !isCurrentUserStaff);
 
@@ -2540,11 +2920,11 @@
         let isSendingTicketReply = false;
         async function sendTicketReply() {
             if (!currentTicketId || isSendingTicketReply) return;
-            
+
             const input = document.getElementById('support-reply-input');
             const message = input.value.trim();
             if (!message && !selectedSupportFile) return;
-            
+
             const btn = document.getElementById('ticket-reply-btn');
             const originalHtml = btn.innerHTML;
             isSendingTicketReply = true;
@@ -2564,8 +2944,8 @@
                 } else {
                     res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/messages`, {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({message})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message })
                     });
                 }
 
@@ -2599,7 +2979,7 @@
                 const res = await fetch(`${API_URL}/support/macros`);
                 const macros = await res.json();
                 renderMacros(macros);
-            } catch (e) {}
+            } catch (e) { }
         }
 
         function renderMacros(list) {
@@ -2620,7 +3000,7 @@
                 div.style.alignItems = 'center';
                 div.style.marginBottom = '8px';
                 div.onclick = () => useMacro(m.content);
-                
+
                 div.innerHTML = `
                     <div style="flex:1; min-width:0;">
                         <div style="font-size:13px; font-weight:600; color:white; overflow:hidden; text-overflow:ellipsis;">${m.title}</div>
@@ -2646,12 +3026,12 @@
             const title = document.getElementById('macro-title').value.trim();
             const content = document.getElementById('macro-content').value.trim();
             if (!title || !content) { showNotification('Title and content required', 'error'); return; }
-            
+
             try {
                 const res = await fetch(`${API_URL}/support/macros`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({title, content})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
                 });
                 if (res.ok) {
                     showNotification('Macro saved', 'success');
@@ -2660,7 +3040,7 @@
                     document.getElementById('macro-title').value = '';
                     document.getElementById('macro-content').value = '';
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         async function deleteMacro(id) {
@@ -2668,7 +3048,7 @@
             try {
                 const res = await fetch(`${API_URL}/support/macros/${id}`, { method: 'DELETE' });
                 if (res.ok) { loadMacros(); }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         function useMacro(text) {
@@ -2685,12 +3065,12 @@
                 const file = input.files[0];
                 selectedSupportFile = file;
                 document.getElementById('selected-filename').textContent = file.name;
-                
-                let sizeStr = file.size < 1024*1024 
-                    ? (file.size/1024).toFixed(1) + ' KB' 
-                    : (file.size/(1024*1024)).toFixed(1) + ' MB';
+
+                let sizeStr = file.size < 1024 * 1024
+                    ? (file.size / 1024).toFixed(1) + ' KB'
+                    : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
                 document.getElementById('selected-filesize').textContent = sizeStr;
-                
+
                 const preview = document.getElementById('file-preview-area');
                 preview.style.display = 'flex';
                 // Adjust chat area scroll to keep footer visible
@@ -2720,7 +3100,7 @@
                     method: 'POST'
                 });
                 const data = await res.json();
-                
+
                 if (res.ok) {
                     showNotification(data.message, "success");
                 } else {
@@ -2744,7 +3124,7 @@
                     openSupportTicket(currentTicketId, subject, 'open');
                     loadSupportTickets();
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         async function deleteTicketPermanent() {
@@ -2757,14 +3137,14 @@
                     closeSupportTicketModal();
                     loadSupportTickets();
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // --- Access Grant Functions ---
         async function grantModelAccess(duration) {
             if (!currentTicketId) return;
             if (!confirm(`Grant ${duration === 'LIFETIME' ? 'Lifetime' : '30 Days'} access to this model?`)) return;
-            
+
             const tools = document.getElementById('support-grant-tools');
             const btns = tools.querySelectorAll('button');
             btns.forEach(b => b.disabled = true);
@@ -2772,8 +3152,8 @@
             try {
                 const res = await fetch(`${API_URL}/marketplace/grant-access`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ticket_id: currentTicketId, duration})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticket_id: currentTicketId, duration })
                 });
                 const data = await res.json();
                 if (res.ok) {
@@ -2783,7 +3163,7 @@
                 } else {
                     showNotification(data.error || 'Failed to grant access', 'error');
                 }
-            } catch (e) {} finally {
+            } catch (e) { } finally {
                 btns.forEach(b => b.disabled = false);
             }
         }
@@ -2791,7 +3171,7 @@
         async function closeActiveTicket() {
             if (!currentTicketId) return;
             if (!confirm("Are you sure you want to close this ticket?")) return;
-            
+
             try {
                 const res = await fetch(`${API_URL}/support/tickets/${currentTicketId}/close`, { method: 'POST' });
                 if (res.ok) {
@@ -2800,7 +3180,7 @@
                     openSupportTicket(currentTicketId, subject, 'closed');
                     loadSupportTickets();
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // --- Auth Functions --- //
@@ -2905,7 +3285,7 @@
         async function uploadNewRelease() {
             const fileInput = document.getElementById('release-upload-input');
             const statusEl = document.getElementById('upload-status');
-            
+
             if (!fileInput.files || !fileInput.files[0]) {
                 showNotification("Please select a file.", "error");
                 return;
@@ -2924,13 +3304,13 @@
                     body: formData
                 });
                 const data = await res.json();
-                
+
                 if (res.ok) {
                     showNotification("Build uploaded successfully!", "success");
                     statusEl.innerText = data.message || "Build uploaded successfully!";
                     statusEl.style.color = "var(--success)";
                     fileInput.value = "";
-                    
+
                     // Refresh version display if elements exist
                     const versionEl = document.getElementById('current-build-version');
                     if (versionEl && data.message.includes('New version:')) {
@@ -2959,7 +3339,7 @@
             document.getElementById('register-section').classList.add('hidden');
             document.getElementById('reset-request-section').classList.add('hidden');
             document.getElementById('reset-perform-section').classList.add('hidden');
-            
+
             // Header/Nav toggling
             const authNav = document.getElementById('auth-nav');
             const dashHeader = document.getElementById('dashboard-header');
@@ -2994,7 +3374,7 @@
             try {
                 const raw = localStorage.getItem('userData');
                 userData = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
-            } catch(e) { userData = {}; }
+            } catch (e) { userData = {}; }
 
             hideAll();
             const dashHeader = document.getElementById('dashboard-header');
@@ -3080,7 +3460,7 @@
             console.log(`[License Gate] Final Check -> Tab: ${pageId} | Status: ${status} | Has: ${hasLicense}`);
             console.log(`[License Gate] Checking tab: ${pageId} | Status: ${userData ? userData.status : 'null'} | HasLicense: ${hasLicense}`);
 
-            
+
             if (protectedTabs.includes(pageId) && !hasLicense) {
                 showNotification('Active License Required to access this tab.', 'error');
                 // Avoid infinite recursion if we're already trying to go to account or it fails
@@ -3155,7 +3535,7 @@
                     statusEl.innerText = data.status; // Removed (${data.type})
                     statusEl.className = "status-active";
                     statusEl.style.color = "#2ecc71";
-                    
+
                     // Expiry Countdown
                     const expTs = data.expiry_timestamp;
                     if (expTs && expTs < 9999999999) {
@@ -3246,7 +3626,7 @@
                 showNotification(data.error, 'error');
             }
         }
-        
+
         async function updateDiscordServer() {
             const input = document.getElementById('update-discord-server');
             if (!input) return;
@@ -3328,7 +3708,7 @@
                 data.own.forEach(m => {
                     const card = document.createElement('div');
                     card.className = 'model-card';
-                    
+
                     const thumb = m.thumbnail_path || '';
                     const thumbHtml = thumb ? `<img src="${thumb}" class="img-fade" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.parentElement.innerHTML='<i class=\"fas fa-brain\" style=\"font-size:24px; color:var(--glass-border);\"></i>';">` : '<i class="fas fa-brain" style="font-size:24px; color:var(--glass-border);"></i>';
 
@@ -3391,13 +3771,13 @@
             try {
                 const body = {};
                 body[field] = value;
-                
+
                 const res = await fetch(`${API_URL}/models/${modelId}/update_settings`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
-                
+
                 if (res.ok) {
                     showNotification('Model settings updated', 'success');
                 } else {
@@ -3555,7 +3935,7 @@
 
         async function showSharedUsers(modelId, btn) {
             const container = document.getElementById(`shared-users-${modelId}`);
-            
+
             // Toggle if already visible
             if (!container.classList.contains('hidden')) {
                 container.classList.add('hidden');
@@ -3566,37 +3946,37 @@
             try {
                 const res = await fetch(`${API_URL}/models/${modelId}/shared_users`);
                 const users = await res.json();
-                
+
                 if (users.length === 0) {
                     container.innerHTML = '<span style="color:var(--text-dim)">No users shared</span>';
                 } else {
                     container.innerHTML = '<div style="margin-bottom:8px; color:var(--text-dim); font-size:0.9em;">Shared with:</div><div style="display:flex; flex-wrap:wrap;"></div>';
                     const wrapper = container.querySelector('div:last-child');
-                    
-                        users.forEach(u => {
-                            const chip = document.createElement('span');
-                            chip.className = 'user-chip';
-                            
-                            let expiryHtml = "";
-                            if (u.expiry) {
-                                if (u.expiry >= 9999999999) {
-                                    expiryHtml = `<span class="expiry-info">(Lifetime)</span>`;
-                                } else {
-                                    expiryHtml = `<span class="expiry-info live-countdown" data-expiry="${u.expiry}" data-prefix="(" data-suffix=" left)"></span>`;
-                                }
-                            } else {
-                                expiryHtml = `<span class="expiry-info">(Lifetime)</span>`;
-                            }
 
-                            chip.innerHTML = `
+                    users.forEach(u => {
+                        const chip = document.createElement('span');
+                        chip.className = 'user-chip';
+
+                        let expiryHtml = "";
+                        if (u.expiry) {
+                            if (u.expiry >= 9999999999) {
+                                expiryHtml = `<span class="expiry-info">(Lifetime)</span>`;
+                            } else {
+                                expiryHtml = `<span class="expiry-info live-countdown" data-expiry="${u.expiry}" data-prefix="(" data-suffix=" left)"></span>`;
+                            }
+                        } else {
+                            expiryHtml = `<span class="expiry-info">(Lifetime)</span>`;
+                        }
+
+                        chip.innerHTML = `
                                 <span>${u.username} ${expiryHtml}</span>
                                 <span class="revoke-btn" onclick="revokeAccess(${modelId}, '${u.username}', this)" title="Revoke Access">&times;</span>
                             `;
-                            wrapper.appendChild(chip);
-                        });
-                        updateAllCountdowns(); // Initial render for new chips
-                    }
-                
+                        wrapper.appendChild(chip);
+                    });
+                    updateAllCountdowns(); // Initial render for new chips
+                }
+
                 container.classList.remove('hidden');
                 btn.innerText = 'Hide Users';
             } catch (e) {
@@ -3619,7 +3999,7 @@
                     showNotification(`Access revoked for ${username}`, "success");
                     // Remove the chip
                     el.closest('.user-chip').remove();
-                    
+
                     // If no chips left, show the "No users shared" message
                     const container = document.getElementById(`shared-users-${modelId}`);
                     const wrapper = container.querySelector('div:last-child');
@@ -3763,7 +4143,7 @@
         function renderResellerLicenses(list) {
             const tbody = document.getElementById('reseller-licenses-list');
             tbody.innerHTML = '';
-            
+
             if (!list || list.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--text-dim);">No keys allocated yet.</td></tr>';
                 return;
@@ -3772,10 +4152,10 @@
             list.forEach(l => {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid var(--glass-border)';
-                
+
                 const isClaimed = !!l.claimed_by;
                 const claimedText = isClaimed ? `<span style="color:var(--primary); font-weight:bold;">${l.claimed_by}</span>` : '<span style="color:var(--text-dim);">Unclaimed</span>';
-                
+
                 let statusText = "";
                 let statusStyle = "";
                 if (l.revoke_pending) {
@@ -3812,7 +4192,7 @@
                         timeStr = "Awaiting Admin";
                     } else {
                         const date = new Date(l.expiry * 1000);
-                        timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     }
                 }
 
@@ -4008,27 +4388,27 @@
         }
 
         // --- Live Updates ---
-        
+
         function formatTimeRemaining(seconds, isCountup = false) {
             if (!isCountup && seconds <= 0) return "Expired";
             if (isCountup && seconds < 0) return "0m";
-            
+
             const absSec = Math.abs(seconds);
             const days = Math.floor(absSec / 86400);
             const hours = Math.floor((absSec % 86400) / 3600);
             const minutes = Math.floor((absSec % 3600) / 60);
-            
+
             let parts = [];
             if (days > 0) parts.push(`${days}d`);
             if (hours > 0) parts.push(`${hours}h`);
             if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
-            
+
             return parts.join(' ');
         }
 
         function updateAllCountdowns() {
             const now = Date.now() / 1000;
-            
+
             // Countdowns (Expiry)
             document.querySelectorAll('.live-countdown').forEach(el => {
                 const expiry = parseFloat(el.getAttribute('data-expiry'));
@@ -4044,7 +4424,7 @@
                 const start = parseFloat(el.getAttribute('data-start'));
                 if (isNaN(start)) return;
                 const elapsed = now - start;
-                el.innerText = formatTimeRemaining(elapsed, true); 
+                el.innerText = formatTimeRemaining(elapsed, true);
             });
         }
 
@@ -4052,7 +4432,7 @@
         async function loadMarketplaceModels() {
             const grid = document.getElementById('marketplace-grid');
             if (grid) grid.innerHTML = '<p style="color:var(--text-dim); text-align:center; grid-column:1/-1;">Loading marketplace...</p>';
-            
+
             try {
                 const res = await fetch(`${API_URL}/marketplace/models`);
                 const data = await res.json();
@@ -4071,7 +4451,7 @@
             const nameSearch = document.getElementById('m-search-name').value.toLowerCase();
             const gameFilter = document.getElementById('m-filter-game').value.toLowerCase();
             const sortMode = document.getElementById('m-sort').value;
-            
+
             let filtered = cachedMarketplaceModels.filter(m => {
                 const displayName = (m.marketplace_name || m.name).toLowerCase();
                 const gameName = (m.marketplace_game || '').toLowerCase();
@@ -4079,7 +4459,7 @@
                 const matchesGame = !gameFilter || gameName.includes(gameFilter);
                 return matchesName && matchesGame;
             });
-            
+
             // Apply sorting
             filtered.sort((a, b) => {
                 if (sortMode === 'price-low') {
@@ -4096,7 +4476,7 @@
                     return b.id - a.id; // Newest
                 }
             });
-            
+
             renderMarketplaceModels(filtered, marketplaceCurrentUserId);
         }
 
@@ -4122,7 +4502,7 @@
             escaped = escaped.replace(/~~([^~]+)~~/g, '<del>$1</del>');
             // Quote: > text (single line)
             escaped = escaped.replace(/^&gt;\s+(.*)$/gm, '<blockquote style="border-left: 3px solid var(--primary); padding-left: 10px; margin: 5px 0; color: var(--text-dim);">$1</blockquote>');
-            
+
             // Newlines
             return escaped.replace(/\n/g, '<br>');
         }
@@ -4131,12 +4511,12 @@
             const grid = document.getElementById('marketplace-grid');
             if (!grid) return;
             grid.innerHTML = '';
-            
+
             if (!models || models.length === 0) {
                 grid.innerHTML = '<p style="color:var(--text-dim); text-align:center; grid-column:1/-1;">No models in marketplace yet.</p>';
                 return;
             }
-            
+
             models.forEach(m => {
                 const card = document.createElement('div');
                 card.className = 'card';
@@ -4144,17 +4524,17 @@
                 card.style.display = 'flex';
                 card.style.flexDirection = 'column';
                 card.style.gap = '10px';
-                
+
                 const displayName = m.marketplace_name || m.name;
                 const fullDescription = m.marketplace_description || 'No description provided.';
                 const parsedDescription = parseMarketplaceMarkdown(fullDescription);
-                
+
                 // Truncation logic: Count lines or characters. User asked for 10 lines.
                 // Simple character-based truncation as a proxy for lines in a fixed-width container.
                 const lines = fullDescription.split('\n');
                 let displayedDescription = parsedDescription;
                 let showMore = false;
-                
+
                 if (lines.length > 10 || fullDescription.length > 300) {
                     showMore = true;
                     // Truncate to first ~300 chars or 10 lines
@@ -4163,7 +4543,7 @@
                 }
 
                 const isOwnerListing = m.user_id === currentUserId;
-                
+
                 // Pricing display
                 let priceHtml = '';
                 if (m.marketplace_has_monthly) {
@@ -4215,10 +4595,10 @@
             document.getElementById('edit-m-has-lifetime').checked = !!m.marketplace_has_lifetime;
             document.getElementById('edit-m-price-monthly').value = m.marketplace_price_monthly || '';
             document.getElementById('edit-m-price-lifetime').value = m.marketplace_price_lifetime || '';
-            
+
             // Clear file input
             document.getElementById('edit-m-thumbnail').value = '';
-            
+
             // Thumbnail Preview
             const previewContainer = document.getElementById('edit-m-thumbnail-preview-container');
             const previewImg = document.getElementById('edit-m-thumbnail-preview');
@@ -4228,7 +4608,7 @@
             } else {
                 previewContainer.style.display = 'none';
             }
-            
+
             document.getElementById('marketplace-edit-modal').classList.remove('hidden');
         }
 
@@ -4241,7 +4621,7 @@
             const hasLifetime = document.getElementById('edit-m-has-lifetime').checked;
             const priceMonthly = document.getElementById('edit-m-price-monthly').value;
             const priceLifetime = document.getElementById('edit-m-price-lifetime').value;
-            
+
             // Handle Thumbnail Upload first if file selected
             const thumbInput = document.getElementById('edit-m-thumbnail');
             if (thumbInput.files && thumbInput.files[0]) {
@@ -4266,8 +4646,8 @@
                 const res = await fetch(`${API_URL}/models/${id}/marketplace_update`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        marketplace_name: name, 
+                    body: JSON.stringify({
+                        marketplace_name: name,
                         marketplace_description: desc,
                         marketplace_game: game,
                         has_monthly: hasMonthly ? 1 : 0,
@@ -4291,21 +4671,21 @@
 
         async function marketplaceTicket(modelId, category, modelName) {
             if (!isDiscordLinked() && !localStorage.getItem('isAdmin')) {
-               const modal = document.getElementById('mandatory-discord-modal');
-               if (modal) modal.classList.remove('hidden');
-               return;
+                const modal = document.getElementById('mandatory-discord-modal');
+                if (modal) modal.classList.remove('hidden');
+                return;
             }
 
             showNotification('Creating ticket for ' + modelName + '...', 'info');
-            
+
             const categoryLabel = (category === 'Buy') ? 'Sale' : 'Model Support';
             const subject = `${categoryLabel}: ${modelName}`;
             const message = `I would like to ${category.toLowerCase()} the model: ${modelName}.`;
-            
+
             try {
                 const res = await fetch(`${API_URL}/support/tickets`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         subject: subject,
                         category: categoryLabel,
@@ -4313,7 +4693,7 @@
                         model_id: modelId
                     })
                 });
-                
+
                 if (res.ok) {
                     const data = await res.json();
                     showNotification('Ticket Created Successfully', 'success');
@@ -4329,7 +4709,7 @@
                     if (modal) modal.classList.remove('hidden');
                     showNotification('Discord linking required', 'warning');
                 } else {
-                    const data = await res.json().catch(() => ({error: 'Failed to create ticket'}));
+                    const data = await res.json().catch(() => ({ error: 'Failed to create ticket' }));
                     showNotification(data.error || 'Failed to create ticket', 'error');
                 }
             } catch (e) {
@@ -4359,11 +4739,11 @@
         async function adminCreateTeam() {
             const name = prompt("Enter new team name (e.g. Team Gamma):");
             if (!name) return;
-            
+
             try {
                 const res = await fetch(`${API_URL}/admin/seller_teams`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name })
                 });
                 const data = await res.json();
@@ -4381,7 +4761,7 @@
             const list = document.getElementById('admin-sellers-list');
             if (!list) return;
             list.innerHTML = '';
-            
+
             if (sellers.length === 0) {
                 list.innerHTML = '<tr><td colspan="3" style="padding:20px; text-align:center;">No sellers found.</td></tr>';
                 return;
@@ -4409,20 +4789,26 @@
         <div class="modal-content" style="max-width: 500px; padding: 24px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h2 style="margin:0;">Edit Marketplace Listing</h2>
-                <button onclick="document.getElementById('marketplace-edit-modal').classList.add('hidden')" style="background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:20px;"><i class="fas fa-times"></i></button>
+                <button onclick="document.getElementById('marketplace-edit-modal').classList.add('hidden')"
+                    style="background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:20px;"><i
+                        class="fas fa-times"></i></button>
             </div>
-            <p style="color:var(--text-dim); font-size:13px; margin-bottom:20px;">Customize how your model appears to potential buyers.</p>
-            
+            <p style="color:var(--text-dim); font-size:13px; margin-bottom:20px;">Customize how your model appears to
+                potential buyers.</p>
+
             <input type="hidden" id="edit-m-id">
-            
+
             <div style="margin-bottom:16px;">
-                <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Display Name (on Marketplace)</label>
+                <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Display Name (on
+                    Marketplace)</label>
                 <input type="text" id="edit-m-name" placeholder="Catchy Listing Name...">
             </div>
-            
+
             <div style="margin-bottom:16px;">
-                <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Description</label>
-                <textarea id="edit-m-description" placeholder="Describe what makes this model special..." style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:80px; font-family:inherit; outline:none; resize:vertical; margin-bottom:4px;"></textarea>
+                <label
+                    style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Description</label>
+                <textarea id="edit-m-description" placeholder="Describe what makes this model special..."
+                    style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; min-height:80px; font-family:inherit; outline:none; resize:vertical; margin-bottom:4px;"></textarea>
                 <div style="font-size:10px; color:var(--text-dim); display:flex; gap:8px; flex-wrap:wrap; opacity:0.8;">
                     <span><b>**Bold**</b></span>
                     <span><i>*Italic*</i></span>
@@ -4433,15 +4819,18 @@
             </div>
 
             <div style="margin-bottom:16px;">
-                <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Game (Select or search)</label>
+                <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Game (Select or
+                    search)</label>
                 <input type="text" id="edit-m-game" list="game-list" placeholder="Select game...">
             </div>
 
             <div style="margin-bottom:16px;">
-                <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Marketplace Thumbnail</label>
+                <label style="color:var(--text-dim); font-size:12px; display:block; margin-bottom:4px;">Marketplace
+                    Thumbnail</label>
                 <div id="edit-m-thumbnail-preview-container" style="margin-bottom:12px; display:none;">
                     <div style="font-size:10px; color:var(--text-dim); margin-bottom:4px;">Current Thumbnail:</div>
-                    <img id="edit-m-thumbnail-preview" src="" style="width:120px; height:80px; object-fit:cover; border-radius:8px; border:1px solid var(--glass-border);">
+                    <img id="edit-m-thumbnail-preview" src=""
+                        style="width:120px; height:80px; object-fit:cover; border-radius:8px; border:1px solid var(--glass-border);">
                 </div>
                 <input type="file" id="edit-m-thumbnail" accept="image/*" style="width:100%; font-size:12px;">
             </div>
@@ -4453,7 +4842,8 @@
                         <input type="checkbox" id="edit-m-has-monthly">
                     </div>
                     <div style="display:flex; align-items:center; gap:4px;">
-                        <input type="number" id="edit-m-price-monthly" placeholder="0.00" step="0.01" style="margin:0; font-size:13px;">
+                        <input type="number" id="edit-m-price-monthly" placeholder="0.00" step="0.01"
+                            style="margin:0; font-size:13px;">
                         <span style="font-size:13px; color:var(--text-dim);">€</span>
                     </div>
                 </div>
@@ -4463,14 +4853,17 @@
                         <input type="checkbox" id="edit-m-has-lifetime">
                     </div>
                     <div style="display:flex; align-items:center; gap:4px;">
-                        <input type="number" id="edit-m-price-lifetime" placeholder="0.00" step="0.01" style="margin:0; font-size:13px;">
+                        <input type="number" id="edit-m-price-lifetime" placeholder="0.00" step="0.01"
+                            style="margin:0; font-size:13px;">
                         <span style="font-size:13px; color:var(--text-dim);">€</span>
                     </div>
                 </div>
             </div>
-            
+
             <div style="display:flex; gap:12px; margin-top:10px;">
-                <button class="btn-secondary" onclick="document.getElementById('marketplace-edit-modal').classList.add('hidden')" style="flex:1; margin:0;">Cancel</button>
+                <button class="btn-secondary"
+                    onclick="document.getElementById('marketplace-edit-modal').classList.add('hidden')"
+                    style="flex:1; margin:0;">Cancel</button>
                 <button onclick="saveMarketplaceUpdate()" style="flex:2; margin:0;">Save Changes</button>
             </div>
         </div>
@@ -4479,15 +4872,19 @@
     <!-- Modal: Marketplace Description Pop-out -->
     <div id="marketplace-desc-modal" class="modal hidden">
         <div class="modal-content" style="max-width: 600px; padding: 24px; max-height: 80vh; overflow-y: auto;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
                 <h2 id="desc-modal-title" style="margin:0; font-size: 20px;">Model Description</h2>
-                <button onclick="closeDescPopout()" style="background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:20px;"><i class="fas fa-times"></i></button>
+                <button onclick="closeDescPopout()"
+                    style="background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:20px;"><i
+                        class="fas fa-times"></i></button>
             </div>
-            
-            <div id="desc-modal-body" style="font-size:14px; color:var(--text-normal); line-height:1.6; white-space: pre-wrap;">
+
+            <div id="desc-modal-body"
+                style="font-size:14px; color:var(--text-normal); line-height:1.6; white-space: pre-wrap;">
                 <!-- Full description injected here -->
             </div>
-            
+
             <div style="display:flex; justify-content: flex-end; margin-top:24px;">
                 <button onclick="closeDescPopout()" style="padding: 10px 24px; margin: 0;">Close</button>
             </div>
