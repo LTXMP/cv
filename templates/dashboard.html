@@ -3565,7 +3565,7 @@
             const isOwner = userData?.is_owner || localStorage.getItem('isOwner') === 'true';
             const uiStatus = document.getElementById('status-license')?.innerText;
             const statusStr = String(userData?.status || uiStatus || 'Inactive').toLowerCase();
-            const hasLicense = (statusStr.includes('active') || isAdmin || isOwner);
+            const hasLicense = ((statusStr.includes('active') && !statusStr.includes('inactive')) || isAdmin || isOwner);
             console.log(`[License Gate] Final Check -> Tab: ${pageId} | Status: ${statusStr} | Has: ${hasLicense}`);
 
 
