@@ -3564,10 +3564,9 @@
             const isAdmin = userData?.is_admin || localStorage.getItem('isAdmin') === 'true';
             const isOwner = userData?.is_owner || localStorage.getItem('isOwner') === 'true';
             const uiStatus = document.getElementById('status-license')?.innerText;
-            const status = userData?.status || uiStatus || 'Inactive';
-            const hasLicense = (status.includes('Active') || isAdmin || isOwner);
-            console.log(`[License Gate] Final Check -> Tab: ${pageId} | Status: ${status} | Has: ${hasLicense}`);
-            console.log(`[License Gate] Checking tab: ${pageId} | Status: ${userData ? userData.status : 'null'} | HasLicense: ${hasLicense}`);
+            const statusStr = String(userData?.status || uiStatus || 'Inactive').toLowerCase();
+            const hasLicense = (statusStr.includes('active') || isAdmin || isOwner);
+            console.log(`[License Gate] Final Check -> Tab: ${pageId} | Status: ${statusStr} | Has: ${hasLicense}`);
 
 
             if (protectedTabs.includes(pageId) && !hasLicense) {
@@ -3636,6 +3635,10 @@
                     const u = localStorage.getItem('username');
                     showDashboard(u, newAdmin, newOwner, newReseller);
                 }
+
+                userData = userData || JSON.parse(localStorage.getItem('userData') || '{}');
+                userData.status = data.status || 'Inactive';
+                localStorage.setItem('userData', JSON.stringify(userData));
 
                 const statusEl = document.getElementById('status-license');
                 const expiryEl = document.getElementById('status-expiry');
