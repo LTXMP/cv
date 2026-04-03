@@ -498,11 +498,15 @@
 
     <div class="container">
         <header id="dashboard-header" style="display:none;">
-            <div>
+            <div style="display:flex; align-items:center; gap:15px;">
                 <a href="/" style="text-decoration:none;">
                     <h1 style="color:white; margin:0; font-size: 24px;">EXCLUSIVE<span
                             style="color: var(--primary); text-shadow: 0 0 15px var(--primary-glow);">AIM</span></h1>
                 </a>
+                <div style="display:flex; align-items:center; background:rgba(255,255,255,0.03); padding:4px 10px; border-radius:20px; border:1px solid rgba(255,255,255,0.05);">
+                    <span id="live-pulse-dot" class="live-indicator"></span>
+                    <span style="font-size:10px; color:var(--text-dim); font-weight:700; letter-spacing:1px; text-transform:uppercase;">Live Dashboard</span>
+                </div>
             </div>
             <div id="userInfo" style="display:flex; align-items: center; gap: 15px;">
                 <span id="usernameDisplay" style="color:var(--text-dim); font-weight: 600;">User</span>
@@ -1768,15 +1772,68 @@
 
         const API_URL = '/api';
         let userData = null;
+        let activeDashboardPage = 'account';
+        let autoRefreshTimer = null;
+        let supportMessageRefreshTimer = null;
+
         try {
             const cached = localStorage.getItem('userData');
             if (cached) userData = JSON.parse(cached);
         } catch (e) { }
 
+        // --- Auto-Refresh Manager ---
+        function startAutoRefresh() {
+            if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+            if (supportMessageRefreshTimer) clearInterval(supportMessageRefreshTimer);
+            
+            // Core Data Refresh - 15s for active view, 60s for global
+            autoRefreshTimer = setInterval(() => {
+                if (document.hidden) return; // Pause when tab is not visible
+                
+                console.log(`[AutoRefresh] Updating active page: ${activeDashboardPage}`);
+                refreshActivePage();
+                
+                // Global Sync every 2 mins (approx 8 intervals)
+                if (Date.now() % 120000 < 15000) {
+                    syncUserData(true);
+                    loadSettings();
+                }
+            }, 15000);
+
+            // Message-level refresh for open tickets (10s)
+            supportMessageRefreshTimer = setInterval(() => {
+                if (document.hidden) return;
+                if (currentTicketId && document.getElementById('support-ticket-modal').classList.contains('hidden') === false) {
+                    const titleText = document.getElementById('support-active-subject').innerText;
+                    const subject = titleText.includes(' - ') ? titleText.split(' - ')[1] : titleText;
+                    openSupportTicket(currentTicketId, subject, 'open', true);
+                }
+            }, 10000);
+        }
+
+        function refreshActivePage() {
+            switch(activeDashboardPage) {
+                case 'support': loadSupportTickets(true); break;
+                case 'admin': loadAdminData(true); break;
+                case 'reseller': loadResellerData(true); break;
+                case 'marketplace': loadMarketplaceModels(true); break;
+            }
+        }
+
+        // Handle tab visibility to save resources
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log("[AutoRefresh] Tab hidden. Pausing...");
+            } else {
+                console.log("[AutoRefresh] Tab visible. Resuming...");
+                refreshActivePage(); // Immediate refresh on return
+            }
+        });
+
 
         // --- Admin Functions ---
 
-        async function loadAdminData() {
+        async function loadAdminData(silent = false) {
             loadAdminUsers(); fetchLiveUsers();
             loadAdminModels();
             loadAdminLicenses();
@@ -2522,12 +2579,12 @@
             });
         }
 
-        async function loadSupportTickets() {
+        async function loadSupportTickets(silent = false) {
             try {
                 const res = await fetch(`${API_URL}/support/tickets`);
                 const data = await res.json();
                 renderSupportTickets(data.tickets, data.is_staff, data.is_seller_team, data.is_global_staff, data.is_admin, data.is_owner, data.current_user_id, data.user_team_id);
-                loadMacros(); // Load macros for staff/sellers
+                if (!silent) loadMacros(); // Load macros for staff/sellers
             } catch (e) {
                 console.error("Failed to load tickets", e);
             }
@@ -2833,96 +2890,106 @@
             });
         }
 
-        async function openSupportTicket(id, subject, status) {
+        async function openSupportTicket(id, subject, status, silent = false) {
             currentTicketId = id;
-            document.getElementById('support-active-subject').innerText = `Ticket #${id} - ${subject}`;
-            document.getElementById('support-ticket-modal').classList.remove('hidden');
-
-            // Show/hide Macro Sidebar internally based on role
-            const internalMacroSidebar = document.getElementById('internal-macros-sidebar');
-            if (internalMacroSidebar) {
-                internalMacroSidebar.style.display = (isCurrentUserStaff || isCurrentUserSellerTeam) ? 'flex' : 'none';
+            const modal = document.getElementById('support-ticket-modal');
+            if (!silent) {
+                document.getElementById('support-active-subject').innerText = `Ticket #${id} - ${subject}`;
+                modal.classList.remove('hidden');
             }
 
+            // Only update breadcrumb if not silent
+            if (!silent) {
+                const internalMacroSidebar = document.getElementById('internal-macros-sidebar');
+                if (internalMacroSidebar) {
+                    internalMacroSidebar.style.display = (isCurrentUserStaff || isCurrentUserSellerTeam) ? 'flex' : 'none';
+                }
+            }
+            
             const messageArea = document.getElementById('support-message-area');
-            messageArea.innerHTML = '<p style="text-align:center; color:var(--text-dim);">Loading messages...</p>';
+            if (!silent) messageArea.innerHTML = '<p style="text-align:center; color:var(--text-dim);">Loading messages...</p>';
 
             try {
                 const res = await fetch(`${API_URL}/support/tickets/${id}/messages`);
                 const ticket = await res.json();
 
-                // Show/hide Grant Tools for sellers if model_id exists
                 const grantTools = document.getElementById('support-grant-tools');
                 if (grantTools) {
                     grantTools.style.display = (isCurrentUserSellerTeam && ticket.model_id) ? 'flex' : 'none';
                 }
 
-                messageArea.innerHTML = '';
+                const currentMsgCount = messageArea.querySelectorAll('.support-msg-bubble').length;
+                if (!silent || ticket.messages.length !== currentMsgCount) {
+                    const wasAtBottom = Math.abs(messageArea.scrollHeight - messageArea.clientHeight - messageArea.scrollTop) < 50;
+                    
+                    messageArea.innerHTML = '';
 
-                // Add Proof of Purchase Notice for Buy/Weights tickets
-                if (ticket.category && (ticket.category.toLowerCase() === 'buy' || ticket.category.toLowerCase() === 'weights' || ticket.model_id)) {
-                    const noticeDiv = document.createElement('div');
-                    noticeDiv.style.background = 'rgba(255, 193, 7, 0.1)';
-                    noticeDiv.style.border = '1px solid rgba(255, 193, 7, 0.3)';
-                    noticeDiv.style.borderRadius = '10px';
-                    noticeDiv.style.padding = '15px';
-                    noticeDiv.style.marginBottom = '20px';
-                    noticeDiv.style.display = 'flex';
-                    noticeDiv.style.alignItems = 'center';
-                    noticeDiv.style.gap = '15px';
-                    noticeDiv.innerHTML = `
-                        <i class="fas fa-exclamation-triangle" style="color:#ffc107; font-size:20px;"></i>
-                        <div style="font-size:13px; color:#ffc107; line-height:1.4;">
-                            <strong style="display:block; margin-bottom:2px; font-size:14px;">Notice: Proof of Purchase Required</strong>
-                            Please always save your proof of purchase (Receipt/Transaction ID). If you are buying a model, send the proof here for faster processing!
-                        </div>
-                    `;
-                    messageArea.appendChild(noticeDiv);
-                }
-
-                ticket.messages.forEach(msg => {
-                    const isMe = msg.user_id === supportCurrentUserId;
-                    const msgDiv = document.createElement('div');
-                    msgDiv.style.alignSelf = isMe ? 'flex-end' : 'flex-start';
-                    msgDiv.style.maxWidth = '80%';
-                    msgDiv.style.padding = '12px 18px';
-                    msgDiv.style.borderRadius = '12px';
-                    msgDiv.style.background = isMe ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
-                    msgDiv.style.border = isMe ? 'none' : '1px solid var(--glass-border)';
-
-                    let content = `
-                        <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px; display:flex; justify-content:space-between; gap:20px;">
-                            <span>${msg.username} ${msg.is_support || msg.is_admin ? '(Staff)' : ''}</span>
-                            <span>${new Date(msg.created_at * 1000).toLocaleString()}</span>
-                        </div>
-                        <div style="font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-word;">${msg.message}</div>
-                    `;
-
-                    if (msg.file_path) {
-                        if (msg.is_image) {
-                            content += `<div style="margin-top:10px;"><img src="${msg.file_path}" class="img-fade" loading="lazy" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${msg.file_path}')" onerror="this.outerHTML='<div style=&quot;width:100%; height:100px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:#555; border-radius:8px; border:1px solid rgba(255,255,255,0.1);&quot;><i class=&quot;fas fa-image-slash&quot; style=&quot;font-size:32px;&quot;></i></div>';"></div>`;
-                        } else {
-                            const filename = msg.file_path.split('_').slice(2).join('_');
-                            content += `
-                                <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px; display:flex; align-items:center; gap:10px;">
-                                    <i class="fas fa-file-download" style="font-size:18px;"></i>
-                                    <div style="flex:1; font-size:12px; overflow:hidden; text-overflow:ellipsis;">${filename}</div>
-                                    <a href="${msg.file_path}" download class="btn-primary" style="padding:4px 8px; font-size:11px; margin:0;">Download</a>
-                                </div>
-                            `;
-                        }
+                    if (ticket.category && (ticket.category.toLowerCase() === 'buy' || ticket.category.toLowerCase() === 'weights' || ticket.model_id)) {
+                        const noticeDiv = document.createElement('div');
+                        noticeDiv.style.background = 'rgba(255, 193, 7, 0.1)';
+                        noticeDiv.style.border = '1px solid rgba(255, 193, 7, 0.3)';
+                        noticeDiv.style.borderRadius = '10px';
+                        noticeDiv.style.padding = '15px';
+                        noticeDiv.style.marginBottom = '20px';
+                        noticeDiv.style.display = 'flex';
+                        noticeDiv.style.alignItems = 'center';
+                        noticeDiv.style.gap = '15px';
+                        noticeDiv.innerHTML = `
+                            <i class="fas fa-exclamation-triangle" style="color:#ffc107; font-size:20px;"></i>
+                            <div style="font-size:13px; color:#ffc107; line-height:1.4;">
+                                <strong style="display:block; margin-bottom:2px; font-size:14px;">Notice: Proof of Purchase Required</strong>
+                                Please always save your proof of purchase (Receipt/Transaction ID). If you are buying a model, send the proof here for faster processing!
+                            </div>
+                        `;
+                        messageArea.appendChild(noticeDiv);
                     }
 
-                    msgDiv.innerHTML = content;
-                    messageArea.appendChild(msgDiv);
-                });
+                    ticket.messages.forEach(msg => {
+                        const isMe = msg.user_id === supportCurrentUserId;
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = 'support-msg-bubble';
+                        msgDiv.style.alignSelf = isMe ? 'flex-end' : 'flex-start';
+                        msgDiv.style.maxWidth = '80%';
+                        msgDiv.style.padding = '12px 18px';
+                        msgDiv.style.borderRadius = '12px';
+                        msgDiv.style.background = isMe ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
+                        msgDiv.style.border = isMe ? 'none' : '1px solid var(--glass-border)';
+                        msgDiv.style.marginBottom = '10px';
 
-                messageArea.scrollTop = messageArea.scrollHeight;
+                        let content = `
+                            <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px; display:flex; justify-content:space-between; gap:20px;">
+                                <span>${msg.username} ${msg.is_support || msg.is_admin ? '(Staff)' : ''}</span>
+                                <span>${new Date(msg.created_at * 1000).toLocaleString()}</span>
+                            </div>
+                            <div style="font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-word;">${msg.message}</div>
+                        `;
 
-                // Show/hide reply footer based on status
+                        if (msg.file_path) {
+                            if (msg.is_image) {
+                                content += `<div style="margin-top:10px;"><img src="${msg.file_path}" class="img-fade" loading="lazy" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${msg.file_path}')" onerror="this.outerHTML='<div style=&quot;width:100%; height:100px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:#555; border-radius:8px; border:1px solid rgba(255,255,255,0.1);&quot;><i class=&quot;fas fa-image-slash&quot; style=&quot;font-size:32px;&quot;></i></div>';"></div>`;
+                            } else {
+                                const filename = msg.file_path.split('_').slice(2).join('_');
+                                content += `
+                                    <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px; display:flex; align-items:center; gap:10px;">
+                                        <i class="fas fa-file-download" style="font-size:18px;"></i>
+                                        <div style="flex:1; font-size:12px; overflow:hidden; text-overflow:ellipsis;">${filename}</div>
+                                        <a href="${msg.file_path}" download class="btn-primary" style="padding:4px 8px; font-size:11px; margin:0;">Download</a>
+                                    </div>
+                                `;
+                            }
+                        }
+
+                        msgDiv.innerHTML = content;
+                        messageArea.appendChild(msgDiv);
+                    });
+
+                    if (wasAtBottom || !silent) {
+                        messageArea.scrollTop = messageArea.scrollHeight;
+                    }
+                }
+
                 document.getElementById('support-reply-footer').style.display = status === 'open' ? 'block' : 'none';
 
-                // Show/hide action buttons
                 if (document.getElementById('support-close-btn')) {
                     document.getElementById('support-close-btn').classList.toggle('hidden', status !== 'open');
                 }
@@ -2941,7 +3008,6 @@
                         sellerRoleTools.style.display = 'none';
                     }
                 }
-
             } catch (e) {
                 console.error("Failed to load details", e);
             }
@@ -3436,6 +3502,9 @@
             showPage('account');
             loadAccountData();
             loadSettings();
+            
+            // Start the smart refresh system
+            startAutoRefresh();
 
             if (userData && userData.is_weight_seller) {
                 const section = document.getElementById('seller-webhook-section');
@@ -3480,6 +3549,16 @@
         }
 
         function showPage(pageId) {
+            activeDashboardPage = pageId;
+            console.log(`[Navigation] Switched to ${pageId}`);
+
+             // Pulse the live indicator slightly when navigation happens
+             const dot = document.getElementById('live-pulse-dot');
+             if (dot) {
+                 dot.style.transform = 'scale(1.5)';
+                 setTimeout(() => dot.style.transform = 'scale(1)', 300);
+             }
+
             // --- License Gate ---
             const protectedTabs = ['models', 'marketplace', 'downloads'];
             const isAdmin = userData?.is_admin || localStorage.getItem('isAdmin') === 'true';
@@ -4156,18 +4235,13 @@
         }
 
         // --- Reseller Dashboard Functions ---
-        async function loadResellerData() {
+        async function loadResellerData(silent = false) {
             try {
                 const res = await fetch(`${API_URL}/reseller/licenses`);
-                if (!res.ok) {
-                    showNotification('Failed to fetch reseller licenses', 'error');
-                    return;
-                }
+                if (!res.ok) return;
                 const licenses = await res.json();
                 renderResellerLicenses(licenses);
-            } catch (e) {
-                console.error("Failed to load reseller data", e);
-            }
+            } catch (e) { }
         }
 
         function renderResellerLicenses(list) {
