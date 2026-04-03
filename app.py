@@ -1598,7 +1598,7 @@ def get_user_profile():
 # --- Discord OAuth2 Handling ---
 DISCORD_CLIENT_ID = os.environ.get('DISCORD_CLIENT_ID')
 DISCORD_CLIENT_SECRET = os.environ.get('DISCORD_CLIENT_SECRET')
-DISCORD_REDIRECT_URI = os.environ.get('DISCORD_REDIRECT_URI', 'https://xentweaks.uk/api/user/link_discord/callback')
+DISCORD_REDIRECT_URI = os.environ.get('DISCORD_REDIRECT_URI', 'https://exclusiveaim.com/api/user/link_discord/callback')
 
 @app.route('/api/user/link_discord/auth')
 @login_required
