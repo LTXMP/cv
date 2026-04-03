@@ -2005,21 +2005,17 @@
                     versionEl.innerText = d.current_version;
                 }
 
-                // Force sync user data from server to avoid perpetually stale localStorage authorizations
-                try {
-                    const profileRes = await fetch('/api/user/profile');
-                    if (profileRes.ok) {
-                        const profileData = await profileRes.json();
-                        localStorage.setItem('userData', JSON.stringify(profileData));
-                    }
-                } catch (e) { console.error("Auto-sync error:", e); }
-
                 // Update Discord Link Status
                 try {
                     const raw = localStorage.getItem('userData');
                     const parsed = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : {};
                     userData = { ...(userData || {}), ...parsed };
                 } catch (e) { console.error("Stale userData parse error"); }
+
+                // Automated User Sync (Profile/Discord Roles/Status)
+                // This ensures that user roles and Discord linking status are always fresh.
+                // We run this silenty on every load unless it was already called manually.
+                syncUserData(true);
 
                 const discordStatus = document.getElementById('discord-link-status');
                 const discordName = document.getElementById('discord-link-name');
@@ -2066,11 +2062,6 @@
                         discordBtn.style.background = '#5865F2';
                         discordBtn.onclick = () => promptDiscordLink();
 
-                        // Auto-sync once per session if not linked
-                        if (!sessionStorage.getItem('autoSynced')) {
-                            sessionStorage.setItem('autoSynced', 'true');
-                            syncUserData();
-                        }
                     }
                 }
             } catch (e) {
@@ -2103,9 +2094,9 @@
             }
         }
 
-        async function syncUserData() {
+        async function syncUserData(silent = false) {
             const btn = document.getElementById('btn-sync-discord');
-            if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            if (!silent && btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             try {
                 const res = await fetch('/api/user/profile');
                 const data = await res.json();
@@ -2117,14 +2108,50 @@
                     if (!userData.status) userData.status = currentStatus;
                     localStorage.setItem('userData', JSON.stringify(userData));
                     console.log('[License Gate] Contextual Sync complete:', userData.status);
-                    loadSettings();
-                    showNotification('Account synchronized', 'success');
+                    
+                    // Update UI to reflect fresh data
+                    // Note: We avoid recursive calls to syncUserData by passing silent=true back into loadSettings
+                    // if it were to call syncUserData again. But here we just refresh elements.
+                    refreshDiscordUI(); 
+                    
+                    if (!silent) showNotification('Account synchronized', 'success');
                 }
             } catch (e) {
                 console.error("Sync error:", e);
-                showNotification('Sync failed', 'error');
+                if (!silent) showNotification('Sync failed', 'error');
             } finally {
-                if (btn) btn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                if (!silent && btn) btn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            }
+        }
+
+        function refreshDiscordUI() {
+            if (!userData) return;
+            const discordStatus = document.getElementById('discord-link-status');
+            const discordName = document.getElementById('discord-link-name');
+            const discordBtn = document.getElementById('btn-link-discord');
+            
+            if (discordStatus && discordBtn) {
+                if (isDiscordLinked()) {
+                    discordStatus.innerText = 'Linked: ' + userData.discord_id;
+                    discordStatus.style.color = 'var(--success)';
+                    if (discordName) discordName.style.color = 'var(--success)';
+                    discordBtn.innerText = 'Unlink Discord';
+                    discordBtn.style.background = 'rgba(255,255,255,0.05)';
+                    discordBtn.onclick = () => unlinkDiscord();
+                } else {
+                    discordStatus.innerText = 'Not Linked';
+                    discordStatus.style.color = 'var(--text-dim)';
+                    if (discordName) discordName.style.color = 'var(--text-dim)';
+                    discordBtn.innerText = 'Link Discord';
+                    discordBtn.style.background = '#5865F2';
+                    discordBtn.onclick = () => promptDiscordLink();
+                }
+            }
+            
+            // Re-check seller permissions mapping
+            const sellerContainer = document.getElementById('seller-settings-container');
+            if (sellerContainer) {
+                sellerContainer.style.display = userData.is_weight_seller ? 'block' : 'none';
             }
         }
 
