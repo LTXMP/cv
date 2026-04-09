@@ -976,12 +976,8 @@ def login():
             conn.close()
             return jsonify({'error': 'Account suspended.'}), 403
 
-        # Check Email Verification with 24h Grace Period
-        is_verified = int(user.get('is_verified', 1)) == 1
-        created_at = float(user.get('created_at', 0))
-        is_new_user = time.time() - created_at < 86400 # 24h grace
-
-        if not is_verified and not is_new_user:
+        # Check Email Verification
+        if 'is_verified' in user.keys() and not user['is_verified']: # Default to True if column missing
             # Auto-send a new verification link
             c.execute("DELETE FROM email_verifications WHERE user_id=?", (user['id'],))
             token = secrets.token_urlsafe(32)
