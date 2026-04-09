@@ -1949,6 +1949,7 @@
                     tr.style.borderBottom = '1px solid var(--glass-border)';
 
                     const banStatus = u.is_banned ? '<span class="status-invalid">BANNED</span>' : '<span class="status-active">Active</span>';
+                    const verifiedStatus = (u.is_verified || u.is_verified === 1) ? '' : ' <span style="font-size:10px; color:var(--warning); opacity:0.8;">(Unverified)</span>';
                     const tooltip = `Email: ${u.email}\nLast IP: ${u.last_ip || 'None'}`;
 
 
@@ -1966,7 +1967,7 @@
                     tr.innerHTML = `
                         <td style="padding:12px;">${u.id}</td>
                         <td style="padding:12px;" title="${tooltip}">
-                            <span style="border-bottom:1px dotted var(--text-dim); cursor:help;">${u.username}</span>
+                            <span style="border-bottom:1px dotted var(--text-dim); cursor:help;">${u.username}</span>${verifiedStatus}
                         </td>
                         <td style="padding:12px; color:var(--primary); font-weight:600;">${timeStr}</td>
                         <td style="padding:12px; font-size: 13px;">${banStatus}</td>
@@ -2276,6 +2277,11 @@
         }
 
         async function toggleTrial() {
+            const btn = document.getElementById('trial-toggle-btn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Updating...';
+            btn.disabled = true;
+
             const newState = !trialEnabled;
             try {
                 const r = await fetch('/api/admin/settings', {
@@ -2285,16 +2291,20 @@
                 });
                 if (r.ok) {
                     trialEnabled = newState;
-                    const btn = document.getElementById('trial-toggle-btn');
                     btn.innerText = trialEnabled ? 'ENABLED' : 'DISABLED';
                     btn.style.background = trialEnabled ? 'var(--primary)' : '#333';
                     btn.style.color = trialEnabled ? '#000' : '#fff';
-                    showStatus('Trial setting updated!', 'success');
+                    showNotification('Trial setting updated!', 'success');
                 } else {
-                    showStatus('Failed to update trial setting.', 'error');
+                    const data = await r.json();
+                    showNotification(data.error || 'Failed to update trial setting.', 'error');
+                    btn.innerText = originalText;
                 }
             } catch (e) {
-                showStatus('Network error updating trial.', 'error');
+                showNotification('Network error updating trial.', 'error');
+                btn.innerText = originalText;
+            } finally {
+                btn.disabled = false;
             }
         }
 
