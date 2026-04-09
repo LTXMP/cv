@@ -976,8 +976,12 @@ def login():
             conn.close()
             return jsonify({'error': 'Account suspended.'}), 403
 
-        # Check Email Verification
-        if 'is_verified' in user.keys() and not user['is_verified']: # Default to True if column missing
+        # Check Email Verification with 24h Grace Period
+        is_verified = int(user.get('is_verified', 1)) == 1
+        created_at = float(user.get('created_at', 0))
+        is_new_user = time.time() - created_at < 86400 # 24h grace
+
+        if not is_verified and not is_new_user:
             # Auto-send a new verification link
             c.execute("DELETE FROM email_verifications WHERE user_id=?", (user['id'],))
             token = secrets.token_urlsafe(32)
@@ -2757,7 +2761,9 @@ def admin_list_users():
     
     c.execute("PRAGMA table_info(users)")
     cols = [r['name'] for r in c.fetchall()]
-    select_cols = "id, username, email, is_admin, is_owner, is_banned, last_ip, created_at"
+    # Added total_time and is_verified here
+    select_cols = "id, username, email, is_admin, is_owner, is_banned, is_verified, total_time, last_ip, created_at"
+    
     if 'is_reseller' in cols:
         select_cols += ", is_reseller"
     if 'is_support' in cols:
@@ -2768,12 +2774,10 @@ def admin_list_users():
         select_cols += ", seller_team_id"
 
     if search:
-        # Search closest to the query, limit to 20 for better visibility
         c.execute(f"SELECT {select_cols} FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20", 
                   (f"%{search}%", f"%{search}%"))
     else:
-        # 5 newest registrations by default
-        c.execute(f"SELECT {select_cols} FROM users ORDER BY id DESC LIMIT 5")
+        c.execute(f"SELECT {select_cols} FROM users ORDER BY id DESC LIMIT 20")
         
     users = [dict(row) for row in c.fetchall()]
     conn.close()
