@@ -2703,7 +2703,7 @@ def admin_rotate_models():
         return jsonify({'status': 'error', 'message': f'Access Error: {str(e)}', 'dir': MODEL_DIR}), 500
     
     for filename in all_files:
-        if count >= 5: break # Prevent Timeout: Process 5 at a time
+        if count >= 1: break # Process exactly ONE model at a time to prevent 502 timeouts
         if not filename.endswith('.enc'): continue
         filepath = os.path.join(MODEL_DIR, filename)
         try:
