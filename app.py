@@ -2681,6 +2681,48 @@ def admin_publish_model(model_id):
     conn.close()
     return jsonify({'message': f'Model set to {"Public" if is_public else "Private"}'})
 
+@app.route('/api/admin/rotate_all_models', methods=['POST'])
+@admin_required
+def admin_rotate_models():
+    """Migrate all models on disk from Bundle Keys to Model Keys"""
+    count = 0
+    errors = []
+    
+    # Bundle Keys (Old)
+    O_K = b'n8vR2pM4zW9xQ1tY7bC3kL0jS6fH5gD2'
+    O_I = b'u9K4m7P2n5Q8r3Z1'
+    
+    # Model Keys (New)
+    N_K = b'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8'
+    N_I = b'r5N2p8Z1v4Q7m3K9'
+    
+    for filename in os.listdir(MODEL_DIR):
+        if not filename.endswith('.enc'): continue
+        filepath = os.path.join(MODEL_DIR, filename)
+        try:
+            with open(filepath, 'rb') as f:
+                data = f.read()
+            
+            # Decrypt with BUNDLE keys (mistakenly used)
+            cipher_old = AES.new(O_K, AES.MODE_CBC, O_I)
+            raw = unpad(cipher_old.decrypt(data), AES.block_size)
+            
+            # Re-encrypt with MODEL keys (correct)
+            cipher_new = AES.new(N_K, AES.MODE_CBC, N_I)
+            new_data = cipher_new.encrypt(pad(raw, AES.block_size))
+            
+            with open(filepath, 'wb') as f:
+                f.write(new_data)
+            count += 1
+        except Exception as e:
+            errors.append(f"{filename}: {str(e)}")
+            
+    return jsonify({
+        'status': 'complete',
+        'rotated_count': count,
+        'errors': errors
+    })
+
 # ...
 
 @app.route('/api/admin/users/<int:user_id>/reset_password', methods=['POST'])
@@ -3098,7 +3140,7 @@ def upload_model():
     # Encrypt the file
     try:
         file_data = file.read()
-        cipher = AES.new(SECRET_KEY, AES.MODE_CBC, IV)
+        cipher = AES.new(MODEL_KEY, AES.MODE_CBC, MODEL_IV)
         encrypted_data = cipher.encrypt(pad(file_data, AES.block_size))
         
         # Save with .enc extension
@@ -3143,7 +3185,7 @@ def replace_model(model_id):
     # Encrypt the NEW file
     try:
         file_data = file.read()
-        cipher = AES.new(SECRET_KEY, AES.MODE_CBC, IV)
+        cipher = AES.new(MODEL_KEY, AES.MODE_CBC, MODEL_IV)
         encrypted_data = cipher.encrypt(pad(file_data, AES.block_size))
         
         # Overwrite the existing file
