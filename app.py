@@ -2712,23 +2712,28 @@ def admin_rotate_models():
             if not data: continue
             
             raw = None
-            # Try Bundle Keys
-            try:
-                cipher = AES.new(K1[0], AES.MODE_CBC, K1[1])
-                raw = unpad(cipher.decrypt(data), AES.block_size)
-            except:
-                # Try Legacy Keys
-                try:
-                    cipher = AES.new(K2[0], AES.MODE_CBC, K2[1])
-                    raw = unpad(cipher.decrypt(data), AES.block_size)
-                except Exception as ex:
-                    # v76.050: Fallback to Raw ONNX Detection
-                    # ONNX files usually start with 0x08 (magic byte)
-                    if data[0] == 0x08:
-                        raw = data
-                    else:
-                        errors.append(f"{filename}: Not a recognized encrypted file or raw ONNX (Starts with: {hex(data[0]) if data else 'Empty'})")
-                        continue
+            
+            # Check for Raw ONNX first
+            if data[0] == 0x08:
+                raw = data
+            else:
+                # Try Bundle Keys (Header Check)
+                c1 = AES.new(K1[0], AES.MODE_CBC, K1[1])
+                header1 = c1.decrypt(data[:16])
+                if header1[0] == 0x08:
+                    c1_full = AES.new(K1[0], AES.MODE_CBC, K1[1])
+                    raw = unpad(c1_full.decrypt(data), AES.block_size)
+                else:
+                    # Try Legacy Keys (Header Check)
+                    c2 = AES.new(K2[0], AES.MODE_CBC, K2[1])
+                    header2 = c2.decrypt(data[:16])
+                    if header2[0] == 0x08:
+                        c2_full = AES.new(K2[0], AES.MODE_CBC, K2[1])
+                        raw = unpad(c2_full.decrypt(data), AES.block_size)
+            
+            if raw is None:
+                errors.append(f"{filename}: All known keys failed. Header: {data[:16].hex()}")
+                continue
             
             # Re-encrypt with NEW keys
             cipher_new = AES.new(N_K, AES.MODE_CBC, N_I)
@@ -2740,8 +2745,13 @@ def admin_rotate_models():
         except Exception as e:
             errors.append(f"{filename}: {str(e)}")
             
+    summary_msg = f"Processed {count} models."
+    if errors:
+        summary_msg += f" First Error: {errors[0]}"
+    
     return jsonify({
         'status': 'complete',
+        'message': summary_msg,
         'rotated_count': count,
         'errors': errors,
         'scanned_files': all_files,
