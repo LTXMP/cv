@@ -2684,15 +2684,15 @@ def admin_publish_model(model_id):
 @app.route('/api/admin/rotate_all_models', methods=['POST'])
 @admin_required
 def admin_rotate_models():
-    """Migrate all models on disk from Bundle Keys to Model Keys"""
+    """Migrate all models on disk to the new Production Model Keys"""
     count = 0
     errors = []
     
-    # Bundle Keys (Old)
-    O_K = b'n8vR2pM4zW9xQ1tY7bC3kL0jS6fH5gD2'
-    O_I = b'u9K4m7P2n5Q8r3Z1'
+    # Candidate Old Keys
+    K1 = (b'n8vR2pM4zW9xQ1tY7bC3kL0jS6fH5gD2', b'u9K4m7P2n5Q8r3Z1') # Bundle
+    K2 = (b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f', b'H1j2K3m4N5p6Q7r8') # Legacy
     
-    # Model Keys (New)
+    # New Model Keys
     N_K = b'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8'
     N_I = b'r5N2p8Z1v4Q7m3K9'
     
@@ -2700,7 +2700,7 @@ def admin_rotate_models():
     try:
         all_files = os.listdir(MODEL_DIR)
     except Exception as e:
-        return jsonify({'status': 'error', 'message': f'Could not access MODEL_DIR: {str(e)}', 'dir': MODEL_DIR}), 500
+        return jsonify({'status': 'error', 'message': f'Access Error: {str(e)}', 'dir': MODEL_DIR}), 500
     
     for filename in all_files:
         if not filename.endswith('.enc'): continue
@@ -2709,11 +2709,21 @@ def admin_rotate_models():
             with open(filepath, 'rb') as f:
                 data = f.read()
             
-            # Decrypt with BUNDLE keys (mistakenly used)
-            cipher_old = AES.new(O_K, AES.MODE_CBC, O_I)
-            raw = unpad(cipher_old.decrypt(data), AES.block_size)
+            raw = None
+            # Try Bundle Keys
+            try:
+                cipher = AES.new(K1[0], AES.MODE_CBC, K1[1])
+                raw = unpad(cipher.decrypt(data), AES.block_size)
+            except:
+                # Try Legacy Keys
+                try:
+                    cipher = AES.new(K2[0], AES.MODE_CBC, K2[1])
+                    raw = unpad(cipher.decrypt(data), AES.block_size)
+                except Exception as ex:
+                    errors.append(f"{filename}: Decryption failed with all known keys.")
+                    continue
             
-            # Re-encrypt with MODEL keys (correct)
+            # Re-encrypt with NEW keys
             cipher_new = AES.new(N_K, AES.MODE_CBC, N_I)
             new_data = cipher_new.encrypt(pad(raw, AES.block_size))
             
