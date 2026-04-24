@@ -142,6 +142,15 @@ IV = os.environ.get('BUNDLE_MASTER_IV', 'u9K4m7P2n5Q8r3Z1').encode('utf-8')
 MODEL_KEY = os.environ.get('MODEL_MASTER_KEY', 'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8').encode('utf-8')
 MODEL_IV  = os.environ.get('MODEL_MASTER_IV', 'r5N2p8Z1v4Q7m3K9').encode('utf-8')
 
+# v76.015: Automatic Hex Support (Sync with C++ Client)
+import binascii
+if len(MODEL_KEY) == 64:
+    try: MODEL_KEY = binascii.unhexlify(MODEL_KEY)
+    except: pass
+if len(MODEL_IV) == 32:
+    try: MODEL_IV = binascii.unhexlify(MODEL_IV)
+    except: pass
+
 # Ensuring directories exist
 THUMBNAIL_FOLDER = os.path.join(MODEL_DIR, 'thumbnails')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -1134,6 +1143,7 @@ def client_auth():
     conn.commit()
     conn.close()
 
+    print(f"[AUTH-DEBUG] Sending M_KEY Prefix: {MODEL_KEY[:4].decode('utf-8', 'ignore')}... IV Prefix: {MODEL_IV[:4].decode('utf-8', 'ignore')}...", flush=True)
     return jsonify({
         'authorized': True, 
         'message': 'Authorized', 
