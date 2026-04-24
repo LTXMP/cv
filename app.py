@@ -2702,6 +2702,7 @@ def admin_rotate_models():
     # Candidate Old Keys
     K1 = (b'n8vR2pM4zW9xQ1tY7bC3kL0jS6fH5gD2', b'u9K4m7P2n5Q8r3Z1') # Bundle
     K2 = (b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f', b'H1j2K3m4N5p6Q7r8') # Legacy
+    K3 = (b'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8', b'r5N2p8Z1v4Q7m3K9') # Hardcoded Default (Fallback for mis-migration)
     
     # New Model Keys (v76.015: Sync with Environment Variables)
     N_K = MODEL_KEY
