@@ -2696,7 +2696,13 @@ def admin_rotate_models():
     N_K = b'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8'
     N_I = b'r5N2p8Z1v4Q7m3K9'
     
-    for filename in os.listdir(MODEL_DIR):
+    all_files = []
+    try:
+        all_files = os.listdir(MODEL_DIR)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Could not access MODEL_DIR: {str(e)}', 'dir': MODEL_DIR}), 500
+    
+    for filename in all_files:
         if not filename.endswith('.enc'): continue
         filepath = os.path.join(MODEL_DIR, filename)
         try:
@@ -2720,7 +2726,9 @@ def admin_rotate_models():
     return jsonify({
         'status': 'complete',
         'rotated_count': count,
-        'errors': errors
+        'errors': errors,
+        'scanned_files': all_files,
+        'model_dir': MODEL_DIR
     })
 
 # ...
