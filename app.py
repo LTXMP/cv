@@ -133,8 +133,14 @@ if '/opt/render/' in MODEL_DIR:
 else:
     print("[WARNING] DATABASE MAY BE EPHEMERAL. Ensure MODEL_DIR environment variable is set to a persistent mount point.")
 
-SECRET_KEY = b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f' # Generated Secure Key
-IV = b'H1j2K3m4N5p6Q7r8' # Generated Secure IV
+# v76.040: ADVANCED SECURITY - Multi-Key Handshake
+# Bundle Keys (n8vR...) - Used for Stealth Deployment
+SECRET_KEY = os.environ.get('BUNDLE_MASTER_KEY', 'n8vR2pM4zW9xQ1tY7bC3kL0jS6fH5gD2').encode('utf-8')
+IV = os.environ.get('BUNDLE_MASTER_IV', 'u9K4m7P2n5Q8r3Z1').encode('utf-8')
+
+# Model Keys (k3P1...) - Used for AI Inference Decryption
+MODEL_KEY = os.environ.get('MODEL_MASTER_KEY', 'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8').encode('utf-8')
+MODEL_IV  = os.environ.get('MODEL_MASTER_IV', 'r5N2p8Z1v4Q7m3K9').encode('utf-8')
 
 # Ensuring directories exist
 THUMBNAIL_FOLDER = os.path.join(MODEL_DIR, 'thumbnails')
@@ -1134,8 +1140,10 @@ def client_auth():
         'expiry': license['expiry'],
         'duration': license['duration'],
         'is_owner': int(user['is_owner'] or 0) == 1,
-        'm_key': SECRET_KEY.decode('utf-8'),
-        'm_iv': IV.decode('utf-8')
+        'b_key': SECRET_KEY.decode('utf-8'),
+        'b_iv': IV.decode('utf-8'),
+        'm_key': MODEL_KEY.decode('utf-8'),
+        'm_iv': MODEL_IV.decode('utf-8')
     })
 
 @app.route('/api/client/heartbeat', methods=['POST'])
