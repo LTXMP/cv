@@ -3017,7 +3017,7 @@ def admin_toggle_publish(model_id):
 # --- Routes: Models ---
 
 from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
+from Crypto.Util.Padding import pad, unpad
 
 @app.route('/api/models', methods=['GET'])
 @login_required
