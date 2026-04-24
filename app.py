@@ -2708,6 +2708,7 @@ def admin_rotate_models():
     N_I = MODEL_IV
     
     all_files = []
+    print(f"[ROTATE-DEBUG] Using Global Key Prefix: {MODEL_KEY[:4].decode('utf-8', 'ignore')}...", flush=True)
     try:
         all_files = os.listdir(MODEL_DIR)
     except Exception as e:
