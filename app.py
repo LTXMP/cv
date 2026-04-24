@@ -2669,6 +2669,17 @@ def admin_adjust_time():
         return jsonify({'message': f'{days:.1f} day(s) {direction} {count} license(s) for user #{user_id}'})
 
 
+@app.route('/api/admin/models/<int:model_id>/inspect', methods=['GET'])
+@admin_required
+def admin_inspect_model(model_id):
+    conn = get_db()
+    c = conn.cursor()
+    model = c.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    conn.close()
+    if model:
+        return jsonify(dict(model))
+    return jsonify({'error': 'Model not found'}), 404
+
 @app.route('/api/admin/models/<int:model_id>/publish', methods=['POST'])
 @admin_required
 def admin_publish_model(model_id):
