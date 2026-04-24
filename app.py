@@ -2709,6 +2709,8 @@ def admin_rotate_models():
             with open(filepath, 'rb') as f:
                 data = f.read()
             
+            if not data: continue
+            
             raw = None
             # Try Bundle Keys
             try:
@@ -2720,8 +2722,13 @@ def admin_rotate_models():
                     cipher = AES.new(K2[0], AES.MODE_CBC, K2[1])
                     raw = unpad(cipher.decrypt(data), AES.block_size)
                 except Exception as ex:
-                    errors.append(f"{filename}: Decryption failed with all known keys.")
-                    continue
+                    # v76.050: Fallback to Raw ONNX Detection
+                    # ONNX files usually start with 0x08 (magic byte)
+                    if data[0] == 0x08:
+                        raw = data
+                    else:
+                        errors.append(f"{filename}: Not a recognized encrypted file or raw ONNX (Starts with: {hex(data[0]) if data else 'Empty'})")
+                        continue
             
             # Re-encrypt with NEW keys
             cipher_new = AES.new(N_K, AES.MODE_CBC, N_I)
