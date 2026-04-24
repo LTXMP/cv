@@ -2703,6 +2703,7 @@ def admin_rotate_models():
         return jsonify({'status': 'error', 'message': f'Access Error: {str(e)}', 'dir': MODEL_DIR}), 500
     
     for filename in all_files:
+        if count >= 5: break # Prevent Timeout: Process 5 at a time
         if not filename.endswith('.enc'): continue
         filepath = os.path.join(MODEL_DIR, filename)
         try:
@@ -2713,18 +2714,24 @@ def admin_rotate_models():
             
             raw = None
             
-            # Check for Raw ONNX first
+            # 1. Check for New Key (Already Migrated)
+            c0 = AES.new(N_K, AES.MODE_CBC, N_I)
+            h0 = c0.decrypt(data[:16])
+            if h0[0] == 0x08:
+                continue # Already migrated
+                
+            # 2. Check for Raw ONNX
             if data[0] == 0x08:
                 raw = data
             else:
-                # Try Bundle Keys (Header Check)
+                # 3. Try Bundle Keys (Header Check)
                 c1 = AES.new(K1[0], AES.MODE_CBC, K1[1])
                 header1 = c1.decrypt(data[:16])
                 if header1[0] == 0x08:
                     c1_full = AES.new(K1[0], AES.MODE_CBC, K1[1])
                     raw = unpad(c1_full.decrypt(data), AES.block_size)
                 else:
-                    # Try Legacy Keys (Header Check)
+                    # 4. Try Legacy Keys (Header Check)
                     c2 = AES.new(K2[0], AES.MODE_CBC, K2[1])
                     header2 = c2.decrypt(data[:16])
                     if header2[0] == 0x08:
