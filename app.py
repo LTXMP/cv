@@ -855,8 +855,20 @@ def upload_release():
 
 @app.route('/api/release/download', methods=['GET'])
 def download_release():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    # v80.26: Allow download if either logged in via session OR authorized via HWID/License
+    authorized = 'user_id' in session
+    
+    hwid = request.args.get('hwid')
+    if not authorized and hwid:
+        conn = get_db()
+        # Verify HWID has an active license
+        user = conn.execute("SELECT id FROM users WHERE hwid = ? AND expiry > ?", (hwid, time.time())).fetchone()
+        if user:
+            authorized = True
+        conn.close()
+
+    if not authorized:
+        return "Unauthorized: Please login or provide a valid HWID with an active license.", 401
     
     dl_type = request.args.get('type', 'general') # 'forced', 'latest', or 'general'
     
