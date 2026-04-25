@@ -790,16 +790,21 @@ def upload_release():
     if file.filename == '':
         return jsonify({"success": False, "message": "No selected file"}), 400
 
+    upload_type = request.form.get('type', 'hotfix') # 'forced' or 'hotfix'
+
     # Ensure release directory exists
     release_dir = os.path.join(app.root_path, 'release')
     if not os.path.exists(release_dir):
         os.makedirs(release_dir)
 
-    target_path = os.path.join(release_dir, 'ExclusiveAim.zip')
+    # v76.242: Permanent Storage with Dual-Slot Persistence
+    filename = 'ExclusiveAim_Forced.zip' if upload_type == 'forced' else 'ExclusiveAim_Latest.zip'
+    target_path = os.path.join(release_dir, filename)
     
-    # Wipe previous zip if it exists
+    # Wipe previous zip for this slot if it exists
     if os.path.exists(target_path):
-        os.remove(target_path)
+        try: os.remove(target_path)
+        except: pass
 
     file.save(target_path)
     
@@ -809,33 +814,43 @@ def upload_release():
     row = c.execute("SELECT value FROM global_settings WHERE key='current_version'").fetchone()
     current_v = row['value'] if row else 'v1.0.0'
     
-    # Simple increment: v1.0.x -> v1.0.x+1
     try:
         parts = current_v.lstrip('v').split('.')
         if len(parts) == 3:
             parts[2] = str(int(parts[2]) + 1)
             new_v = 'v' + '.'.join(parts)
-        elif len(parts) == 1:
-            new_v = f"v{parts[0]}.0.1"
         else:
             new_v = current_v + ".1"
             
-        c.execute("UPDATE global_settings SET value=? WHERE key='current_version'", (new_v,))
+        # Update Versioning logic
+        if upload_type == 'forced':
+            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
+        else:
+            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+            
         conn.commit()
     except:
         new_v = current_v # Fallback
 
     conn.close()
-    return jsonify({"success": True, "message": f"Build uploaded successfully. New version: {new_v}"})
+    return jsonify({"success": True, "message": f"Build uploaded to {upload_type} slot. New version: {new_v}"})
 
 @app.route('/api/release/download', methods=['GET'])
 def download_release():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    target_path = os.path.join(app.root_path, 'release', 'ExclusiveAim.zip')
+    dl_type = request.args.get('type', 'latest') # 'forced' or 'latest'
+    filename = 'ExclusiveAim_Forced.zip' if dl_type == 'forced' else 'ExclusiveAim_Latest.zip'
+    
+    target_path = os.path.join(app.root_path, 'release', filename)
     if not os.path.exists(target_path):
-        return "No release available yet.", 404
+        # Fallback to legacy path
+        target_path = os.path.join(app.root_path, 'release', 'ExclusiveAim.zip')
+        
+    if not os.path.exists(target_path):
+        return "No release available in this slot yet.", 404
 
     return send_file(target_path, as_attachment=True)
 
@@ -859,7 +874,9 @@ def get_settings():
     # Format response for frontend compatibility
     return jsonify({
         'free_trial_enabled': settings.get('free_trial_enabled') == '1',
-        'current_version': settings.get('current_version', 'v1.0.0')
+        'current_version': settings.get('current_version', 'v1.0.0'),
+        'min_version': settings.get('min_version', 'v1.0.0'),
+        'force_update': settings.get('force_update') == '1'
     })
 
 @app.route('/api/admin/settings', methods=['POST'])
@@ -868,7 +885,7 @@ def admin_update_settings():
     data = request.json
     key = data.get('key')
     value = data.get('value')
-    if key not in ['free_trial_enabled', 'current_version']:
+    if key not in ['free_trial_enabled', 'current_version', 'min_version', 'force_update']:
         return jsonify({'error': 'Invalid setting'}), 400
     
     conn = get_db()
