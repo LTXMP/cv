@@ -790,15 +790,18 @@ def upload_release():
     if file.filename == '':
         return jsonify({"success": False, "message": "No selected file"}), 400
 
-    upload_type = request.form.get('type', 'hotfix') # 'forced' or 'hotfix'
+    upload_type = request.form.get('type', 'hotfix') # 'forced', 'hotfix', or 'general'
 
     # Ensure release directory exists
     release_dir = os.path.join(app.root_path, 'release')
     if not os.path.exists(release_dir):
         os.makedirs(release_dir)
 
-    # v76.242: Permanent Storage with Dual-Slot Persistence
-    filename = 'ExclusiveAim_Forced.zip' if upload_type == 'forced' else 'ExclusiveAim_Latest.zip'
+    # v76.242: Permanent Storage with Triple-Slot Persistence
+    if upload_type == 'forced': filename = 'ExclusiveAim_Forced.zip'
+    elif upload_type == 'hotfix': filename = 'ExclusiveAim_Latest.zip'
+    else: filename = 'ExclusiveAim.zip' # General website build
+    
     target_path = os.path.join(release_dir, filename)
     
     # Wipe previous zip for this slot if it exists
@@ -841,8 +844,11 @@ def download_release():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    dl_type = request.args.get('type', 'latest') # 'forced' or 'latest'
-    filename = 'ExclusiveAim_Forced.zip' if dl_type == 'forced' else 'ExclusiveAim_Latest.zip'
+    dl_type = request.args.get('type', 'general') # 'forced', 'latest', or 'general'
+    
+    if dl_type == 'forced': filename = 'ExclusiveAim_Forced.zip'
+    elif dl_type == 'latest': filename = 'ExclusiveAim_Latest.zip'
+    else: filename = 'ExclusiveAim.zip'
     
     target_path = os.path.join(app.root_path, 'release', filename)
     if not os.path.exists(target_path):
