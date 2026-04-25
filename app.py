@@ -776,75 +776,82 @@ def purchase():
 def reseller():
     return render_template('reseller.html')
 
-@app.route('/api/release/upload', methods=['POST'])
-def upload_release():
+@app.route('/api/release/upload_chunk', methods=['POST'])
+def upload_release_chunk():
     if 'user_id' not in session:
         return jsonify({"success": False, "message": "Unauthorized"}), 401
-    
     if not session.get('is_owner'):
         return jsonify({"success": False, "message": "Permission denied"}), 403
 
-    if 'file' not in request.files:
-        return jsonify({"success": False, "message": "No file part"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"success": False, "message": "No selected file"}), 400
-
+    file_chunk = request.files.get('file')
+    chunk_index = int(request.form.get('chunk_index', 0))
+    total_chunks = int(request.form.get('total_chunks', 1))
+    upload_id = request.form.get('upload_id', 'default')
+    upload_type = request.form.get('type', 'general')
     no_increment = request.form.get('no_increment') == 'true'
 
-    # Ensure release directory exists
-    release_dir = os.path.join(app.root_path, 'release')
-    if not os.path.exists(release_dir):
-        os.makedirs(release_dir)
+    # Temp directory for chunks
+    temp_dir = os.path.join(MODEL_DIR, 'temp_uploads', upload_id)
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    chunk_path = os.path.join(temp_dir, f"chunk_{chunk_index}")
+    file_chunk.save(chunk_path)
 
-    # v76.242: Permanent Storage with Triple-Slot Persistence
-    if upload_type == 'forced': filename = 'ExclusiveAim_Forced.zip'
-    elif upload_type == 'hotfix': filename = 'ExclusiveAim_Latest.zip'
-    else: filename = 'ExclusiveAim.zip' # General website build
-    
-    target_path = os.path.join(release_dir, filename)
-    
-    # Wipe previous zip for this slot if it exists
-    if os.path.exists(target_path):
-        try: os.remove(target_path)
-        except: pass
+    # Check if we have all chunks
+    if chunk_index == total_chunks - 1:
+        # Final Assembly
+        if upload_type == 'forced': filename = 'ExclusiveAim_Forced.zip'
+        elif upload_type == 'hotfix': filename = 'ExclusiveAim_Latest.zip'
+        else: filename = 'ExclusiveAim.zip'
 
-    file.save(target_path)
-    
-    if no_increment:
-        return jsonify({"success": True, "message": f"Build replaced in {upload_type} slot. Version remains unchanged."})
+        release_dir = os.path.join(app.root_path, 'release')
+        os.makedirs(release_dir, exist_ok=True)
+        target_path = os.path.join(release_dir, filename)
 
-    # Update Version
-    conn = get_db()
-    c = conn.cursor()
-    row = c.execute("SELECT value FROM global_settings WHERE key='current_version'").fetchone()
-    current_v = row['value'] if row else 'v1.0.0'
-    
-    try:
-        parts = current_v.lstrip('v').split('.')
-        if len(parts) == 3:
-            parts[2] = str(int(parts[2]) + 1)
-            new_v = 'v' + '.'.join(parts)
+        with open(target_path, 'wb') as target_file:
+            for i in range(total_chunks):
+                chunk_file_path = os.path.join(temp_dir, f"chunk_{i}")
+                with open(chunk_file_path, 'rb') as f:
+                    target_file.write(f.read())
+                os.remove(chunk_file_path) # Clean up chunk
+
+        os.rmdir(temp_dir) # Clean up temp dir
+
+        # Handle Versioning
+        if not no_increment:
+            conn = get_db()
+            c = conn.cursor()
+            row = c.execute("SELECT value FROM global_settings WHERE key='current_version'").fetchone()
+            current_v = row['value'] if row else 'v1.0.0'
+            try:
+                parts = current_v.lstrip('v').split('.')
+                if len(parts) == 3:
+                    parts[2] = str(int(parts[2]) + 1)
+                    new_v = 'v' + '.'.join(parts)
+                else:
+                    new_v = current_v + ".1"
+                
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                if upload_type == 'forced':
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
+                else:
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
+                conn.commit()
+            except: new_v = current_v
+            conn.close()
         else:
-            new_v = current_v + ".1"
-            
-        # Update Versioning logic with Timestamp
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        if upload_type == 'forced':
-            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
-            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
-            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
-        else:
-            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
-            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
-            
-        conn.commit()
-    except:
-        new_v = current_v # Fallback
+            new_v = "unchanged"
 
-    conn.close()
-    return jsonify({"success": True, "message": f"Build uploaded to {upload_type} slot. New version: {new_v}"})
+        return jsonify({"success": True, "message": f"Assembly complete! {upload_type} build deployed as {new_v}"})
+
+    return jsonify({"success": True, "message": f"Chunk {chunk_index} received"})
+
+@app.route('/api/release/upload', methods=['POST'])
+def upload_release():
+    return jsonify({"success": False, "message": "Please use chunked upload for large builds."}), 400
 
 @app.route('/api/release/download', methods=['GET'])
 def download_release():
