@@ -975,20 +975,38 @@
 
                     <!-- Owner-Only Upload Section -->
                     <div id="admin-upload-section" class="card"
-                        style="display: none; border: 1px dashed var(--primary); margin-top: 30px;">
-                        <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-upload"
-                                style="margin-right: 10px;"></i>Owner: Upload New Build</h3>
-                        <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 20px;">Uploading a new file
-                            will automatically <strong>delete the previous version</strong>. Only .zip files are
-                            accepted.</p>
-
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <input type="file" id="release-upload-input" accept=".zip"
-                                style="margin: 0; background: rgba(0,0,0,0.3); padding: 8px;">
-                            <button onclick="uploadNewRelease()" class="btn-primary"
-                                style="width: auto; padding: 0 20px; white-space: nowrap;">Upload Build</button>
+                        style="display: none; border: 1px solid var(--primary); background: rgba(0,255,213,0.02); margin-top: 30px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                            <div>
+                                <h3 style="color: var(--primary); margin: 0;"><i class="fas fa-cloud-upload-alt"
+                                        style="margin-right: 10px;"></i>Build Deployment</h3>
+                                <p style="font-size: 11px; color: var(--text-dim); margin: 5px 0 0 0;">Live Version: <span id="current-build-version" style="color: var(--primary); font-weight: 800; font-family: monospace;">v1.0.0</span></p>
+                            </div>
+                            <div class="status-badge active" style="background: rgba(0, 255, 213, 0.1); border-color: rgba(0, 255, 213, 0.3); color: var(--primary) !important;">OWNER PRIVILEGES</div>
                         </div>
-                        <div id="upload-status" style="margin-top: 15px; font-size: 13px;"></div>
+
+                        <div style="margin: 20px 0; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">Select a .zip build and choose the deployment category.</p>
+                            <input type="file" id="release-upload-input" accept=".zip"
+                                style="width: 100%; margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <button onclick="uploadNewRelease('forced')" class="btn-primary"
+                                    style="padding: 10px; background: #ef4444; border: none; font-size: 10px;">PUSH AS MANDATORY</button>
+                                <button onclick="uploadNewRelease('hotfix')" class="btn-primary"
+                                    style="padding: 10px; background: var(--primary); color: #000; border: none; font-size: 10px;">PUSH AS HOTFIX</button>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: rgba(239, 68, 68, 0.05); border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.1);">
+                            <div>
+                                <p style="font-weight: 700; font-size: 13px; margin: 0; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">Enforce Mandatory Update</p>
+                                <p style="font-size: 11px; color: var(--text-dim); margin: 2px 0 0 0;">Block users from using the loader until they download this version.</p>
+                            </div>
+                            <button id="force-update-btn" onclick="toggleForceUpdate()"
+                                style="width: 100px; margin: 0; font-size: 11px; font-weight: 800; border: none; border-radius: 4px; padding: 8px; cursor: pointer; transition: 0.3s; background: #333; color: #fff;">DISABLED</button>
+                        </div>
+                        <div id="upload-status" style="margin-top: 15px; font-size: 12px; font-family: monospace;"></div>
                     </div>
 
                     <!-- Prerequisites Grid -->
@@ -2045,16 +2063,25 @@
         }
 
         let trialEnabled = false;
+        let forceUpdateEnabled = false;
         async function loadSettings() {
             try {
                 const r = await fetch('/api/settings');
                 const d = await r.json();
                 trialEnabled = d.free_trial_enabled;
+                forceUpdateEnabled = d.force_update;
                 const btn = document.getElementById('trial-toggle-btn');
                 if (btn) {
                     btn.innerText = trialEnabled ? 'ENABLED' : 'DISABLED';
                     btn.style.background = trialEnabled ? 'var(--primary)' : '#333';
                     btn.style.color = trialEnabled ? '#000' : '#fff';
+                }
+                
+                const forceBtn = document.getElementById('force-update-btn');
+                if (forceBtn) {
+                    forceBtn.innerText = forceUpdateEnabled ? 'ENABLED' : 'DISABLED';
+                    forceBtn.style.background = forceUpdateEnabled ? 'var(--primary)' : '#333';
+                    forceBtn.style.color = forceUpdateEnabled ? '#000' : '#fff';
                 }
 
                 // Display version
@@ -2302,6 +2329,49 @@
                 }
             } catch (e) {
                 showNotification('Network error updating trial.', 'error');
+                btn.innerText = originalText;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function toggleForceUpdate() {
+            const btn = document.getElementById('force-update-btn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Updating...';
+            btn.disabled = true;
+
+            const newState = !forceUpdateEnabled;
+            // v76.242: Use the current displayed version as the new mandatory baseline
+            const currentV = document.getElementById('current-build-version').innerText;
+            
+            try {
+                // Update both flags to maintain sync
+                const r1 = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'force_update', value: newState ? 1 : 0 })
+                });
+
+                const r2 = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'min_version', value: newState ? currentV : 'v1.0.0' })
+                });
+
+                if (r1.ok && r2.ok) {
+                    forceUpdateEnabled = newState;
+                    btn.innerText = forceUpdateEnabled ? 'ENABLED' : 'DISABLED';
+                    btn.style.background = forceUpdateEnabled ? '#ef4444' : '#333';
+                    btn.style.color = '#fff';
+                    showNotification(forceUpdateEnabled ? 'Current version marked as MANDATORY.' : 'Mandatory requirement removed.', 'success');
+                } else {
+                    const data = await r.json();
+                    showNotification(data.error || 'Failed to update setting.', 'error');
+                    btn.innerText = originalText;
+                }
+            } catch (e) {
+                showNotification('Network error', 'error');
                 btn.innerText = originalText;
             } finally {
                 btn.disabled = false;
@@ -3388,7 +3458,7 @@
 
         // ...
 
-        async function uploadNewRelease() {
+        async function uploadNewRelease(type) {
             const fileInput = document.getElementById('release-upload-input');
             const statusEl = document.getElementById('upload-status');
 
@@ -3400,8 +3470,9 @@
             const file = fileInput.files[0];
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('type', type);
 
-            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading build...';
+            statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Uploading ${type} build...`;
             statusEl.style.color = 'var(--primary)';
 
             try {
