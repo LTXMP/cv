@@ -804,18 +804,26 @@ def upload_release_chunk():
         elif upload_type == 'hotfix': filename = 'ExclusiveAim_Latest.zip'
         else: filename = 'ExclusiveAim.zip'
 
-        release_dir = os.path.join(app.root_path, 'release')
+        # v80.26: Move Release storage to PERSISTENT MODEL_DIR (Fixes vanishing builds on Render)
+        release_dir = os.path.join(MODEL_DIR, 'release')
         os.makedirs(release_dir, exist_ok=True)
         target_path = os.path.join(release_dir, filename)
+
+        # v80.26: Explicitly remove old file to ensure clean replacement of the slot
+        if os.path.exists(target_path):
+            try: os.remove(target_path)
+            except: pass
 
         with open(target_path, 'wb') as target_file:
             for i in range(total_chunks):
                 chunk_file_path = os.path.join(temp_dir, f"chunk_{i}")
-                with open(chunk_file_path, 'rb') as f:
-                    target_file.write(f.read())
-                os.remove(chunk_file_path) # Clean up chunk
+                if os.path.exists(chunk_file_path):
+                    with open(chunk_file_path, 'rb') as f:
+                        target_file.write(f.read())
+                    os.remove(chunk_file_path) # Clean up chunk
 
-        os.rmdir(temp_dir) # Clean up temp dir
+        import shutil
+        shutil.rmtree(temp_dir, ignore_errors=True) # Clean up temp dir
 
         # Handle Versioning
         if not no_increment:
@@ -861,9 +869,9 @@ def download_release():
     hwid = request.args.get('hwid')
     if not authorized and hwid:
         conn = get_db()
-        # Verify HWID has an active license
-        user = conn.execute("SELECT id FROM users WHERE hwid = ? AND expiry > ?", (hwid, time.time())).fetchone()
-        if user:
+        # Verify HWID has an active license in the LICENSES table
+        lic = conn.execute("SELECT user_id FROM licenses WHERE hwid = ? AND expiry > ?", (hwid, time.time())).fetchone()
+        if lic:
             authorized = True
         conn.close()
 
@@ -876,11 +884,16 @@ def download_release():
     elif dl_type == 'latest': filename = 'ExclusiveAim_Latest.zip'
     else: filename = 'ExclusiveAim.zip'
     
-    target_path = os.path.join(app.root_path, 'release', filename)
+    # v80.26: Look for release in PERSISTENT MODEL_DIR
+    target_path = os.path.join(MODEL_DIR, 'release', filename)
     if not os.path.exists(target_path):
-        # Fallback to legacy path
-        target_path = os.path.join(app.root_path, 'release', 'ExclusiveAim.zip')
+        # Fallback to legacy path in app root
+        target_path = os.path.join(app.root_path, 'release', filename)
         
+    if not os.path.exists(target_path):
+        # Universal fallback
+        target_path = os.path.join(MODEL_DIR, 'release', 'ExclusiveAim.zip')
+
     if not os.path.exists(target_path):
         return "No release available in this slot yet.", 404
 
