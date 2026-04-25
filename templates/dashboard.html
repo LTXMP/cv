@@ -3468,46 +3468,60 @@
                 return;
             }
 
+            const file = fileInput.files[0];
             const noIncrement = document.getElementById('no-increment-check')?.checked || false;
             
-            const file = fileInput.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('type', type);
-            formData.append('no_increment', noIncrement);
+            // v80.26: Bulletproof Chunked Upload (5MB chunks)
+            const CHUNK_SIZE = 5 * 1024 * 1024; 
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            const uploadId = Math.random().toString(36).substring(7);
 
-            statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Uploading ${type} build...`;
-            statusEl.style.color = 'var(--primary)';
+            statusEl.innerHTML = `
+                <div style="margin-bottom: 10px; color: var(--primary);">
+                    <i class="fas fa-spinner fa-spin"></i> Initializing Chunked Upload... <span id="upload-pct">0%</span>
+                </div>
+                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                    <div id="upload-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                </div>
+            `;
 
-            try {
-                const res = await fetch('/api/release/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
 
-                if (res.ok) {
-                    showNotification("Build uploaded successfully!", "success");
-                    statusEl.innerText = data.message || "Build uploaded successfully!";
-                    statusEl.style.color = "var(--success)";
-                    fileInput.value = "";
+                const formData = new FormData();
+                formData.append('file', chunk);
+                formData.append('chunk_index', i);
+                formData.append('total_chunks', totalChunks);
+                formData.append('upload_id', uploadId);
+                formData.append('type', type);
+                formData.append('no_increment', noIncrement);
 
-                    // Refresh version display if elements exist
-                    const versionEl = document.getElementById('current-build-version');
-                    if (versionEl && data.message.includes('New version:')) {
-                        const newV = data.message.split('New version: ')[1];
-                        versionEl.innerText = newV;
+                try {
+                    const res = await fetch('/api/release/upload_chunk', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) throw new Error(data.message || "Chunk failed");
+
+                    const pct = Math.round(((i + 1) / totalChunks) * 100);
+                    document.getElementById('upload-pct').innerText = pct + '%';
+                    document.getElementById('upload-progress-bar').style.width = pct + '%';
+
+                    if (i === totalChunks - 1) {
+                        showNotification("Build deployed successfully!", "success");
+                        statusEl.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> ${data.message}</span>`;
+                        fileInput.value = "";
                     }
-                } else {
-                    showNotification(data.message || "Upload failed", "error");
-                    statusEl.innerText = data.message || "Upload failed";
-                    statusEl.style.color = "var(--error)";
+                } catch (e) {
+                    console.error("Chunk upload error:", e);
+                    showNotification("Upload failed at chunk " + i, "error");
+                    statusEl.innerHTML = `<span style="color: var(--error);">Error: ${e.message}</span>`;
+                    return;
                 }
-            } catch (e) {
-                console.error("Upload error:", e);
-                showNotification("Network error during upload.", "error");
-                statusEl.innerText = "Network error.";
-                statusEl.style.color = "var(--error)";
             }
         }
 
