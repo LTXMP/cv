@@ -25,6 +25,7 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key_change_m
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'None' # Required for cross-site redirects on Render
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # v80.26: Allow 1GB uploads for bundles
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
 REST_HEADERS = {
