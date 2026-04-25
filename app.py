@@ -790,7 +790,7 @@ def upload_release():
     if file.filename == '':
         return jsonify({"success": False, "message": "No selected file"}), 400
 
-    upload_type = request.form.get('type', 'hotfix') # 'forced', 'hotfix', or 'general'
+    no_increment = request.form.get('no_increment') == 'true'
 
     # Ensure release directory exists
     release_dir = os.path.join(app.root_path, 'release')
@@ -811,6 +811,9 @@ def upload_release():
 
     file.save(target_path)
     
+    if no_increment:
+        return jsonify({"success": True, "message": f"Build replaced in {upload_type} slot. Version remains unchanged."})
+
     # Update Version
     conn = get_db()
     c = conn.cursor()
@@ -825,12 +828,15 @@ def upload_release():
         else:
             new_v = current_v + ".1"
             
-        # Update Versioning logic
+        # Update Versioning logic with Timestamp
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         if upload_type == 'forced':
             c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
             c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
+            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
         else:
             c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
             
         conn.commit()
     except:
@@ -882,6 +888,8 @@ def get_settings():
         'free_trial_enabled': settings.get('free_trial_enabled') == '1',
         'current_version': settings.get('current_version', 'v1.0.0'),
         'min_version': settings.get('min_version', 'v1.0.0'),
+        'last_update_forced': settings.get('last_update_forced', '2026-04-25 12:00'),
+        'last_update_hotfix': settings.get('last_update_hotfix', '2026-04-25 12:00'),
         'force_update': settings.get('force_update') == '1'
     })
 
