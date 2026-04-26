@@ -811,8 +811,8 @@ def upload_release_chunk():
         else: 
             filename = 'ExclusiveAim_Mandatory.zip' # Default to mandatory if unknown
 
-        # v80.26: Move Release storage to PERSISTENT MODEL_DIR (Fixes vanishing builds on Render)
-        release_dir = os.path.join(MODEL_DIR, 'release')
+        # v80.58: Moved back to non-persistent BASE_DIR to save disk space
+        release_dir = os.path.join(BASE_DIR, 'release')
         os.makedirs(release_dir, exist_ok=True)
         target_path = os.path.join(release_dir, filename)
 
@@ -895,8 +895,8 @@ def download_release():
     elif dl_type == 'website': filename = 'ExclusiveAim_Loader.zip'
     else: filename = 'ExclusiveAim.zip'
     
-    # v80.26: Look for release in PERSISTENT MODEL_DIR
-    target_path = os.path.join(MODEL_DIR, 'release', filename)
+    # v80.58: Look for release in non-persistent BASE_DIR
+    target_path = os.path.join(BASE_DIR, 'release', filename)
     if not os.path.exists(target_path):
         # v80.35: Removed poisonous universal fallback to ExclusiveAim.zip
         # This prevents the Loader from getting the 'Website' upload if 'Mandatory' is missing.
@@ -948,6 +948,47 @@ def admin_update_settings():
     conn.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", (key, str(value)))
     conn.commit()
     conn.close()
+    return jsonify({'success': True})
+
+@app.route('/api/admin/maintenance/purge', methods=['POST'])
+@owner_required
+def admin_purge_cache():
+    """Manual purge of all temp uploads and releases to free space."""
+    import shutil
+    count = 0
+    data = request.json or {}
+    purge_recordings = data.get('purge_recordings', False)
+    
+    # 1. Purge Temp Uploads
+    temp_dir = os.path.join(MODEL_DIR, 'temp_uploads')
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        os.makedirs(temp_dir, exist_ok=True)
+        count += 1
+        
+    # 2. Purge Releases (non-persistent)
+    release_dir = os.path.join(BASE_DIR, 'release')
+    if os.path.exists(release_dir):
+        shutil.rmtree(release_dir, ignore_errors=True)
+        os.makedirs(release_dir, exist_ok=True)
+        count += 1
+        
+    # 3. Purge OLD Persistent Releases (v80.26 leak cleanup)
+    old_release_dir = os.path.join(MODEL_DIR, 'release')
+    if os.path.exists(old_release_dir):
+        shutil.rmtree(old_release_dir, ignore_errors=True)
+        count += 1
+
+    # 4. Optional: Purge Recordings & Snapshots (Heavy data)
+    if purge_recordings:
+        for folder in ['recordings', 'snapshots']:
+            path = os.path.join(MODEL_DIR, folder)
+            if os.path.exists(path):
+                shutil.rmtree(path, ignore_errors=True)
+                os.makedirs(path, exist_ok=True)
+                count += 1
+        
+    return jsonify({'success': True, 'message': f'Purged {count} storage zones (including legacy persistent builds).'})
     return jsonify({'message': 'Setting updated'})
 
 
