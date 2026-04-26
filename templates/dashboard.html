@@ -1189,6 +1189,21 @@
                             <p style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 5px;">
                                 Click to copy</p>
                         </div>
+
+                        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                            <h3 style="margin-bottom: 10px; font-size: 16px; color: var(--error);">Maintenance</h3>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); cursor: pointer;">
+                                    <input type="checkbox" id="purge-recordings-check" style="cursor: pointer;">
+                                    ALSO PURGE ALL RECORDINGS & SNAPSHOTS
+                                </label>
+                            </div>
+                            <button onclick="purgeBuildCache()" 
+                                style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; font-size: 11px; padding: 10px; width: 100%;">
+                                <i class="fas fa-trash-alt"></i> PURGE STORAGE (FREE DISK)
+                            </button>
+                            <p style="font-size: 9px; color: var(--text-dim); margin-top: 8px;">Deletes all temp chunks, releases, and optional data.</p>
+                        </div>
                     </div>
 
                     <div class="card">
@@ -1783,6 +1798,30 @@
     <div id="notification" class="notification"></div>
 
     <script>
+
+        async function purgeBuildCache() {
+            const purgeRecordings = document.getElementById('purge-recordings-check').checked;
+            let msg = "Are you sure you want to PURGE all build cache? This will delete all temp chunks and temporary ZIP files.";
+            if (purgeRecordings) msg += "\n\nWARNING: THIS WILL ALSO DELETE ALL RECORDINGS AND SNAPSHOTS!";
+            
+            if (!confirm(msg)) return;
+            
+            try {
+                const res = await fetch('/api/admin/maintenance/purge', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ purge_recordings: purgeRecordings })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("SUCCESS: " + data.message);
+                } else {
+                    alert("ERROR: " + (data.error || data.message));
+                }
+            } catch (e) {
+                alert("Network error purging cache.");
+            }
+        }
 
         window.onerror = function (msg, url, lineNo, columnNo, error) {
             console.log("%c[GLOBAL ERROR] " + msg + " at " + lineNo + ":" + columnNo, "color: red; font-weight: bold;");
