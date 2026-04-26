@@ -800,8 +800,10 @@ def upload_release_chunk():
     # Check if we have all chunks
     if chunk_index == total_chunks - 1:
         # Final Assembly
-        if upload_type == 'forced': filename = 'ExclusiveAim_Forced.zip'
-        elif upload_type == 'hotfix': filename = 'ExclusiveAim_Latest.zip'
+        # Final Assembly
+        if upload_type == 'mandatory': filename = 'ExclusiveAim_Mandatory.zip'
+        elif upload_type == 'hotfix': filename = 'ExclusiveAim_Hotfix.zip'
+        elif upload_type == 'website': filename = 'ExclusiveAim_Loader.zip'
         else: filename = 'ExclusiveAim.zip'
 
         # v80.26: Move Release storage to PERSISTENT MODEL_DIR (Fixes vanishing builds on Render)
@@ -840,22 +842,25 @@ def upload_release_chunk():
                     new_v = current_v + ".1"
                 
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-                if upload_type == 'forced':
+                if (upload_type == 'mandatory'):
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
-                else:
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'mandatory'))
+                elif (upload_type == 'hotfix'):
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'hotfix'))
+                # Note: 'website' uploads do not increment the engine version
                 conn.commit()
             except: new_v = current_v
             conn.close()
         else:
             new_v = "unchanged"
 
-        return jsonify({"success": True, "message": f"Assembly complete! {upload_type} build deployed as {new_v}"})
+        return jsonify({"success": True, "message": "Upload complete", "version": new_v}), 200
 
-    return jsonify({"success": True, "message": f"Chunk {chunk_index} received"})
+    return jsonify({"success": True, "message": f"Chunk {chunk_index} received"}), 200
 
 @app.route('/api/release/upload', methods=['POST'])
 def upload_release():
@@ -878,10 +883,11 @@ def download_release():
     if not authorized:
         return "Unauthorized: Please login or provide a valid HWID with an active license.", 401
     
-    dl_type = request.args.get('type', 'general') # 'forced', 'latest', or 'general'
+    dl_type = request.args.get('type', 'mandatory') # 'mandatory', 'hotfix', or 'website'
     
-    if dl_type == 'forced': filename = 'ExclusiveAim_Forced.zip'
-    elif dl_type == 'latest': filename = 'ExclusiveAim_Latest.zip'
+    if dl_type == 'mandatory': filename = 'ExclusiveAim_Mandatory.zip'
+    elif dl_type == 'hotfix': filename = 'ExclusiveAim_Hotfix.zip'
+    elif dl_type == 'website': filename = 'ExclusiveAim_Loader.zip'
     else: filename = 'ExclusiveAim.zip'
     
     # v80.26: Look for release in PERSISTENT MODEL_DIR
@@ -923,7 +929,8 @@ def get_settings():
         'min_version': settings.get('min_version', 'v1.0.0'),
         'last_update_forced': settings.get('last_update_forced', '2026-04-25 12:00'),
         'last_update_hotfix': settings.get('last_update_hotfix', '2026-04-25 12:00'),
-        'force_update': settings.get('force_update') == '1'
+        'force_update': settings.get('force_update') == '1',
+        'latest_build_type': settings.get('latest_build_type', 'mandatory')
     })
 
 @app.route('/api/admin/settings', methods=['POST'])
