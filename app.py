@@ -157,9 +157,23 @@ THUMBNAIL_FOLDER = os.path.join(MODEL_DIR, 'thumbnails')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
 
+def cleanup_server_storage():
+    """v80.60: Auto-sweep big bloat folders on startup."""
+    import shutil
+    targets = ['recordings', 'snapshots', 'temp_uploads', 'support']
+    for folder in targets:
+        path = os.path.join(MODEL_DIR, folder)
+        if os.path.exists(path):
+            print(f"[CLEANUP] Purging legacy folder: {path}")
+            shutil.rmtree(path, ignore_errors=True)
+            os.makedirs(path, exist_ok=True)
+    # NOTE: We NO LONGER wipe the 'release' folder in MODEL_DIR because 
+    # the user uploads ZIPs there that must persist.
+
 try:
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
+    cleanup_server_storage() # Trigger immediate cleanup
     SUPPORT_UPLOAD_FOLDER = os.path.join(MODEL_DIR, 'support')
     SUPPORT_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'pdf', 'zip', 'rar'}
     os.makedirs(SUPPORT_UPLOAD_FOLDER, exist_ok=True)
@@ -811,8 +825,8 @@ def upload_release_chunk():
         else: 
             filename = 'ExclusiveAim_Mandatory.zip' # Default to mandatory if unknown
 
-        # v80.58: Moved back to non-persistent BASE_DIR to save disk space
-        release_dir = os.path.join(BASE_DIR, 'release')
+        # v80.60: Moved BACK to persistent MODEL_DIR to ensure ZIPs survive restarts
+        release_dir = os.path.join(MODEL_DIR, 'release')
         os.makedirs(release_dir, exist_ok=True)
         target_path = os.path.join(release_dir, filename)
 
@@ -975,11 +989,24 @@ def admin_purge_cache():
         
     # 3. Purge OLD Persistent Releases (v80.26 leak cleanup)
     old_release_dir = os.path.join(MODEL_DIR, 'release')
-    if os.path.exists(old_release_dir):
-        shutil.rmtree(old_release_dir, ignore_errors=True)
+    purge_support = data.get('purge_support', False)
+        
+    count = 0
+        
+    # Purge Release bundles (Wipe the folder to clear ANY legacy versioned ZIPS)
+    rel_path = os.path.join(MODEL_DIR, 'release')
+    if os.path.exists(rel_path):
+        shutil.rmtree(rel_path, ignore_errors=True)
+        os.makedirs(rel_path, exist_ok=True)
         count += 1
 
-    # 4. Optional: Purge Recordings & Snapshots (Heavy data)
+    # Purge Temp Uploads
+    temp_path = os.path.join(MODEL_DIR, 'temp_uploads')
+    if os.path.exists(temp_path):
+        shutil.rmtree(temp_path, ignore_errors=True)
+        os.makedirs(temp_path, exist_ok=True)
+        count += 1
+
     if purge_recordings:
         for folder in ['recordings', 'snapshots']:
             path = os.path.join(MODEL_DIR, folder)
@@ -987,12 +1014,15 @@ def admin_purge_cache():
                 shutil.rmtree(path, ignore_errors=True)
                 os.makedirs(path, exist_ok=True)
                 count += 1
-        
-    return jsonify({'success': True, 'message': f'Purged {count} storage zones (including legacy persistent builds).'})
-    return jsonify({'message': 'Setting updated'})
 
+    if purge_support:
+        path = os.path.join(MODEL_DIR, 'support')
+        if os.path.exists(path):
+            shutil.rmtree(path, ignore_errors=True)
+            os.makedirs(path, exist_ok=True)
+            count += 1
 
-@app.route('/health')
+    return jsonify({"success": True, "message": f"Storage purged! Cleared {count} major bloat categories."})
 def health_check():
     return jsonify({'status': 'ok', 'timestamp': time.time()})
 
