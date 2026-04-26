@@ -801,10 +801,15 @@ def upload_release_chunk():
     if chunk_index == total_chunks - 1:
         # Final Assembly
         # Final Assembly
-        if upload_type == 'mandatory': filename = 'ExclusiveAim_Mandatory.zip'
-        elif upload_type == 'hotfix': filename = 'ExclusiveAim_Hotfix.zip'
-        elif upload_type == 'website': filename = 'ExclusiveAim_Loader.zip'
-        else: filename = 'ExclusiveAim.zip'
+        # v80.35: Explicit mapping with aliases for robustness
+        if upload_type in ['mandatory', 'forced']: 
+            filename = 'ExclusiveAim_Mandatory.zip'
+        elif upload_type == 'hotfix': 
+            filename = 'ExclusiveAim_Hotfix.zip'
+        elif upload_type in ['website', 'general']: 
+            filename = 'ExclusiveAim_Loader.zip'
+        else: 
+            filename = 'ExclusiveAim_Mandatory.zip' # Default to mandatory if unknown
 
         # v80.26: Move Release storage to PERSISTENT MODEL_DIR (Fixes vanishing builds on Render)
         release_dir = os.path.join(MODEL_DIR, 'release')
@@ -893,12 +898,9 @@ def download_release():
     # v80.26: Look for release in PERSISTENT MODEL_DIR
     target_path = os.path.join(MODEL_DIR, 'release', filename)
     if not os.path.exists(target_path):
-        # Fallback to legacy path in app root
-        target_path = os.path.join(app.root_path, 'release', filename)
-        
-    if not os.path.exists(target_path):
-        # Universal fallback
-        target_path = os.path.join(MODEL_DIR, 'release', 'ExclusiveAim.zip')
+        # v80.35: Removed poisonous universal fallback to ExclusiveAim.zip
+        # This prevents the Loader from getting the 'Website' upload if 'Mandatory' is missing.
+        return "No release available in this specific slot yet.", 404
 
     if not os.path.exists(target_path):
         return "No release available in this slot yet.", 404
