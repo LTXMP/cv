@@ -160,15 +160,14 @@ app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
 def cleanup_server_storage():
     """v80.60: Auto-sweep big bloat folders on startup."""
     import shutil
-    targets = ['recordings', 'snapshots', 'temp_uploads', 'support']
+    targets = ['recordings', 'snapshots', 'temp_uploads', 'support', 'release']
     for folder in targets:
-        path = os.path.join(MODEL_DIR, folder)
+        path = os.path.join(MODEL_DIR, folder) if folder != 'release' else os.path.join(BASE_DIR, 'release')
         if os.path.exists(path):
-            print(f"[CLEANUP] Purging legacy folder: {path}")
+            print(f"[CLEANUP] Purging ephemeral folder: {path}")
             shutil.rmtree(path, ignore_errors=True)
             os.makedirs(path, exist_ok=True)
-    # NOTE: We NO LONGER wipe the 'release' folder in MODEL_DIR because 
-    # the user uploads ZIPs there that must persist.
+    # NOTE: 'release' is now wiped on startup as requested for ephemeral builds.
 
 try:
     os.makedirs(MODEL_DIR, exist_ok=True)
@@ -825,8 +824,8 @@ def upload_release_chunk():
         else: 
             filename = 'ExclusiveAim_Mandatory.zip' # Default to mandatory if unknown
 
-        # v80.60: Moved BACK to persistent MODEL_DIR to ensure ZIPs survive restarts
-        release_dir = os.path.join(MODEL_DIR, 'release')
+        # v80.60: Moved to BASE_DIR for ephemeral storage (wiped on restart)
+        release_dir = os.path.join(BASE_DIR, 'release')
         os.makedirs(release_dir, exist_ok=True)
         target_path = os.path.join(release_dir, filename)
 
@@ -909,15 +908,13 @@ def download_release():
     elif dl_type == 'website': filename = 'ExclusiveAim_Loader.zip'
     else: filename = 'ExclusiveAim.zip'
     
-    # v80.58: Look for release in non-persistent BASE_DIR
+    # v80.60: Use BASE_DIR for ephemeral releases
     target_path = os.path.join(BASE_DIR, 'release', filename)
+    
     if not os.path.exists(target_path):
         # v80.35: Removed poisonous universal fallback to ExclusiveAim.zip
         # This prevents the Loader from getting the 'Website' upload if 'Mandatory' is missing.
         return "No release available in this specific slot yet.", 404
-
-    if not os.path.exists(target_path):
-        return "No release available in this slot yet.", 404
 
     return send_file(target_path, as_attachment=True)
 
@@ -980,32 +977,21 @@ def admin_purge_cache():
         os.makedirs(temp_dir, exist_ok=True)
         count += 1
         
-    # 2. Purge Releases (non-persistent)
+    # 2. Purge Releases (Ephemeral BASE_DIR storage)
     release_dir = os.path.join(BASE_DIR, 'release')
     if os.path.exists(release_dir):
         shutil.rmtree(release_dir, ignore_errors=True)
         os.makedirs(release_dir, exist_ok=True)
         count += 1
         
-    # 3. Purge OLD Persistent Releases (v80.26 leak cleanup)
-    old_release_dir = os.path.join(MODEL_DIR, 'release')
+    # 3. Purge Support Attachments (Optional)
     purge_support = data.get('purge_support', False)
-        
-    count = 0
-        
-    # Purge Release bundles (Wipe the folder to clear ANY legacy versioned ZIPS)
-    rel_path = os.path.join(MODEL_DIR, 'release')
-    if os.path.exists(rel_path):
-        shutil.rmtree(rel_path, ignore_errors=True)
-        os.makedirs(rel_path, exist_ok=True)
-        count += 1
-
-    # Purge Temp Uploads
-    temp_path = os.path.join(MODEL_DIR, 'temp_uploads')
-    if os.path.exists(temp_path):
-        shutil.rmtree(temp_path, ignore_errors=True)
-        os.makedirs(temp_path, exist_ok=True)
-        count += 1
+    if purge_support:
+        path = os.path.join(MODEL_DIR, 'support')
+        if os.path.exists(path):
+            shutil.rmtree(path, ignore_errors=True)
+            os.makedirs(path, exist_ok=True)
+            count += 1
 
     if purge_recordings:
         for folder in ['recordings', 'snapshots']:
@@ -4244,6 +4230,18 @@ try:
 except Exception as e:
     print(f"FAILED to start Discord Bot: {e}")
 
+# Initialize DB on startup (Essential for Gunicorn!)
+with app.app_context():
+    try:
+        init_db()
+    except Exception as e:
+        print(f"CRITICAL ERROR: Failed to initialize database: {e}")
+        # We continue to let the app start so logs can be seen, 
+        # but DB calls will likely fail.
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
 # Initialize DB on startup (Essential for Gunicorn!)
 with app.app_context():
     try:
