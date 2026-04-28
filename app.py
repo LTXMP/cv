@@ -20,8 +20,7 @@ from bot import bot, run_bot
 
 app = Flask(__name__)
 app.discord_bot = bot
-# Use persistent key if available, else random (invalidates sessions on restart)
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key_change_me')
+app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_urlsafe(48)
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'None' # Required for cross-site redirects on Render
@@ -124,6 +123,53 @@ MODEL_DIR = os.path.abspath(MODEL_DIR)
 # Put DB inside MODEL_DIR to ensure it's on the persistent disk
 DB_PATH = os.path.join(MODEL_DIR, 'database.db')
 
+def require_secret(name, expected_len=None):
+    value = os.environ.get(name)
+    if not value:
+        if os.environ.get('ALLOW_INSECURE_DEV_DEFAULTS') == '1':
+            print(f"[SECURITY WARNING] {name} missing; using ephemeral dev-only value.")
+            return secrets.token_urlsafe(expected_len or 32)[:expected_len]
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    if expected_len:
+        allowed = expected_len if isinstance(expected_len, tuple) else (expected_len,)
+        if len(value) not in allowed:
+            raise RuntimeError(f"{name} must be exactly one of these lengths: {allowed}.")
+    return value
+
+def safe_join_under(base, *parts, must_exist=False):
+    base_abs = os.path.abspath(base)
+    candidate = os.path.abspath(os.path.join(base_abs, *parts))
+    if os.path.commonpath([base_abs, candidate]) != base_abs:
+        raise ValueError("Unsafe path outside storage root")
+    if must_exist and not os.path.exists(candidate):
+        raise FileNotFoundError(candidate)
+    return candidate
+
+def is_safe_token(value, max_len=128):
+    return bool(value and re.fullmatch(r'[A-Za-z0-9_.-]{1,%d}' % max_len, value))
+
+def safe_model_path(filename, must_exist=False):
+    clean = os.path.basename(filename or '')
+    if clean != filename or not re.fullmatch(r'[A-Za-z0-9_.-]+\.enc', clean):
+        raise ValueError("Invalid model filename")
+    return safe_join_under(MODEL_DIR, clean, must_exist=must_exist)
+
+def load_legacy_model_keys():
+    pairs = []
+    raw = os.environ.get('LEGACY_MODEL_KEYS', '')
+    for item in raw.split(','):
+        if not item.strip():
+            continue
+        try:
+            key, iv = item.split(':', 1)
+            if len(key) in (32, 64) and len(iv) in (16, 32):
+                k = binascii.unhexlify(key) if len(key) == 64 else key.encode('utf-8')
+                v = binascii.unhexlify(iv) if len(iv) == 32 else iv.encode('utf-8')
+                pairs.append((k, v))
+        except Exception:
+            print("[SECURITY] Ignoring malformed LEGACY_MODEL_KEYS entry.")
+    return pairs
+
 print(f"Server starting. ROOT: {BASE_DIR}")
 print(f"[BOOT] Model Storage: {MODEL_DIR}")
 print(f"[BOOT] Database: {DB_PATH}")
@@ -136,12 +182,12 @@ else:
 
 # v76.040: ADVANCED SECURITY - Multi-Key Handshake
 # Bundle Keys (n8vR...) - Used for Stealth Deployment
-SECRET_KEY = os.environ.get('BUNDLE_MASTER_KEY', 'n8vR2pM4zW9xQ1tY7bC3kL0jS6fH5gD2').encode('utf-8')
-IV = os.environ.get('BUNDLE_MASTER_IV', 'u9K4m7P2n5Q8r3Z1').encode('utf-8')
+SECRET_KEY = require_secret('BUNDLE_MASTER_KEY', 32).encode('utf-8')
+IV = require_secret('BUNDLE_MASTER_IV', 16).encode('utf-8')
 
 # Model Keys (k3P1...) - Used for AI Inference Decryption
-MODEL_KEY = os.environ.get('MODEL_MASTER_KEY', 'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8').encode('utf-8')
-MODEL_IV  = os.environ.get('MODEL_MASTER_IV', 'r5N2p8Z1v4Q7m3K9').encode('utf-8')
+MODEL_KEY = require_secret('MODEL_MASTER_KEY', (32, 64)).encode('utf-8')
+MODEL_IV  = require_secret('MODEL_MASTER_IV', (16, 32)).encode('utf-8')
 
 # v76.015: Automatic Hex Support (Sync with C++ Client)
 import binascii
@@ -803,11 +849,16 @@ def upload_release_chunk():
     upload_type = request.form.get('type', 'general')
     no_increment = request.form.get('no_increment') == 'true'
 
+    if not file_chunk or chunk_index < 0 or total_chunks < 1 or chunk_index >= total_chunks:
+        return jsonify({"success": False, "message": "Invalid chunk metadata"}), 400
+    if not is_safe_token(upload_id, 96):
+        return jsonify({"success": False, "message": "Invalid upload id"}), 400
+
     # Temp directory for chunks
-    temp_dir = os.path.join(MODEL_DIR, 'temp_uploads', upload_id)
+    temp_dir = safe_join_under(MODEL_DIR, 'temp_uploads', upload_id)
     os.makedirs(temp_dir, exist_ok=True)
-    
-    chunk_path = os.path.join(temp_dir, f"chunk_{chunk_index}")
+
+    chunk_path = safe_join_under(temp_dir, f"chunk_{chunk_index}")
     file_chunk.save(chunk_path)
 
     # Check if we have all chunks
@@ -836,7 +887,7 @@ def upload_release_chunk():
 
         with open(target_path, 'wb') as target_file:
             for i in range(total_chunks):
-                chunk_file_path = os.path.join(temp_dir, f"chunk_{i}")
+                chunk_file_path = safe_join_under(temp_dir, f"chunk_{i}")
                 if os.path.exists(chunk_file_path):
                     with open(chunk_file_path, 'rb') as f:
                         target_file.write(f.read())
@@ -858,17 +909,21 @@ def upload_release_chunk():
                     new_v = 'v' + '.'.join(parts)
                 else:
                     new_v = current_v + ".1"
-                
+
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                epoch_now = int(time.time())
+
                 if (upload_type == 'mandatory'):
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'mandatory'))
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
                 elif (upload_type == 'hotfix'):
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
                     c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'hotfix'))
+                    c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
                 # Note: 'website' uploads do not increment the engine version
                 conn.commit()
             except: new_v = current_v
@@ -907,10 +962,10 @@ def download_release():
     elif dl_type == 'hotfix': filename = 'ExclusiveAim_Hotfix.zip'
     elif dl_type == 'website': filename = 'ExclusiveAim_Loader.zip'
     else: filename = 'ExclusiveAim.zip'
-    
+
     # v80.60: Use BASE_DIR for ephemeral releases
     target_path = os.path.join(BASE_DIR, 'release', filename)
-    
+
     if not os.path.exists(target_path):
         # v80.35: Removed poisonous universal fallback to ExclusiveAim.zip
         # This prevents the Loader from getting the 'Website' upload if 'Mandatory' is missing.
@@ -942,6 +997,7 @@ def get_settings():
         'min_version': settings.get('min_version', 'v1.0.0'),
         'last_update_forced': settings.get('last_update_forced', '2026-04-25 12:00'),
         'last_update_hotfix': settings.get('last_update_hotfix', '2026-04-25 12:00'),
+        'latest_build_timestamp': settings.get('latest_build_timestamp', '0'),
         'force_update': settings.get('force_update') == '1',
         'latest_build_type': settings.get('latest_build_type', 'mandatory')
     })
@@ -1324,10 +1380,12 @@ def logout():
 
 @app.route('/api/auth/request_reset', methods=['POST'])
 def request_reset():
-    email = request.json.get('email')
+    data = request.get_json(silent=True) or {}
+    email = data.get('email')
     conn = get_db()
     c = conn.cursor()
     user = c.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
+    generic = {'message': 'If account exists, email sent'}
     
     if user:
         # Generate 8-character alphanumeric code (Uppercase + Digits)
@@ -1342,18 +1400,13 @@ def request_reset():
         subject = "Exclusive Aim - Security Code Request"
         body = f"Hello,\n\nWe received a request for a security code for your Exclusive Aim account.\n\nYour secure code is: <strong><span style='font-size: 20px; color: #00BFFF; letter-spacing: 2px;'>{token}</span></strong>\n\nThis code will expire in 1 hour. If you did not request this code, you can safely ignore this email; your account remains secure.\n\nBest regards,\nThe Exclusive Aim Team"
         email_sent = send_email(email, subject, body)
-        
-        if email_sent:
-            conn.close()
-            return jsonify({'message': 'Security code sent to your email.'})
-        else:
-            # Fallback for debug/errors
-            print(f"RESET CODE for {email}: {token}")
-            conn.close()
-            return jsonify({'message': 'Failed to send email. Code available in logs.', 'debug_token': token}), 500
+        if not email_sent:
+            print(f"[SECURITY] Password reset email failed for user_id={user['id']}")
+        conn.close()
+        return jsonify(generic)
             
     conn.close()
-    return jsonify({'message': 'If account exists, email sent'})
+    return jsonify(generic)
 
 def render_verification_page(title, message, is_success):
     color = "#00BFFF" if is_success else "#e74c3c"
@@ -2839,10 +2892,7 @@ def admin_rotate_models():
     count = 0
     errors = []
     
-    # Candidate Old Keys
-    K1 = (b'n8vR2pM4zW9xQ1tY7bC3kL0jS6fH5gD2', b'u9K4m7P2n5Q8r3Z1') # Bundle
-    K2 = (b'9sX2kL5mN8pQ1rT4vW7xZ0yA3bC6dE9f', b'H1j2K3m4N5p6Q7r8') # Legacy
-    K3 = (b'k3P1v8L6m2R9xQ5tW7zN0jS4fH5gD2n8', b'r5N2p8Z1v4Q7m3K9') # Hardcoded Default (Fallback for mis-migration)
+    legacy_keys = load_legacy_model_keys()
     
     # New Model Keys (v76.015: Sync with Environment Variables)
     N_K = MODEL_KEY
@@ -2858,7 +2908,11 @@ def admin_rotate_models():
     for filename in all_files:
         if count >= 10: break # Process exactly TEN models at a time to prevent 502 timeouts
         if not filename.endswith('.enc'): continue
-        filepath = os.path.join(MODEL_DIR, filename)
+        try:
+            filepath = safe_model_path(filename, must_exist=True)
+        except (ValueError, FileNotFoundError):
+            errors.append(f"{filename}: invalid model path")
+            continue
         try:
             with open(filepath, 'rb') as f:
                 data = f.read()
@@ -2877,19 +2931,13 @@ def admin_rotate_models():
             if data[0] == 0x08:
                 raw = data
             else:
-                # 3. Try Bundle Keys (Header Check)
-                c1 = AES.new(K1[0], AES.MODE_CBC, K1[1])
-                header1 = c1.decrypt(data[:16])
-                if header1[0] == 0x08:
-                    c1_full = AES.new(K1[0], AES.MODE_CBC, K1[1])
-                    raw = unpad(c1_full.decrypt(data), AES.block_size)
-                else:
-                    # 4. Try Legacy Keys (Header Check)
-                    c2 = AES.new(K2[0], AES.MODE_CBC, K2[1])
-                    header2 = c2.decrypt(data[:16])
-                    if header2[0] == 0x08:
-                        c2_full = AES.new(K2[0], AES.MODE_CBC, K2[1])
-                        raw = unpad(c2_full.decrypt(data), AES.block_size)
+                for legacy_key, legacy_iv in legacy_keys:
+                    c_old = AES.new(legacy_key, AES.MODE_CBC, legacy_iv)
+                    header = c_old.decrypt(data[:16])
+                    if header[0] == 0x08:
+                        c_full = AES.new(legacy_key, AES.MODE_CBC, legacy_iv)
+                        raw = unpad(c_full.decrypt(data), AES.block_size)
+                        break
             
             if raw is None:
                 errors.append(f"{filename}: All known keys failed. Header: {data[:16].hex()}")
@@ -2923,39 +2971,37 @@ def admin_rotate_models():
 @app.route('/api/admin/users/<int:user_id>/reset_password', methods=['POST'])
 @admin_required
 def admin_reset_password(user_id):
-    # This is for Admins reseting OTHER users. 
-    # For self-reset, use /api/auth/reset_request
-    
-    # Generate random password
-    chars = string.ascii_letters + string.digits
-    new_pass = ''.join(secrets.choice(chars) for _ in range(10))
-    
-    hashed = generate_password_hash(new_pass)
-    
     conn = get_db()
     c = conn.cursor()
-    c.execute("UPDATE users SET password_hash=? WHERE id=?", (hashed, user_id))
-    
-    # Send Email
     user_email_row = c.execute("SELECT email FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user_email_row:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    token = secrets.token_urlsafe(32)
+    expiry = time.time() + 3600
+    c.execute("DELETE FROM password_resets WHERE user_id=?", (user_id,))
+    c.execute("INSERT INTO password_resets (token, user_id, expiry) VALUES (?, ?, ?)",
+              (token, user_id, expiry))
+    conn.commit()
+
     email_sent = False
-    if user_email_row and user_email_row['email']:
+    if user_email_row['email']:
         to_email = user_email_row['email']
         subject = "Exclusive Aim - Administrative Password Reset"
-        body = f"Hello,\n\nYour Exclusive Aim account password has been securely reset by an administrator.\n\nYour new temporary password is: <strong><span style='color: #00BFFF;'>{new_pass}</span></strong>\n\nPlease log in using this temporary password and update it to a new, secure password of your choice immediately.\n\nBest regards,\nThe Exclusive Aim Team"
+        reset_link = f"{request.url_root.rstrip('/')}/dashboard?reset_token={token}"
+        body = f"Hello,\n\nAn administrator requested a password reset for your Exclusive Aim account.\n\nUse this one-time link within 1 hour to choose a new password:\n\n<strong><a href='{reset_link}' style='color:#00BFFF; word-break: break-all;'>{reset_link}</a></strong>\n\nIf you did not expect this, contact support.\n\nBest regards,\nThe Exclusive Aim Team"
         email_sent = send_email(to_email, subject, body)
-        email_info = f"Email sent to {to_email}" if email_sent else f"Email FAILED (Check SMTP config). New pass: {new_pass}"
-    else:
-        email_info = f"User has no email? New pass: {new_pass}"
-    
-    conn.commit()
+        if not email_sent:
+            print(f"[SECURITY] Admin password reset email failed for user_id={user_id}")
+
     conn.close()
     
-    notify_mod_action(user_id, "Password Reset", f"Your password has been reset by an administrator.\n\nNew Password: {new_pass}\n\nPlease login and change it immediately.")
+    notify_mod_action(user_id, "Password Reset", "An administrator requested a password reset for your account. Check your email for a one-time reset link.")
     
     return jsonify({
-        'message': f'Password reset. Email notification sent.',
-        'new_password': "***** (Sent via Email)"
+        'message': 'Password reset link generated.',
+        'email_sent': bool(email_sent)
     })
 
 # --- Routes: Licenses & Keys ---
@@ -3088,7 +3134,7 @@ def admin_delete_user(user_id):
     models = c.fetchall()
     for m in models:
         try:
-            os.remove(os.path.join(MODEL_DIR, m['filename']))
+            os.remove(safe_model_path(m['filename'], must_exist=True))
         except OSError:
             pass
             
@@ -3139,8 +3185,8 @@ def admin_delete_model(model_id):
     
     if model:
         try:
-            os.remove(os.path.join(MODEL_DIR, model['filename']))
-        except OSError:
+            os.remove(safe_model_path(model['filename'], must_exist=True))
+        except Exception:
             pass
             
         c.execute("DELETE FROM models WHERE id=?", (model_id,))
@@ -3297,7 +3343,14 @@ def download_model_by_id(model_id):
     if not model:
         return jsonify({'error': 'Model not found or access denied'}), 404
     
-    path = os.path.join(MODEL_DIR, model['filename'])
+    filename = os.path.basename(model['filename'])
+    if filename != model['filename'] or not filename.endswith('.enc'):
+        return jsonify({'error': 'Invalid model filename'}), 500
+
+    try:
+        path = safe_join_under(MODEL_DIR, filename, must_exist=True)
+    except (ValueError, FileNotFoundError):
+        return jsonify({'error': 'Model file missing on server'}), 404
     if not os.path.exists(path):
         return jsonify({'error': 'Model file missing on server'}), 404
     
@@ -3384,7 +3437,7 @@ def replace_model(model_id):
         encrypted_data = cipher.encrypt(pad(file_data, AES.block_size))
         
         # Overwrite the existing file
-        path = os.path.join(MODEL_DIR, model['filename'])
+        path = safe_model_path(model['filename'])
         
         with open(path, 'wb') as f:
             f.write(encrypted_data)
@@ -3423,7 +3476,7 @@ def delete_model(model_id):
     if model:
         # Remove file
         try:
-            os.remove(os.path.join(MODEL_DIR, model['filename']))
+            os.remove(safe_model_path(model['filename'], must_exist=True))
         except OSError:
             pass # File might be gone properly
             
@@ -3637,7 +3690,7 @@ def get_model():
         c.execute(query, (model_id, user_id, user_id, time.time()))
         model = c.fetchone()
         if model:
-            path = os.path.join(MODEL_DIR, model['filename'])
+            path = safe_model_path(model['filename'], must_exist=True)
             conn.close()
             return send_file(path, as_attachment=True)
             
@@ -4236,7 +4289,7 @@ with app.app_context():
         init_db()
     except Exception as e:
         print(f"CRITICAL ERROR: Failed to initialize database: {e}")
-        # We continue to let the app start so logs can be seen, 
+        # We continue to let the app start so logs can be seen,
         # but DB calls will likely fail.
 
 if __name__ == '__main__':
