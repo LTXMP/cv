@@ -3510,10 +3510,43 @@
             const file = fileInput.files[0];
             const noIncrement = document.getElementById('no-increment-check')?.checked || false;
             
-            // v80.26: Bulletproof Chunked Upload (5MB chunks)
-            const CHUNK_SIZE = 5 * 1024 * 1024; 
+            // v80.65: R2/S3 multipart parts must be >=5MB except the final part.
+            const CHUNK_SIZE = 8 * 1024 * 1024;
+            const MAX_RETRIES = 5;
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-            const uploadId = Math.random().toString(36).substring(7);
+            const uploadId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            async function uploadChunkWithRetry(formData, chunkIndex) {
+                let lastError = null;
+                for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                    try {
+                        const res = await fetch('/api/release/upload_chunk', {
+                            method: 'POST',
+                            body: formData,
+                            cache: 'no-store',
+                            credentials: 'same-origin'
+                        });
+
+                        const text = await res.text();
+                        let data = {};
+                        try { data = text ? JSON.parse(text) : {}; }
+                        catch (_) { data = { message: text || `HTTP ${res.status}` }; }
+
+                        if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+                        return data;
+                    } catch (e) {
+                        lastError = e;
+                        const retryable = attempt < MAX_RETRIES;
+                        statusEl.querySelector('#upload-pct').innerText =
+                            `chunk ${chunkIndex + 1}/${totalChunks}, retry ${attempt}/${MAX_RETRIES}`;
+                        if (!retryable) break;
+                        await sleep(800 * attempt);
+                    }
+                }
+                throw lastError || new Error("Chunk upload failed");
+            }
 
             statusEl.innerHTML = `
                 <div style="margin-bottom: 10px; color: var(--primary);">
@@ -3536,18 +3569,16 @@
                 formData.append('upload_id', uploadId);
                 formData.append('type', type);
                 formData.append('no_increment', noIncrement);
+                formData.append('start_byte', start);
+                formData.append('end_byte', end);
+                formData.append('file_size', file.size);
+                formData.append('chunk_size', CHUNK_SIZE);
 
                 try {
-                    const res = await fetch('/api/release/upload_chunk', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await res.json();
-
-                    if (!res.ok) throw new Error(data.message || "Chunk failed");
+                    const data = await uploadChunkWithRetry(formData, i);
 
                     const pct = Math.round(((i + 1) / totalChunks) * 100);
-                    document.getElementById('upload-pct').innerText = pct + '%';
+                    document.getElementById('upload-pct').innerText = `${pct}% (${i + 1}/${totalChunks})`;
                     document.getElementById('upload-progress-bar').style.width = pct + '%';
 
                     if (i === totalChunks - 1) {
@@ -3557,8 +3588,8 @@
                     }
                 } catch (e) {
                     console.error("Chunk upload error:", e);
-                    showNotification("Upload failed at chunk " + i, "error");
-                    statusEl.innerHTML = `<span style="color: var(--error);">Error: ${e.message}</span>`;
+                    showNotification("Upload failed at chunk " + (i + 1), "error");
+                    statusEl.innerHTML = `<span style="color: var(--error);">Error at chunk ${i + 1}/${totalChunks}: ${e.message}</span>`;
                     return;
                 }
             }
