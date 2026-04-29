@@ -842,24 +842,130 @@ def upload_release_chunk():
     if not session.get('is_owner'):
         return jsonify({"success": False, "message": "Permission denied"}), 403
 
-    file_chunk = request.files.get('file')
-    chunk_index = int(request.form.get('chunk_index', 0))
-    total_chunks = int(request.form.get('total_chunks', 1))
-    upload_id = request.form.get('upload_id', 'default')
-    upload_type = request.form.get('type', 'general')
-    no_increment = request.form.get('no_increment') == 'true'
+    try:
+        file_chunk = request.files.get('file')
+        chunk_index = int(request.form.get('chunk_index', 0))
+        total_chunks = int(request.form.get('total_chunks', 1))
+        upload_id = request.form.get('upload_id', 'default')
+        upload_type = request.form.get('type', 'general')
+        no_increment = request.form.get('no_increment') == 'true'
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Invalid chunk request: {e}"}), 400
 
     if not file_chunk or chunk_index < 0 or total_chunks < 1 or chunk_index >= total_chunks:
         return jsonify({"success": False, "message": "Invalid chunk metadata"}), 400
     if not is_safe_token(upload_id, 96):
         return jsonify({"success": False, "message": "Invalid upload id"}), 400
 
+    if upload_type in ['mandatory', 'forced']: 
+        filename = 'project_bundle.bin'
+    elif upload_type == 'hotfix': 
+        filename = 'project_bundle.bin'
+    elif upload_type in ['website', 'general']: 
+        filename = 'ExclusiveAim_Loader.zip'
+    else: 
+        filename = 'project_bundle.bin'
+
+    release_dir = os.path.join(BASE_DIR, 'release')
+    os.makedirs(release_dir, exist_ok=True)
+    target_path = os.path.join(release_dir, filename)
+
+    # v80.63: Streaming upload path for huge TensorRT bundles.
+    # Avoid storing all chunks and assembling a second 2GB+ copy.
+    if request.form.get('start_byte') is not None:
+        try:
+            start_byte = int(request.form.get('start_byte', 0))
+            end_byte = int(request.form.get('end_byte', 0))
+            file_size = int(request.form.get('file_size', 0))
+        except Exception:
+            return jsonify({"success": False, "message": "Invalid byte range metadata"}), 400
+
+        part_path = os.path.join(release_dir, f"{filename}.{upload_id}.part")
+        try:
+            current_size = os.path.getsize(part_path) if os.path.exists(part_path) else 0
+            if chunk_index == 0 and start_byte == 0 and current_size > 0:
+                os.remove(part_path)
+                current_size = 0
+
+            if current_size >= end_byte:
+                return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} already received"}), 200
+            if current_size != start_byte:
+                return jsonify({"success": False, "message": f"Upload offset mismatch at chunk {chunk_index + 1}: server has {current_size}, client sent {start_byte}. Restart upload."}), 409
+
+            with open(part_path, 'ab') as target_file:
+                while True:
+                    data = file_chunk.stream.read(1024 * 1024)
+                    if not data:
+                        break
+                    target_file.write(data)
+
+            current_size = os.path.getsize(part_path)
+            if current_size != end_byte:
+                return jsonify({"success": False, "message": f"Incomplete chunk write at {chunk_index + 1}: expected {end_byte}, got {current_size}"}), 507
+
+            if chunk_index == total_chunks - 1:
+                if file_size > 0 and current_size != file_size:
+                    return jsonify({"success": False, "message": f"Final size mismatch: expected {file_size}, got {current_size}"}), 409
+                if os.path.exists(target_path):
+                    try: os.remove(target_path)
+                    except: pass
+                os.replace(part_path, target_path)
+
+                if not no_increment:
+                    conn = get_db()
+                    c = conn.cursor()
+                    row = c.execute("SELECT value FROM global_settings WHERE key='current_version'").fetchone()
+                    current_v = row['value'] if row else 'v1.0.0'
+                    try:
+                        parts = current_v.lstrip('v').split('.')
+                        if len(parts) == 3:
+                            parts[2] = str(int(parts[2]) + 1)
+                            new_v = 'v' + '.'.join(parts)
+                        else:
+                            new_v = current_v + ".1"
+
+                        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                        epoch_now = int(time.time())
+                        if upload_type == 'mandatory':
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'mandatory'))
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
+                        elif upload_type == 'hotfix':
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'hotfix'))
+                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
+                        conn.commit()
+                    except Exception:
+                        new_v = current_v
+                    conn.close()
+                else:
+                    new_v = "unchanged"
+
+                return jsonify({"success": True, "message": "Upload complete", "version": new_v}), 200
+
+            return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} received"}), 200
+        except OSError as e:
+            return jsonify({"success": False, "message": f"Could not stream chunk {chunk_index + 1}/{total_chunks}: {e}"}), 507
+
     # Temp directory for chunks
     temp_dir = safe_join_under(MODEL_DIR, 'temp_uploads', upload_id)
     os.makedirs(temp_dir, exist_ok=True)
 
     chunk_path = safe_join_under(temp_dir, f"chunk_{chunk_index}")
-    file_chunk.save(chunk_path)
+    tmp_chunk_path = safe_join_under(temp_dir, f"chunk_{chunk_index}.part")
+    try:
+        file_chunk.save(tmp_chunk_path)
+        os.replace(tmp_chunk_path, chunk_path)
+    except OSError as e:
+        try:
+            if os.path.exists(tmp_chunk_path):
+                os.remove(tmp_chunk_path)
+        except Exception:
+            pass
+        return jsonify({"success": False, "message": f"Could not save chunk {chunk_index + 1}/{total_chunks}: {e}"}), 507
 
     # Check if we have all chunks
     if chunk_index == total_chunks - 1:
@@ -867,9 +973,9 @@ def upload_release_chunk():
         # Final Assembly
         # v80.35: Explicit mapping with aliases for robustness
         if upload_type in ['mandatory', 'forced']: 
-            filename = 'ExclusiveAim_Mandatory.zip'
+            filename = 'project_bundle.bin'
         elif upload_type == 'hotfix': 
-            filename = 'ExclusiveAim_Hotfix.zip'
+            filename = 'project_bundle.bin'
         elif upload_type in ['website', 'general']: 
             filename = 'ExclusiveAim_Loader.zip'
         else: 
@@ -885,13 +991,27 @@ def upload_release_chunk():
             try: os.remove(target_path)
             except: pass
 
-        with open(target_path, 'wb') as target_file:
-            for i in range(total_chunks):
-                chunk_file_path = safe_join_under(temp_dir, f"chunk_{i}")
-                if os.path.exists(chunk_file_path):
+        tmp_target_path = target_path + ".part"
+        try:
+            with open(tmp_target_path, 'wb') as target_file:
+                for i in range(total_chunks):
+                    chunk_file_path = safe_join_under(temp_dir, f"chunk_{i}")
+                    if not os.path.exists(chunk_file_path):
+                        return jsonify({"success": False, "message": f"Missing chunk {i + 1}/{total_chunks}. Please retry upload."}), 409
                     with open(chunk_file_path, 'rb') as f:
-                        target_file.write(f.read())
-                    os.remove(chunk_file_path) # Clean up chunk
+                        while True:
+                            data = f.read(1024 * 1024)
+                            if not data:
+                                break
+                            target_file.write(data)
+            os.replace(tmp_target_path, target_path)
+        except OSError as e:
+            try:
+                if os.path.exists(tmp_target_path):
+                    os.remove(tmp_target_path)
+            except Exception:
+                pass
+            return jsonify({"success": False, "message": f"Could not assemble release: {e}"}), 507
 
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True) # Clean up temp dir
@@ -933,7 +1053,7 @@ def upload_release_chunk():
 
         return jsonify({"success": True, "message": "Upload complete", "version": new_v}), 200
 
-    return jsonify({"success": True, "message": f"Chunk {chunk_index} received"}), 200
+    return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} received"}), 200
 
 @app.route('/api/release/upload', methods=['POST'])
 def upload_release():
@@ -958,8 +1078,8 @@ def download_release():
     
     dl_type = request.args.get('type', 'mandatory') # 'mandatory', 'hotfix', or 'website'
     
-    if dl_type == 'mandatory': filename = 'ExclusiveAim_Mandatory.zip'
-    elif dl_type == 'hotfix': filename = 'ExclusiveAim_Hotfix.zip'
+    if dl_type == 'mandatory': filename = 'project_bundle.bin'
+    elif dl_type == 'hotfix': filename = 'project_bundle.bin'
     elif dl_type == 'website': filename = 'ExclusiveAim_Loader.zip'
     else: filename = 'ExclusiveAim.zip'
 
