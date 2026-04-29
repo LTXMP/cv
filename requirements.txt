@@ -3,4 +3,6 @@ pycryptodome
 gunicorn
 werkzeug
 discord.py
-google-generativeai
+google-generativeai>=0.8.3
+requests
+boto3

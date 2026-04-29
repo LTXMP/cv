@@ -16,6 +16,8 @@ from werkzeug.utils import secure_filename
 import json
 import urllib.request
 import threading
+import boto3
+from botocore.client import Config
 from bot import bot, run_bot
 
 app = Flask(__name__)
@@ -25,6 +27,32 @@ app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'None' # Required for cross-site redirects on Render
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # v80.26: Allow 1GB uploads for bundles
+
+R2_ACCOUNT_ID = os.environ.get('R2_ACCOUNT_ID', '').strip()
+R2_ACCESS_KEY_ID = os.environ.get('R2_ACCESS_KEY_ID', '').strip()
+R2_SECRET_ACCESS_KEY = os.environ.get('R2_SECRET_ACCESS_KEY', '').strip()
+R2_BUCKET = os.environ.get('R2_BUCKET', '').strip()
+R2_ENDPOINT = os.environ.get('R2_ENDPOINT', '').strip() or (
+    f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else ''
+)
+RELEASE_STORAGE = os.environ.get('RELEASE_STORAGE', 'r2' if all([
+    R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+]) else 'local').lower()
+
+def r2_enabled():
+    return RELEASE_STORAGE == 'r2' and all([
+        R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+    ])
+
+def r2_client():
+    return boto3.client(
+        's3',
+        endpoint_url=R2_ENDPOINT,
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+        region_name='auto',
+        config=Config(signature_version='s3v4')
+    )
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
 REST_HEADERS = {
@@ -880,12 +908,131 @@ def upload_release_chunk():
         except Exception:
             return jsonify({"success": False, "message": "Invalid byte range metadata"}), 400
 
+        if r2_enabled():
+            object_key = filename
+            state_path = os.path.join(release_dir, f"{filename}.{upload_id}.json")
+            try:
+                if chunk_index == 0 and start_byte == 0:
+                    for stale_name in os.listdir(release_dir):
+                        if stale_name.startswith(f"{filename}.") and stale_name.endswith(".json"):
+                            try:
+                                os.remove(os.path.join(release_dir, stale_name))
+                            except Exception:
+                                pass
+                    mp = r2_client().create_multipart_upload(
+                        Bucket=R2_BUCKET,
+                        Key=object_key,
+                        ContentType='application/octet-stream'
+                    )
+                    state = {'upload_id': mp['UploadId'], 'parts': [], 'next_index': 0}
+                    with open(state_path, 'w', encoding='utf-8') as sf:
+                        json.dump(state, sf)
+
+                if not os.path.exists(state_path):
+                    return jsonify({"success": False, "message": "R2 multipart state missing. Restart upload."}), 409
+                with open(state_path, 'r', encoding='utf-8') as sf:
+                    state = json.load(sf)
+                if chunk_index < state.get('next_index', 0):
+                    return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} already received"}), 200
+                if chunk_index != state.get('next_index', 0):
+                    return jsonify({"success": False, "message": f"Upload order mismatch. Server expects chunk {state.get('next_index', 0) + 1}, got {chunk_index + 1}."}), 409
+
+                body = file_chunk.stream.read()
+                expected_len = max(0, end_byte - start_byte)
+                if len(body) != expected_len:
+                    return jsonify({"success": False, "message": f"Chunk size mismatch at {chunk_index + 1}: expected {expected_len}, got {len(body)}"}), 400
+
+                part_no = chunk_index + 1
+                part_res = r2_client().upload_part(
+                    Bucket=R2_BUCKET,
+                    Key=object_key,
+                    PartNumber=part_no,
+                    UploadId=state['upload_id'],
+                    Body=body
+                )
+                state['parts'].append({'PartNumber': part_no, 'ETag': part_res['ETag']})
+                state['next_index'] = chunk_index + 1
+                with open(state_path, 'w', encoding='utf-8') as sf:
+                    json.dump(state, sf)
+
+                if chunk_index == total_chunks - 1:
+                    r2_client().complete_multipart_upload(
+                        Bucket=R2_BUCKET,
+                        Key=object_key,
+                        UploadId=state['upload_id'],
+                        MultipartUpload={'Parts': state['parts']}
+                    )
+                    try:
+                        os.remove(state_path)
+                    except Exception:
+                        pass
+
+                    if not no_increment:
+                        conn = get_db()
+                        c = conn.cursor()
+                        row = c.execute("SELECT value FROM global_settings WHERE key='current_version'").fetchone()
+                        current_v = row['value'] if row else 'v1.0.0'
+                        try:
+                            parts = current_v.lstrip('v').split('.')
+                            if len(parts) == 3:
+                                parts[2] = str(int(parts[2]) + 1)
+                                new_v = 'v' + '.'.join(parts)
+                            else:
+                                new_v = current_v + ".1"
+                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            epoch_now = int(time.time())
+                            if upload_type == 'mandatory':
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'mandatory'))
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
+                            elif upload_type == 'hotfix':
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'hotfix'))
+                                c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
+                            conn.commit()
+                        except Exception:
+                            new_v = current_v
+                        conn.close()
+                    else:
+                        new_v = "unchanged"
+                    return jsonify({"success": True, "message": "Upload complete (R2)", "version": new_v}), 200
+
+                return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} received"}), 200
+            except Exception as e:
+                try:
+                    if os.path.exists(state_path):
+                        with open(state_path, 'r', encoding='utf-8') as sf:
+                            state = json.load(sf)
+                        r2_client().abort_multipart_upload(
+                            Bucket=R2_BUCKET,
+                            Key=object_key,
+                            UploadId=state['upload_id']
+                        )
+                except Exception:
+                    pass
+                return jsonify({"success": False, "message": f"R2 upload failed at chunk {chunk_index + 1}/{total_chunks}: {e}"}), 502
+
         part_path = os.path.join(release_dir, f"{filename}.{upload_id}.part")
         try:
             current_size = os.path.getsize(part_path) if os.path.exists(part_path) else 0
-            if chunk_index == 0 and start_byte == 0 and current_size > 0:
-                os.remove(part_path)
-                current_size = 0
+            if chunk_index == 0 and start_byte == 0:
+                # v80.64: Free disk before large TensorRT uploads. Render can
+                # otherwise hold the old 2GB+ release and the new .part at once.
+                for stale_name in os.listdir(release_dir):
+                    stale_path = os.path.join(release_dir, stale_name)
+                    if stale_path == part_path:
+                        continue
+                    if stale_name == filename or stale_name.startswith(f"{filename}."):
+                        try:
+                            os.remove(stale_path)
+                        except Exception:
+                            pass
+                if current_size > 0:
+                    os.remove(part_path)
+                    current_size = 0
 
             if current_size >= end_byte:
                 return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} already received"}), 200
@@ -1082,6 +1229,17 @@ def download_release():
     elif dl_type == 'hotfix': filename = 'project_bundle.bin'
     elif dl_type == 'website': filename = 'ExclusiveAim_Loader.zip'
     else: filename = 'ExclusiveAim.zip'
+
+    if r2_enabled():
+        try:
+            url = r2_client().generate_presigned_url(
+                'get_object',
+                Params={'Bucket': R2_BUCKET, 'Key': filename},
+                ExpiresIn=600
+            )
+            return redirect(url, code=302)
+        except Exception as e:
+            return f"R2 release unavailable: {e}", 404
 
     # v80.60: Use BASE_DIR for ephemeral releases
     target_path = os.path.join(BASE_DIR, 'release', filename)
