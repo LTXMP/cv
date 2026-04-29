@@ -1015,87 +1015,16 @@ def upload_release_chunk():
                     pass
                 return jsonify({"success": False, "message": f"R2 upload failed at chunk {chunk_index + 1}/{total_chunks}: {e}"}), 502
 
-        part_path = os.path.join(release_dir, f"{filename}.{upload_id}.part")
-        try:
-            current_size = os.path.getsize(part_path) if os.path.exists(part_path) else 0
-            if chunk_index == 0 and start_byte == 0:
-                # v80.64: Free disk before large TensorRT uploads. Render can
-                # otherwise hold the old 2GB+ release and the new .part at once.
-                for stale_name in os.listdir(release_dir):
-                    stale_path = os.path.join(release_dir, stale_name)
-                    if stale_path == part_path:
-                        continue
-                    if stale_name == filename or stale_name.startswith(f"{filename}."):
-                        try:
-                            os.remove(stale_path)
-                        except Exception:
-                            pass
-                if current_size > 0:
-                    os.remove(part_path)
-                    current_size = 0
-
-            if current_size >= end_byte:
-                return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} already received"}), 200
-            if current_size != start_byte:
-                return jsonify({"success": False, "message": f"Upload offset mismatch at chunk {chunk_index + 1}: server has {current_size}, client sent {start_byte}. Restart upload."}), 409
-
-            with open(part_path, 'ab') as target_file:
-                while True:
-                    data = file_chunk.stream.read(1024 * 1024)
-                    if not data:
-                        break
-                    target_file.write(data)
-
-            current_size = os.path.getsize(part_path)
-            if current_size != end_byte:
-                return jsonify({"success": False, "message": f"Incomplete chunk write at {chunk_index + 1}: expected {end_byte}, got {current_size}"}), 507
-
-            if chunk_index == total_chunks - 1:
-                if file_size > 0 and current_size != file_size:
-                    return jsonify({"success": False, "message": f"Final size mismatch: expected {file_size}, got {current_size}"}), 409
-                if os.path.exists(target_path):
-                    try: os.remove(target_path)
-                    except: pass
-                os.replace(part_path, target_path)
-
-                if not no_increment:
-                    conn = get_db()
-                    c = conn.cursor()
-                    row = c.execute("SELECT value FROM global_settings WHERE key='current_version'").fetchone()
-                    current_v = row['value'] if row else 'v1.0.0'
-                    try:
-                        parts = current_v.lstrip('v').split('.')
-                        if len(parts) == 3:
-                            parts[2] = str(int(parts[2]) + 1)
-                            new_v = 'v' + '.'.join(parts)
-                        else:
-                            new_v = current_v + ".1"
-
-                        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-                        epoch_now = int(time.time())
-                        if upload_type == 'mandatory':
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('min_version', new_v))
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_forced', timestamp))
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'mandatory'))
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
-                        elif upload_type == 'hotfix':
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('current_version', new_v))
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('last_update_hotfix', timestamp))
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_type', 'hotfix'))
-                            c.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('latest_build_timestamp', str(epoch_now)))
-                        conn.commit()
-                    except Exception:
-                        new_v = current_v
-                    conn.close()
-                else:
-                    new_v = "unchanged"
-
-                return jsonify({"success": True, "message": "Upload complete", "version": new_v}), 200
-
-            return jsonify({"success": True, "message": f"Chunk {chunk_index + 1}/{total_chunks} received"}), 200
-        except OSError as e:
-            return jsonify({"success": False, "message": f"Could not stream chunk {chunk_index + 1}/{total_chunks}: {e}"}), 507
+    if upload_type in ['mandatory', 'forced', 'hotfix', 'website', 'general']:
+        if r2_enabled():
+            return jsonify({
+                "success": False,
+                "message": "Dashboard is using an old upload script. Hard-refresh the page and retry."
+            }), 409
+        return jsonify({
+            "success": False,
+            "message": "R2 is not active on this server. Set R2 env vars and redeploy before uploading releases."
+        }), 503
 
     # Temp directory for chunks
     temp_dir = safe_join_under(MODEL_DIR, 'temp_uploads', upload_id)
